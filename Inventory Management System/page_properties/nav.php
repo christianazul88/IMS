@@ -943,6 +943,12 @@
                 <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Staff Voids & Deletes</span></div>
               </a>
             </li>
+            
+            <li class="nav-item">
+              <a class="nav-link" href="../inbound-transaction-report/">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Inbound Transaction <span class="text-danger">Beta</span></span></div>
+              </a>
+            </li>
             <li class="nav-item">
               <a class="nav-link" href="../Transaction-overview/">
                 <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Transaction Overview</span></div>

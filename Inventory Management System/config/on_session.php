@@ -23,6 +23,7 @@ if(empty($_SESSION['pfp'])){
 }
 
 $date_today = date("M j, Y");
+$date_for_file = date("M j Y");
 
 if ($user_email !== "lpo_admin@lpo.com") {
     $check_otp = "SELECT first_login FROM users WHERE hashed_id = '$user_id' LIMIT 1";
