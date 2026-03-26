@@ -69,10 +69,34 @@ $inbound_local_query = "
     GROUP BY sup.supplier_name
 ";
 
+
 $inbound_local_res = $conn->query($inbound_local_query);
 if ($inbound_local_res->num_rows > 0) {
     while ($row = $inbound_local_res->fetch_assoc()) {
         fputcsv($output, ["",$row['supplier_name'], $row['total_locals'], $row['total_local_amount']]);
+    }
+}
+
+// Section 3: Hakot
+fputcsv($output, ['3', 'HAKOT', 'QTY', 'TOTAL AMOUNT']);
+
+$inbound_hakot_query = "
+    SELECT 
+        sup.supplier_name, 
+        COUNT(s.unique_barcode) AS total_hakot, 
+        SUM(s.capital) AS total_hakot_amount
+    FROM supplier sup
+    LEFT JOIN stocks s ON s.supplier = sup.hashed_id
+    WHERE sup.local_international = 'Hakot' AND s.warehouse = '$warehouse_id'
+      AND s.date BETWEEN LAST_DAY(CURDATE() - INTERVAL 2 MONTH) + INTERVAL 1 DAY 
+                      AND NOW()
+    GROUP BY sup.supplier_name
+";
+
+$inbound_hakot_res = $conn->query($inbound_hakot_query);
+if ($inbound_hakot_res->num_rows > 0) {
+    while ($row = $inbound_hakot_res->fetch_assoc()) {
+        fputcsv($output, ["",$row['supplier_name'], $row['total_hakot'], $row['total_hakot_amount']]);
     }
 }
 
