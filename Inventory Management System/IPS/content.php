@@ -40,7 +40,7 @@
                 </a>
                 <a class="d-inline-flex align-items-center border rounded-pill px-4 py-2 me-2 mt-2 inbox-link text-decoration-none"
                    style="background-color:#f8f9fa; border:1px solid #0d6efd;"
-                   href="download-imports.php">
+                   href="download-Imports.php">
                     <span class="fas fa-file-alt text-primary me-2" data-fa-transform="grow-4"></span>
                     Download Inventory Per Supplier Imports CSV
                 </a>
