@@ -25,7 +25,7 @@ if (isset($_GET['warehouse_id'])) {
 
 // Set headers so browser downloads it as a CSV
 header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename="inbound_summary - ' . $warehouse_name . '.csv"');
+header('Content-Disposition: attachment; filename="inbound_summary - ' . $warehouse_name . ' ' . $date_for_file .'.csv"');
 
 // Open output stream
 $output = fopen('php://output', 'w');

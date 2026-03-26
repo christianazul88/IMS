@@ -8,9 +8,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } 
 ?>
 <div class="card">
-    <div class="card-header text-center">
+    <div class="card-header text-center mb-4">
         <h2>Movement of Stocks</h2>
+        <span class="fs-11">The Movement of Stocks module provides an overview of inventory activity by tracking items that have been outbounded and those that remain in stock. It helps monitor stock movement, identify fast-moving items, and detect non-moving inventory for better decision-making.</span>
     </div>
+    <hr>
     <div class="card-body">
         <div class="text-center">
             <!-- <p>
@@ -46,11 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label for="">Please Select One</label>
                     <div class="form-check">
                         <input class="form-check-input" id="Moving-Stocks" type="radio" name="movement" value="new" <?php if ($movement_of_Stocks === "new") echo 'checked'; ?> />
-                        <label class="form-check-label" for="Moving-Stocks">Moving Stocks</label>
+                        <label class="form-check-label" for="Moving-Stocks">Moving Stocks <br><span class="text-info fs-11">Total number of items and their corresponding value that have been outbounded (sold or released) from the warehouse since the system was implemented.</span></label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" id="Non-Moving-Stocks" type="radio" name="movement" value="old" <?php if ($movement_of_Stocks === "old") echo 'checked'; ?> />
-                        <label class="form-check-label" for="Non-Moving-Stocks">NON-Moving Stocks</label>
+                        <label class="form-check-label" for="Non-Moving-Stocks">NON-Moving Stocks <br><span class="text-info fs-11">Total number of items and their corresponding value that are still in stock and have not been outbounded, indicating no movement.</span></label>
                     </div>
                 </div>
 

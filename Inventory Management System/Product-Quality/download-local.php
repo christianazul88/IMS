@@ -4,7 +4,7 @@ require_once "../config/on_session.php";
 
 // Set headers for CSV download
 header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename=returns_report.csv');
+header('Content-Disposition: attachment; filename=Product Quality Report -  ' . $date_for_file .'.csv');
 
 $start = $_GET['start'];
 $end = $_GET['end'];

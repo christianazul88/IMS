@@ -1,72 +1,74 @@
-<div class="card">
-    <div class="card-header text-center">
+<div class="card shadow-sm">
+    <div class="card-header text-center bg-primary text-white">
         <h2>Inbound / Outbound Summary</h2>
     </div>
     <div class="card-body">
-        <form action="../Inbound-Outbound-Summary/index.php" method="POST">
-        <div class="row">
-            <div class="col-6">
-                <label for="organizerMultiple">Warehouse</label>
-                <select class="form-select" name="warehouses" required>
-                    <option value="">Select warehouse</option>
-                    <?php 
-                    $warehouses_query = "SELECT * FROM warehouse";
-                    $warehouse_res = $conn->query($warehouses_query);
-                    if($warehouse_res->num_rows>0){
-                        while($row=$warehouse_res->fetch_assoc()){
-                            echo '<option value="' . $row['hashed_id'] . '">' . $row['warehouse_name'] . '</option>';
-                        }
-                    }
-                    ?>
-                </select>
-            </div>
-            <div class="col-4">
-                <label class="form-label" for="timepicker2">Select Date Range</label>
-                <input class="form-control datetimepicker" id="timepicker2" type="text" name="date_between" placeholder="dd/mm/yy to dd/mm/yy" data-options='{"mode":"range","dateFormat":"d/m/y","disableMobile":true}' />
-            </div>
-            <div class="col-2 pt-4">
-                <button class="btn btn-primary w-100">Submit</button>
-            </div>
+
+        <!-- ✅ Report Description -->
+        <div class="alert alert-info">
+            <strong>Report Description:</strong><br>
+            This report provides a summary of inbound and outbound stock for the selected warehouse.
+            <ul class="mb-0 mt-2">
+                <li>Includes stocks received from the beginning of last month up to today.</li>
+                <li>Stocks received before the start of last month are <strong>not</strong> included.</li>
+                <li>Ending Inventory = Total Inbound - Total Outbound within the date range.</li>
+                <li>All amounts are based on recorded capital value.</li>
+            </ul>
         </div>
+
+        <!-- ✅ Form -->
+        <form action="../Inbound-Outbound-Summary/index.php" method="POST">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label for="warehouseSelect" class="form-label">Select Warehouse</label>
+                    <select class="form-select" name="warehouses" id="warehouseSelect" required>
+                        <option value="">Select warehouse</option>
+                        <?php 
+                        $warehouses_query = "SELECT * FROM warehouse";
+                        $warehouse_res = $conn->query($warehouses_query);
+                        if($warehouse_res->num_rows>0){
+                            while($row=$warehouse_res->fetch_assoc()){
+                                echo '<option value="' . $row['hashed_id'] . '">' . $row['warehouse_name'] . '</option>';
+                            }
+                        }
+                        ?>
+                    </select>
+                </div>
+
+                <!-- Optional: Date Range -->
+                <!--
+                <div class="col-md-4">
+                    <label class="form-label" for="timepicker2">Select Date Range</label>
+                    <input class="form-control datetimepicker" id="timepicker2" type="text" name="date_between" placeholder="dd/mm/yy to dd/mm/yy" data-options='{"mode":"range","dateFormat":"d/m/y","disableMobile":true}' />
+                </div>
+                -->
+
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-success w-100">Generate Report</button>
+                </div>
+            </div>
         </form>
 
         <?php 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $selected_Warehouse = $_POST['warehouses'];
-            $date_between = $_POST['date_between']; // e.g. "14/09/25 to 16/09/25"
-
-            // Split the string by " to "
-            list($startStr, $endStr) = explode(' to ', $date_between);
-
-            // Convert to DateTime objects
-            $startDate = DateTime::createFromFormat('d/m/y', $startStr);
-            $endDate = DateTime::createFromFormat('d/m/y', $endStr);
-
-            // Set time for start and end
-            $startDate->setTime(0, 0, 0);        // 00:00:00
-            $endDate->setTime(23, 59, 59);       // 23:59:59
-
-            // Format as Y-m-d H:i:s
-            $startDateFormatted = $startDate->format('Y-m-d H:i:s');
-            $endDateFormatted = $endDate->format('Y-m-d H:i:s');
-
-            // Example output
-            // echo $startDateFormatted . " to " . $endDateFormatted;
-
-
         ?>
-        <div class="text-center">
-            <p>
-                NOTE: This report only includes stocks received from the beginning of last month up to today.
-                Stocks received before the start of last month are NOT counted in the totals.
-                Ending Inventory = (All Inbound Stocks within date range) - (All Outbound Stocks within date range)
-                Amounts shown are based on recorded capital value.
-            </p><br>
-            <a class="d-inline-flex align-items-center border rounded-pill px-3 py-1 me-2 mt-2 inbox-link" href="download-local.php?warehouse_id=<?php echo $selected_Warehouse;?>&&start=<?php echo $startDateFormatted;?>&&end=<?php echo $endDateFormatted;?>"><span class="fas fa-file-alt text-primary" data-fa-transform="grow-4"></span><span class="ms-2">Download Inventory Per Location CSV</span></a>
-            
+        <!-- ✅ Result Section -->
+        <div class="mt-4 text-center">
+            <div class="alert alert-success">
+                Report generated successfully. Download the inventory CSV below.
+            </div>
+
+            <a class="d-inline-flex align-items-center border rounded-pill px-4 py-2 me-2 mt-2 inbox-link text-decoration-none"
+               style="background-color:#f8f9fa; border:1px solid #0d6efd;"
+               href="download-local.php?warehouse_id=<?php echo $selected_Warehouse;?>">
+                <span class="fas fa-file-alt text-primary me-2" data-fa-transform="grow-4"></span>
+                Download Inventory Per Location CSV
+            </a>
         </div>
         <?php
         }
         ?>
+
     </div>
 </div>

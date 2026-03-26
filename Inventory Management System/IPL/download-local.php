@@ -4,38 +4,71 @@ require_once "../config/on_session.php";
 
 // Set headers so browser downloads file as CSV
 header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename=Inventory Per Location.csv');
+header('Content-Disposition: attachment; filename=Inventory Per Location ' . $date_for_file .'.csv');
 
 // Open output stream
 $output = fopen('php://output', 'w');
 
 // Write the column headers
-fputcsv($output, ['#', 'LOCATION', 'TOTAL QTY', 'TOTAL AMOUNT']);
+fputcsv($output, ['#', 'WAREHOUSE', 'QTY', 'TOTAL AMOUNT', 'ORIGIN']);
 
-$query = "SELECT 
-            w.warehouse_name, 
-            COUNT(s.unique_barcode) AS available_qty, 
-            SUM(s.capital) AS total_amount 
-        FROM warehouse w 
-        LEFT JOIN stocks s ON s.warehouse = w.hashed_id 
-        WHERE item_status = 0
-        GROUP BY w.hashed_id, w.warehouse_name
-        ORDER BY w.warehouse_name";
+// Get list of warehouses
+$warehouseQuery = "SELECT hashed_id, warehouse_name FROM warehouse ORDER BY warehouse_name";
+$warehouses = $conn->query($warehouseQuery);
 
-$result = $conn->query($query);
 $counter = 1;
 
-if($result->num_rows > 0){
-    while($row = $result->fetch_assoc()){
-        // if ($counter > 2) break; // ✅ stop after 3 rows
+if($warehouses->num_rows > 0){
+    while($w = $warehouses->fetch_assoc()){
+        $warehouse_id = $w['hashed_id'];
+        $warehouse_name = $w['warehouse_name'];
 
-        $warehouse_name = $row['warehouse_name'];
-        $available_qty = $row['available_qty'];
-        $total_amount = number_format($row['total_amount'], 2);
+        // --- 1. Get warehouse totals ---
+        $totalQuery = "
+            SELECT 
+                COUNT(s.unique_barcode) AS total_qty,
+                SUM(s.capital) AS total_amount
+            FROM stocks s
+            WHERE s.warehouse = ? AND s.item_status = 0
+        ";
+        $stmtTotal = $conn->prepare($totalQuery);
+        $stmtTotal->bind_param("s", $warehouse_id);
+        $stmtTotal->execute();
+        $resultTotal = $stmtTotal->get_result();
+        $totalRow = $resultTotal->fetch_assoc();
 
-        // Write row to CSV
-        fputcsv($output, [$counter, $warehouse_name, $available_qty, $total_amount]);
+        $totalQty = $totalRow['total_qty'] ?? 0;
+        $totalAmount = number_format($totalRow['total_amount'] ?? 0, 2);
+
+        // Write warehouse total row (Origin = "All")
+        fputcsv($output, [$counter, $warehouse_name, $totalQty, $totalAmount, 'All']);
         $counter++;
+
+        // --- 2. Get breakdown by origin ---
+        $breakdownQuery = "
+            SELECT 
+                COALESCE(NULLIF(sup.local_international, ''), 'Unknown') AS origin, 
+                COUNT(s.unique_barcode) AS qty,
+                SUM(s.capital) AS total_amount
+            FROM stocks s
+            LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
+            WHERE s.warehouse = ? AND s.item_status = 0
+            GROUP BY origin
+        ";
+
+        $stmt = $conn->prepare($breakdownQuery);
+        $stmt->bind_param("s", $warehouse_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        while($row = $result->fetch_assoc()){
+            $origin = $row['origin'];
+            $qty = $row['qty'];
+            $amount = number_format($row['total_amount'], 2);
+
+            fputcsv($output, [$counter, $warehouse_name, $qty, $amount, $origin]);
+            $counter++;
+        }
     }
 }
 

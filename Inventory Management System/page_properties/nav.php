@@ -641,7 +641,7 @@
           <a class="nav-link" href="../search-item/" aria-controls="search item">
             <div class="d-flex align-items-center">
               <span class="nav-link-icon"><span class="fas fa-chart-pie"></span></span>
-              <span class="nav-link-text ps-1">Barcode Search</span>
+              <span class="nav-link-text ps-1">Barcode Search <span class="text-danger">Beta</span></span>
             </div>
           </a>
         </li>
@@ -966,7 +966,7 @@
             </li>
             <li class="nav-item">
               <a class="nav-link" href="../MoS/">
-                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Movement of Stocks</span> </div>
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Movement of Stocks  <span class="text-danger">Beta</span></span>  </div>
               </a>
             </li>
             <li class="nav-item">

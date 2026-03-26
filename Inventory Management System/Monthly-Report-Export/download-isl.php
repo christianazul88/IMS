@@ -4,7 +4,7 @@ require_once "../config/on_session.php";
 
 // Set CSV headers for download
 header('Content-Type: text/csv');
-header('Content-Disposition: attachment;filename="warehouse_report.csv"');
+header('Content-Disposition: attachment;filename="Inventory Summary Monthly Report - ' . $date_for_file . '.csv"');
 
 // Open output stream
 $output = fopen('php://output', 'w');

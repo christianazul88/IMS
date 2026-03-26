@@ -4,7 +4,7 @@ require_once "../config/on_session.php";
 
 // Set headers so browser downloads file as CSV
 header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename=Inventory Per Supplier - Imports.csv');
+header('Content-Disposition: attachment; filename=Inventory Per Supplier - Imports ' . $date_for_file .'.csv');
 
 // Open output stream
 $output = fopen('php://output', 'w');
