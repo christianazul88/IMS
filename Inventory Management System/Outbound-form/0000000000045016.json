@@ -1,0 +1,18 @@
+[
+    {
+        "barcode": "5781133-12",
+        "product_description": "Pre-owned Monitor NVISION 24Inch 100Hz",
+        "batch_num": "PObatch-1199",
+        "brand_name": "NVISION",
+        "category_name": "Monitor",
+        "capital": "1000.00"
+    },
+    {
+        "barcode": "6382795-5",
+        "product_description": "RYZEN 5 5600G, BIOSTAR B450 MOTHERBOARD, 8GB DDR4 TEAM ELITE",
+        "batch_num": "PObatch-443",
+        "brand_name": "Ryzen",
+        "category_name": "Desktop",
+        "capital": "13000.00"
+    }
+]
