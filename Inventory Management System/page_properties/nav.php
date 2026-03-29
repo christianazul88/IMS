@@ -1049,6 +1049,11 @@
             if(strpos($access, "admin_category")!==false || $user_position_name === "Administrator"){
             ?>
             <li class="nav-item">
+              <a class="nav-link" href="../Classification/">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Category Classification</span></div>
+              </a>
+            </li>
+            <li class="nav-item">
               <a class="nav-link" href="../Category/">
                 <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Category</span></div>
               </a>

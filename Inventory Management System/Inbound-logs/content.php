@@ -396,10 +396,10 @@ ORDER BY
 
             </div>
 
-            <div class="col-lg-7 mb-3">
+            <!-- <div class="col-lg-7 mb-3">
               <label class="form-label" for="datepicker">Received Date</label>
               <input class="form-control datetimepicker" name="received_date" id="datepicker" type="text" placeholder="dd/mm/yy" data-options='{"disableMobile":true}' required/>
-            </div>
+            </div> -->
             
           </div>
         </div>
@@ -437,10 +437,10 @@ ORDER BY
               <div class="invalid-feedback">Please select one</div>
             </div>
 
-            <div class="col-lg-4 mb-3">
+            <!-- <div class="col-lg-4 mb-3">
               <label class="form-label" for="datepicker">Received Date</label>
               <input class="form-control datetimepicker" name="received_date" id="datepicker" type="text" placeholder="dd/mm/yy" data-options='{"disableMobile":true}' required/>
-            </div>
+            </div> -->
             
             <div class="col-lg-5 mb-3">
                 <label for="">Upload CSV</label>
@@ -485,10 +485,10 @@ ORDER BY
               <div class="invalid-feedback">Please select one</div>
             </div>
 
-            <div class="col-lg-4 mb-3">
+            <!-- <div class="col-lg-4 mb-3">
               <label class="form-label" for="datepicker">Received Date</label>
               <input class="form-control datetimepicker" name="received_date" id="datepicker" type="text" placeholder="dd/mm/yy" data-options='{"disableMobile":true}' required/>
-            </div>
+            </div> -->
             
             <div class="col-lg-5 mb-3">
                 <label for="">Upload CSV</label>

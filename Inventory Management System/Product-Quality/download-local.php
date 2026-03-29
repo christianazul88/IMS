@@ -13,6 +13,27 @@ $output = fopen('php://output', 'w');
 
 // ---- LOCAL DEFECTIVE RETURNS ----
 fputcsv($output, ["RETURNED AS DEFECTIVE BETWEEN $start AND $end"]);
+
+// First, calculate summary totals
+$returned_def_summary_query = "
+    SELECT 
+        COUNT(s.product_id) AS total_qty,
+        SUM(s.capital) AS total_amount
+    FROM `returns` r
+    LEFT JOIN stocks s ON s.unique_barcode = r.unique_barcode
+    WHERE r.supplier_type = 'Local' AND r.fault_type = 'DEFECTIVE'
+    AND r.date BETWEEN '$start' AND '$end'
+";
+$returned_def_summary_res = $conn->query($returned_def_summary_query);
+if ($returned_def_summary_res) {
+    $summary = $returned_def_summary_res->fetch_assoc();
+    fputcsv($output, ["TOTAL QUANTITY", $summary['total_qty'], "TOTAL AMOUNT", $summary['total_amount']]);
+}
+
+// Add a blank row before detailed list
+fputcsv($output, []);
+
+// Detailed headers
 fputcsv($output, ["DESCRIPTION", "BRAND", "CATEGORY", "SUPPLIER", "LOCAL / IMPORT", "QTY", "TOTAL_AMOUNT"]);
 
 $returned_def_query = "
@@ -58,6 +79,27 @@ if ($returned_def_res && $returned_def_res->num_rows > 0) {
 // ---- INTERNATIONAL DELIVERY FAILED RETURNS ----
 fputcsv($output, []); // empty row for separation
 fputcsv($output, ["DELIVERY FAILED BETWEEN $start AND $end"]);
+
+// Calculate summary totals
+$returned_dF_summary_query = "
+    SELECT 
+        COUNT(s.product_id) AS total_qty,
+        SUM(s.capital) AS total_amount
+    FROM `returns` r
+    LEFT JOIN stocks s ON s.unique_barcode = r.unique_barcode
+    WHERE r.supplier_type = 'International' AND r.fault_type = 'DELIVERY FAILED'
+    AND r.date BETWEEN '$start' AND '$end'
+";
+$returned_dF_summary_res = $conn->query($returned_dF_summary_query);
+if ($returned_dF_summary_res) {
+    $summary = $returned_dF_summary_res->fetch_assoc();
+    fputcsv($output, ["TOTAL QUANTITY", $summary['total_qty'], "TOTAL AMOUNT", $summary['total_amount']]);
+}
+
+// Blank row before detailed list
+fputcsv($output, []);
+
+// Detailed headers
 fputcsv($output, ["DESCRIPTION", "BRAND", "CATEGORY", "PLATFORM", "QTY", "TOTAL_AMOUNT"]);
 
 $returned_dF_query = "
