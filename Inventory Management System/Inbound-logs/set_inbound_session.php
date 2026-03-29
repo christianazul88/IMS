@@ -3,18 +3,18 @@ session_start();
 include "../config/database.php";
 
 // Check if all required POST variables are set
-if (isset($_POST['supplier'], $_POST['po_id'], $_POST['received_date'], $_POST['warehouse'])) {
+if (isset($_POST['supplier'], $_POST['po_id'], $_POST['warehouse'])) {
     // Sanitize and save each POST value in SESSION with 'inbound_' prefix
     $_SESSION['inbound_supplier'] = htmlspecialchars($_POST['supplier']);
     $_SESSION['inbound_po_id'] = (int)$_POST['po_id'];  // Ensuring it's an integer
-    $_SESSION['inbound_received_date'] = htmlspecialchars($_POST['received_date']);
+    $_SESSION['inbound_received_date'] = $currentDateTime;
     $_SESSION['inbound_warehouse'] = htmlspecialchars($_POST['warehouse']);
 
     // Redirect to the next step
     header("Location: ../inbound-select-products/");
     exit();
 
-} elseif (isset($_POST['po_id'], $_POST['received_date'])) {
+} elseif (isset($_POST['po_id'])) {
 
     // Ensure `po_list` exists in session
     if (!isset($_SESSION['po_list'])) {
@@ -22,7 +22,7 @@ if (isset($_POST['supplier'], $_POST['po_id'], $_POST['received_date'], $_POST['
     }
 
     $_SESSION['inbound_po_id'] = (int)$_POST['po_id'];  // Ensuring it's an integer
-    $_SESSION['inbound_received_date'] = htmlspecialchars($_POST['received_date']);
+    $_SESSION['inbound_received_date'] = $currentDateTime;
 
     $po_id = $_SESSION['inbound_po_id'];
 
