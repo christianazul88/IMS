@@ -9,7 +9,7 @@ header('Content-Disposition: attachment;filename="Inbound Monthly Report - ' . $
 $output = fopen('php://output', 'w');
 
 // Column headers
-fputcsv($output, ['#','WAREHOUSE', 'BARCODE', 'DESCRIPTION', 'BRAND', 'CATEGORY', 'SUPPLIER', 'SUPPLIER CLASSIFICATION', 'INBOUNDED BY', 'INBOUND ID', 'DATE RECEIVED', 'SOLD AMOUNT']);
+fputcsv($output, ['#','WAREHOUSE', 'BARCODE', 'DESCRIPTION', 'BRAND', 'CLASSIFICATION', 'CATEGORY', 'SUPPLIER', 'SUPPLIER CLASSIFICATION', 'INBOUNDED BY', 'INBOUND ID', 'DATE RECEIVED', 'SOLD AMOUNT']);
 
 $grand_total = 0;
 $count = 1;
@@ -27,6 +27,7 @@ $stmt = $conn->prepare("
         il.unique_key,
         p.description,
         b.brand_name,
+        cl.classification_name,
         c.category_name,
         s.capital,
         s.unique_barcode,
@@ -41,6 +42,7 @@ $stmt = $conn->prepare("
     LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
     LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
     LEFT JOIN users u ON u.hashed_id = s.user_id
+    LEFT JOIN classification cl ON cl.hashed_id = c.classification_id
     WHERE il.date_received BETWEEN ? AND ?
     ORDER BY w.warehouse_name ASC
 ");
@@ -79,6 +81,7 @@ if ($res->num_rows > 0) {
             $row['unique_barcode'],
             $row['description'],
             $row['brand_name'],
+            $row['classification_name'],
             $row['category_name'],
             $row['supplier_name'],
             $origin,

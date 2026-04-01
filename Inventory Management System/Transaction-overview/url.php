@@ -51,6 +51,7 @@ if ($from && $to) {
     /* CSV Header Row */
     fputcsv($output, [
         '#',
+        'Classification',
         'Category',
         'Order #',
         'Outbound #',
@@ -77,12 +78,14 @@ if ($from && $to) {
     $category_query = "
         SELECT 
             c.hashed_id AS category_id,
-            c.category_name
+            c.category_name,
+            cl.classification_name
         FROM category c
         LEFT JOIN product p ON p.category = c.hashed_id
         LEFT JOIN stocks s ON s.product_id = p.hashed_id
         LEFT JOIN outbound_content oc ON oc.unique_barcode = s.unique_barcode
         LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
+        LEFT JOIN classification cl ON cl.hashed_id = c.classification_id
         WHERE
             s.item_status != 8
             AND DATE(ol.date_sent) BETWEEN '$from' AND '$to'
@@ -98,6 +101,7 @@ if ($from && $to) {
 
             $category_id = $cat['category_id'];
             $category_name = $cat['category_name'];
+            $classification_name = $cat['classification_name'];
 
             /* -----------------------------
                Item Query Per Category
@@ -154,6 +158,7 @@ if ($from && $to) {
 
                     fputcsv($output, [
                         $num,
+                        $classification_name,
                         $category_name,
                         '"-' . $row['order_num'] . '-"',
                         '"-' . $row['outbound_num'] . '-"',

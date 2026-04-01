@@ -36,7 +36,7 @@ fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
 // CSV headers
 fputcsv($output, [
     'WAREHOUSE','ORDER NUMBER','ORDER LINE ID','CUSTOMER','DESCRIPTION',
-    'BRAND','CATEGORY','OUTBOUND REF #','PLATFORM','SOLD AMOUNT','STAFF','SIGNATURE'
+    'BRAND', 'CLASSIFICATION', 'CATEGORY','OUTBOUND REF #','PLATFORM','SOLD AMOUNT','STAFF','SIGNATURE'
 ]);
 
 // Main query (prepared)
@@ -44,6 +44,7 @@ $query = "SELECT
             oc.unique_barcode,
             p.description,
             b.brand_name,
+            cl.classification_name,
             c.category_name,
             s.outbound_id,
             lp.logistic_name,
@@ -64,6 +65,7 @@ $query = "SELECT
           LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
           LEFT JOIN logistic_partner lp ON lp.hashed_id = ol.platform
           LEFT JOIN users u ON u.hashed_id = ol.user_id
+          LEFT JOIN classification cl ON cl.hashed_id = c.classification_id
           WHERE ol.date_sent BETWEEN ? AND ?
           AND ol.user_id = ?
           ORDER BY w.warehouse_name";
@@ -85,6 +87,7 @@ if ($res->num_rows > 0) {
             $row['customer_fullname'],
             $row['description'],
             $row['brand_name'],
+            $row['classification_name'],
             $row['category_name'],
             $row['outbound_id'],
             $row['logistic_name'],

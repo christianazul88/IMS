@@ -69,6 +69,7 @@ $additional_query = ($api_warehouse_id === null)
 */
 $query = "
 SELECT
+    cl.classification_name,
     c.category_name,
     sup.supplier_name,
     sup.local_international,
@@ -85,6 +86,7 @@ LEFT JOIN category c ON c.hashed_id = p.category
 LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
 LEFT JOIN item_location il ON il.id = s.item_location
 LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
+LEFT JOIN classification cl ON cl.hashed_id = c.classification_id
 WHERE s.item_status = 0
 $additional_query
 ORDER BY
@@ -112,6 +114,7 @@ $output = fopen('php://output', 'w');
 |--------------------------------------------------------------------------
 */
 fputcsv($output, [
+    'Classification'.
     'Category',
     'Supplier',
     'Supplier Location',
@@ -134,6 +137,7 @@ if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
 
         fputcsv($output, [
+            $row['classification_name'],
             $row['category_name'],
             $row['supplier_name'],
             $row['local_international'],

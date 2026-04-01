@@ -14,6 +14,7 @@ SELECT
     p.description, 
     b.brand_name, 
     c.category_name, 
+    cl.classification_name,
     sup.supplier_name, 
     sup.local_international, 
     s.inbound_id, 
@@ -30,6 +31,7 @@ LEFT JOIN category c ON c.hashed_id = p.category
 LEFT JOIN supplier sup ON sup.hashed_id = s.supplier 
 LEFT JOIN warehouse w ON w.hashed_id = s.warehouse 
 LEFT JOIN users u ON u.hashed_id = s.user_id 
+LEFT JOIN classification cl ON cl.hashed_id = c.classification_id
 WHERE s.date BETWEEN '{$filters['start']}' AND '{$filters['end']}'
 {$filters['warehouse_query']}
 {$filters['category_query']}
@@ -48,6 +50,7 @@ fputcsv($output, [
     'Barcode',
     'Description',
     'Brand',
+    'Classification',
     'Category',
     'Supplier',
     'Supplier Info',
@@ -71,6 +74,7 @@ while($row = $res->fetch_assoc()){
         $row['unique_barcode'],
         $row['description'],
         $row['brand_name'],
+        $row['classification_name'],
         $row['category_name'],
         $row['supplier_name'],
         $row['local_international'],

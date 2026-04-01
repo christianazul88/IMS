@@ -18,6 +18,7 @@ fputcsv($output, [
     'UNIQUE BARCODE',
     'DESCRIPTION',
     'BRAND',
+    'CLASSIFICATION',
     'CATEGORY',
     'SUPPLIER',
     'SUPPLIER CLASSIFICATION',
@@ -38,6 +39,7 @@ $stmt = $conn->prepare("
         oc.unique_barcode,
         p.description,
         b.brand_name,
+        cl.classification_name,
         c.category_name,
         s.outbound_id,
         lp.logistic_name,
@@ -59,6 +61,7 @@ $stmt = $conn->prepare("
     LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
     LEFT JOIN logistic_partner lp ON lp.hashed_id = ol.platform
     LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
+    LEFT JOIN classification cl ON cl.hashed_id = c.classification_id
     WHERE oc.status != 1
     AND ol.date_sent BETWEEN ? AND ?
     ORDER BY w.warehouse_name
@@ -86,6 +89,7 @@ if ($res->num_rows > 0) {
             $row['unique_barcode'],
             $row['description'],
             $row['brand_name'],
+            $row['classification_name'],
             $row['category_name'],
             $row['supplier_name'],
             $row['local_international'],
