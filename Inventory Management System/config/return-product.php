@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_logs->bind_param("sss", $barcode, $currentDateTime, $user_id);
 
             if ($stmt_logs->execute()) {
-                $update_stock_status = "UPDATE stocks SET item_status = 0 WHERE unique_barcode = ?";
+                $update_stock_status = "UPDATE stocks SET item_status = 0, warehouse = '9400f1b21cb527d7fa3d3eabba93557a18ebe7a2ca4e471cfe5e4c5b4ca7f767' WHERE unique_barcode = ?";
                 $stmt_update_stock_status = $conn->prepare($update_stock_status);
                 $stmt_update_stock_status->bind_param("s", $barcode);
                 $stmt_update_stock_status->execute();
