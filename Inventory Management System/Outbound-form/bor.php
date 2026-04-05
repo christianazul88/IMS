@@ -30,11 +30,13 @@ if (isset($_GET['view'])) {
                         <?php 
                         if(strpos($access ?? '', "stock")!==false || $user_position_name === "Administrator"){
                         ?>
-                        <td><?php echo $product['capital'];?></td>
+                        <td class="unit-cost" data-cost="<?php echo $product['capital']; ?>">
+                            <?php echo number_format($product['capital'], 2); ?>
+                        </td>
                         <?php 
                         }
                         ?>
-                        <td><input type="number" name="selling[]" min="<?php echo $product['capital'];?>" max="999999" class="form-control m-0 py-0 selling-input" step="0.01" placeholder="Selling Price" required></td>
+                        <td><input type="number" name="selling[]" min="0" max="999999" class="form-control m-0 py-0 selling-input" step="0.01" placeholder="Selling Price" required></td>
                         <td><?php echo $product['batch_num']; ?></td>
                         <td><?php echo $product['brand_name'];?></td>
                         <td><?php echo $product['category_name'];?></td>

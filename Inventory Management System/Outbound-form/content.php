@@ -501,6 +501,59 @@ if(!isset($_SESSION['warehouse_outbound']) && strpos($warehouses, ',')!==false){
                 });
             });
 
+            // $(document).on('submit', '#myform2', function (e) {
+            //     e.preventDefault();
+
+            //     let hasValidItem = false;
+            //     let hasInvalidItem = false;
+
+            //     $('#table-body tr').each(function () {
+            //         // let unitCost = parseFloat($(this).find('.unit-cost').text()) || 0;
+            //         let unitCost = parseFloat($(this).find('.unit-cost').data('cost')) || 0;
+            //         let sellingPrice = parseFloat($(this).find('.selling-input').val()) || 0;
+
+            //         // Condition 1: Valid profitable item
+            //         if (sellingPrice > unitCost) {
+            //             hasValidItem = true;
+            //         }
+
+            //         // Condition 2: Invalid (loss but not freebie)
+            //         if (sellingPrice > 0 && sellingPrice < unitCost) {
+            //             hasInvalidItem = true;
+            //         }
+            //     });
+
+            //     // 🚫 If no profitable item at all → block
+            //     if (!hasValidItem) {
+            //         Swal.fire({
+            //             icon: 'error',
+            //             title: 'Invalid Pricing',
+            //             text: 'You must have at least one item with selling price greater than unit cost.',
+            //         });
+            //         return;
+            //     }
+
+            //     // ⚠️ If may lugi items (but allowed because may valid)
+            //     if (hasInvalidItem) {
+            //         Swal.fire({
+            //             icon: 'warning',
+            //             title: 'Some items are below cost',
+            //             text: 'There are items sold below unit cost. Do you want to proceed?',
+            //             showCancelButton: true,
+            //             confirmButtonText: 'Yes, proceed',
+            //             cancelButtonText: 'Cancel'
+            //         }).then((result) => {
+            //             if (result.isConfirmed) {
+            //                 submitFormAjax($(this));
+            //             }
+            //         });
+            //         return;
+            //     }
+
+            //     // ✅ If clean → proceed
+            //     submitFormAjax($(this));
+            // });
+
 
         });
     </script>

@@ -78,7 +78,8 @@ if (isset($_POST['barcode'])) {
                             <div class="row">
                                 <div class="col-lg-6">
                                     <label for="">Fault</label>
-                                    <select name="fault" class="form-select" name="form-select" id="" required>
+                                    <select name="fault" class="form-select" id="faultSelect" required>
+                                        <option value="" disabled selected>Select Fault</option>
                                         <option value="CLIENT FAULT">Customer Fault</option>
                                         <option value="SELLER FAULT">Seller Fault</option>
                                         <option value="NONE">None</option>
@@ -86,10 +87,8 @@ if (isset($_POST['barcode'])) {
                                 </div>
                                 <div class="col-lg-6">
                                     <label for="">Type</label>
-                                    <select name="type_reason" class="form-select" id="" required>
-                                        <option value="DELIVERY FAILED">Delivery Failed</option>
-                                        <option value="DEFECTIVE">Defective</option>
-                                        <option value="WRONG ITEM ORDER">Wrong Item Order</option>
+                                    <select name="type_reason" class="form-select" id="typeSelect" required>
+                                        <option value="" disabled selected>Select Type</option>
                                     </select>
                                 </div>
                                 <div class="col-lg-12">
@@ -155,6 +154,36 @@ if (isset($_POST['barcode'])) {
                     }
                 });
             });
+        </script>
+
+        <script>
+            const faultSelect = document.getElementById('faultSelect');
+            const typeSelect = document.getElementById('typeSelect');
+
+            function updateTypeOptions() {
+                const fault = faultSelect.value;
+
+                // Clear existing options
+                typeSelect.innerHTML = '<option value="" disabled selected>Select Type</option>';
+
+                if (fault === 'NONE') {
+                    typeSelect.innerHTML += `
+                        <option value="DEFECTIVE">Defective</option>
+                        <option value="WRONG ITEM ORDER">Wrong Item Order</option>
+                    `;
+                } 
+                else if (fault === 'CLIENT FAULT' || fault === 'SELLER FAULT') {
+                    typeSelect.innerHTML += `
+                        <option value="DELIVERY FAILED">Delivery Failed</option>
+                    `;
+                }
+            }
+
+            // Trigger when fault changes
+            faultSelect.addEventListener('change', updateTypeOptions);
+
+            // Optional: initialize on load (in case of edit/retain values)
+            window.addEventListener('load', updateTypeOptions);
         </script>
 
     <?php 
