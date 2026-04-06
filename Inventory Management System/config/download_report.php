@@ -114,7 +114,7 @@ $output = fopen('php://output', 'w');
 |--------------------------------------------------------------------------
 */
 fputcsv($output, [
-    'Classification'.
+    'Classification',
     'Category',
     'Supplier',
     'Supplier Location',
