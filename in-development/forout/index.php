@@ -12,251 +12,238 @@ $data = [];
 $headers = [];
 $message = '';
 
-function readCsvRows($csvFile)
-{
-    $headers = [];
-    $rows = [];
-
-    if (!file_exists($csvFile)) {
-        return [$headers, $rows];
-    }
-
+// Read CSV file first
+if (file_exists($csvFile)) {
     if (($handle = fopen($csvFile, 'r')) !== false) {
+        // Read headers
         if (($headers = fgetcsv($handle, 1000, ',')) !== false) {
-            while (count($headers) < 6) {
-                $headers[] = '';
-            }
-            if (count($headers) === 6 && trim($headers[5]) === '') {
-                $headers[5] = 'status';
-            }
-
+            // Read all rows
             while (($row = fgetcsv($handle, 1000, ',')) !== false) {
-                $rows[] = array_pad($row, 6, '');
+                // Skip rows where first three columns are blank
+                if (!empty($row[0]) || !empty($row[1]) || !empty($row[2])) {
+                    $data[] = $row;
+                }
             }
+            // Sort by column[4] (order number duplicate) ascending
+            usort($data, function($a, $b) {
+                return strcmp($a[4], $b[4]);
+            });
         }
         fclose($handle);
+    } else {
+        $error = "Unable to open the CSV file.";
     }
-
-    return [$headers, $rows];
-}
-
-function writeCsvRows($csvFile, array $headers, array $rows)
-{
-    if (($handle = fopen($csvFile, 'w')) === false) {
-        return false;
-    }
-
-    fputcsv($handle, $headers);
-    foreach ($rows as $row) {
-        fputcsv($handle, $row);
-    }
-    fclose($handle);
-    return true;
-}
-
-list($headers, $csvRows) = readCsvRows($csvFile);
-
-if (empty($headers) && !file_exists($csvFile)) {
-    $error = "CSV file not found: " . $csvFile;
 } else {
-    $data = [];
-    foreach ($csvRows as $row) {
-        if (!empty($row[0]) || !empty($row[1]) || !empty($row[2])) {
-            $data[] = $row;
-        }
-    }
-    usort($data, function ($a, $b) {
-        return strcmp($a[4], $b[4]);
-    });
+    $error = "CSV file not found: " . $csvFile;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['batch'])) {
-    header('Content-Type: application/json');
-    $offset = max(0, intval($_POST['offset'] ?? 0));
-    $validRowIndices = [];
-    foreach ($csvRows as $rowIndex => $row) {
-        if (!empty($row[0]) || !empty($row[1]) || !empty($row[2])) {
-            $validRowIndices[] = $rowIndex;
-        }
-    }
-    $total_rows = count($validRowIndices);
-    $chunkSize = max(1, intval($_POST['chunkSize'] ?? ceil($total_rows * 0.1)));
-
-    $current_chunk = 0;
-    $success_count = 0;
-    $failed_count = 0;
-    $failed_rows = [];
-    $updated = false;
-
-    $chunkIndices = array_slice($validRowIndices, $offset, $chunkSize);
-    foreach ($chunkIndices as $rowIndex) {
-        $row = &$csvRows[$rowIndex];
-
-        if (strtolower(trim($row[5])) === 'completed') {
-            continue;
-        }
-
-        if (strtolower(trim($row[5])) === 'completed') {
-            continue;
-        }
-
-        $processed++;
-        $customer = trim($row[0]);
-        $barcode = trim($row[1]);
-        $sold_for = trim($row[2]);
-        $order_number = trim($row[3]);
-        $order_number_duplicate = trim($row[4]);
-
-        if ($customer === '') {
-            $customer = 'System Administrator';
-        }
-        if ($sold_for === '') {
-            $sold_for = '0.00';
-        }
-
-        $warehouse = null;
+if (isset($_POST['insert'])) {
+    // Enable output buffering to show progress
+    ob_start();
+    
+    // Initialize counters and error arrays
+    $successful_inserts = 0;
+    $failed_inserts = [];
+    $successful_records = [];
+    $skipped_duplicates = 0;
+    $saved_rows = 0;
+    $total_rows = count($data);
+    $processed_rows = 0;
+    
+    echo "<div style='background:#f0f0f0; padding:10px; margin:10px 0; border-radius:4px;'>";
+    echo "<h3>Processing 7000+ Records...</h3>";
+    echo "<div id='progress' style='width:100%; height:30px; background:#ddd; border-radius:4px;'>";
+    echo "<div id='bar' style='width:0%; height:100%; background:#4CAF50; border-radius:4px; text-align:center; color:white; line-height:30px;'>0%</div>";
+    echo "</div>";
+    echo "<p id='status'>Starting...</p>";
+    echo "</div>";
+    ob_flush();
+    flush();
+    
+    // Process each row for database insertion
+    foreach ($data as $rowIndex => $row) {
+        // Extract column values as variables
+        $customer = isset($row[0]) ? trim($row[0]) : '';
+        $barcode = isset($row[1]) ? trim($row[1]) : '';
+        $sold_for = isset($row[2]) ? trim($row[2]) : '';
+        $order_number = isset($row[3]) ? trim($row[3]) : '';
+        $order_number_duplicate = isset($row[4]) ? trim($row[4]) : '';
+        $warehouse = null; // Initialize warehouse_id variable
         $platform = "";
         $orderLineID = "";
         $processedBy = "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b";
         $payment_method = "Not Available";
         $outbound_id = random_int(1000000, 9999999);
-
+        // Apply display logic
+        if (empty($customer)) {
+            $customer = 'System Administrator';
+        }
+        if (empty($sold_for)) {
+            $sold_for = '0.00';
+        }
+        
+        // TODO: Add your database insertion code here
+        // Example: $pdo->prepare("INSERT INTO your_table (customer, barcode, sold_for, order_number, order_number_duplicate) VALUES (?, ?, ?, ?, ?)")->execute([$customer, $barcode, $sold_for, $order_number, $order_number_duplicate]);
         $get_warehouse_id = "SELECT warehouse FROM stocks WHERE unique_barcode = '$barcode' LIMIT 1";
         $get_warehouse_id_result = $conn->query($get_warehouse_id);
-        if ($get_warehouse_id_result && $get_warehouse_id_result->num_rows > 0) {
+        if ($get_warehouse_id_result->num_rows > 0) {
             $warehouse = $get_warehouse_id_result->fetch_assoc()['warehouse'];
         }
 
-        $dbError = '';
+        // Check if order_number_duplicate already exists in outbound_logs
+        $row_saved = false;
         $check_existing = "SELECT hashed_id FROM outbound_logs WHERE order_num = '$order_number_duplicate' LIMIT 1";
         $check_result = $conn->query($check_existing);
-        if ($check_result && $check_result->num_rows == 0) {
+        if ($check_result->num_rows == 0) {
+            // Only insert if it doesn't exist
             $insert_outbound = "INSERT INTO outbound_logs SET date_sent = '$currentDateTime', warehouse = '$warehouse', user_id = '$processedBy', customer_fullname = '$customer', courier = '', platform = '$platform', order_num = '$order_number_duplicate', order_line_id = '$orderLineID', hashed_id = '$outbound_id', status = '6', payment_method = '$payment_method'";
-
-            if (!$conn->query($insert_outbound)) {
-                $dbError = $conn->error;
+            
+            // Execute the insert
+            if ($conn->query($insert_outbound)) {
+                $successful_inserts++;
+                $successful_records[] = [
+                    'barcode' => $barcode,
+                    'order_number' => $order_number_duplicate
+                ];
+                $row_saved = true;
             } else {
-                $product_infoQuery = "SELECT product_id FROM stocks WHERE unique_barcode = ? GROUP BY product_id";
-                $stmt = $conn->prepare($product_infoQuery);
-                $stmt->bind_param("s", $barcode);
-                $stmt->execute();
-                $product_infoRes = $stmt->get_result();
-                $product_id = $product_infoRes->fetch_assoc()['product_id'] ?? null;
-
-                $product_quantity_before = 0;
-                if ($product_id) {
-                    $product_quantity_before_query = "SELECT COUNT(unique_barcode) AS quantity FROM stocks WHERE product_id = ? AND item_status = 0 AND warehouse = ?";
-                    $stmt = $conn->prepare($product_quantity_before_query);
-                    $stmt->bind_param("ss", $product_id, $warehouse);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    $product_quantity_before = $result->fetch_assoc()['quantity'] ?? 0;
-                }
-
-                $itemSql = "INSERT INTO outbound_content (unique_barcode, sold_price, hashed_id, quantity_before, status) VALUES (?, ?, ?, ?, 6)";
-                $stmt = $conn->prepare($itemSql);
-                $stmt->bind_param("sdsi", $barcode, $sold_for, $outbound_id, $product_quantity_before);
-                if (!$stmt->execute()) {
-                    $dbError = $stmt->error;
-                } else {
-                    $outbound_content_id = $conn->insert_id;
-
-                    $update_stock = "UPDATE stocks SET item_status = 1, outbound_id = ?, outbounded_by = ? WHERE unique_barcode = ?";
-                    $stmt = $conn->prepare($update_stock);
-                    $stmt->bind_param("sss", $outbound_id, $processedBy, $barcode);
-                    if (!$stmt->execute()) {
-                        $dbError = $stmt->error;
-                    }
-
-                    if (!$dbError) {
-                        $action = "Outbounded to Customer: " . $customer;
-                        $insert_to_item_history = "INSERT INTO stock_timeline (unique_barcode, title, action, user_id, date) VALUES (?, 'Outbound', ?, ?, ?)";
-                        $stmt = $conn->prepare($insert_to_item_history);
-                        $stmt->bind_param("ssss", $barcode, $action, $processedBy, $currentDateTime);
-                        if (!$stmt->execute()) {
-                            $dbError = $stmt->error;
-                        }
-                    }
-
-                    if (!$dbError && $product_id) {
-                        $product_quantity_after_query = "SELECT COUNT(unique_barcode) AS quantity FROM stocks WHERE product_id = ? AND item_status = 0 AND warehouse = ?";
-                        $stmt = $conn->prepare($product_quantity_after_query);
-                        $stmt->bind_param("ss", $product_id, $warehouse);
-                        $stmt->execute();
-                        $result = $stmt->get_result();
-                        $product_quantity_after = $result->fetch_assoc()['quantity'] ?? 0;
-
-                        $update = "UPDATE outbound_content SET quantity_after = ? WHERE id = ?";
-                        $stmt = $conn->prepare($update);
-                        $stmt->bind_param("si", $product_quantity_after, $outbound_content_id);
-                        if (!$stmt->execute()) {
-                            $dbError = $stmt->error;
-                        }
-                    }
-                }
+                // Record failed insertion
+                $failed_inserts[] = [
+                    'barcode' => $barcode,
+                    'order_number' => $order_number_duplicate,
+                    'error' => $conn->error
+                ];
             }
         } else {
-            $row[5] = 'completed';
-            $success_count++;
+            $skipped_duplicates++;
             $row_saved = true;
         }
 
-        if ($dbError === '') {
-            if (!$row_saved) {
-                $row[5] = 'completed';
-                $success_count++;
-                $row_saved = true;
+        // Fetch product_id safely
+            $product_infoQuery = "SELECT product_id FROM stocks WHERE unique_barcode = ? GROUP BY product_id";
+            $stmt = $conn->prepare($product_infoQuery);
+            $stmt->bind_param("s", $barcode);
+            $stmt->execute();
+            $product_infoRes = $stmt->get_result();
+            $product_id = $product_infoRes->fetch_assoc()['product_id'] ?? null;
+
+            // Fetch product quantity before update
+            if ($product_id) {
+                $product_quantity_before_query = "SELECT COUNT(unique_barcode) AS quantity FROM stocks WHERE product_id = ? AND item_status = 0 AND warehouse = ?";
+                $stmt = $conn->prepare($product_quantity_before_query);
+                $stmt->bind_param("ss", $product_id, $warehouse);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $product_quantity_before = $result->fetch_assoc()['quantity'] ?? 0;
             }
-        } else {
-            $row[5] = 'failed';
-            $failed_count++;
-            $failed_rows[] = [
-                'barcode' => $barcode,
-                'order_number' => $order_number_duplicate,
-                'error' => $dbError,
-            ];
+
+            // Insert into outbound_content
+            $itemSql = "INSERT INTO outbound_content (unique_barcode, sold_price, hashed_id, quantity_before, status) VALUES (?, ?, ?, ?, 6)";
+            $stmt = $conn->prepare($itemSql);
+            $stmt->bind_param("sdsi", $barcode, $sold_for, $outbound_id, $product_quantity_before);
+            if (!$stmt->execute()) {
+                throw new Exception("Failed to insert order item: " . $stmt->error);
+            }
+            $outbound_content_id = $conn->insert_id;
+
+            // Update stock status
+            $update_stock = "UPDATE stocks SET item_status = 1, outbound_id = ?, outbounded_by = ? WHERE unique_barcode = ?";
+            $stmt = $conn->prepare($update_stock);
+            $stmt->bind_param("sss", $outbound_id, $processedBy, $barcode);
+            if (!$stmt->execute()) {
+                throw new Exception("Failed to update stock: " . $stmt->error);
+            }
+
+            // Insert into stock timeline
+            $action = "Outbounded to Customer: " . $customer;
+            $insert_to_item_history = "INSERT INTO stock_timeline (unique_barcode, title, action, user_id, date) VALUES (?, 'Outbound', ?, ?, ?)";
+            $stmt = $conn->prepare($insert_to_item_history);
+            $stmt->bind_param("ssss", $barcode, $action, $processedBy, $currentDateTime);
+            $stmt->execute();
+
+            // Fetch product quantity after update
+            $product_quantity_after_query = "SELECT COUNT(unique_barcode) AS quantity FROM stocks WHERE product_id = ? AND item_status = 0 AND warehouse = ?";
+            $stmt = $conn->prepare($product_quantity_after_query);
+            $stmt->bind_param("ss", $product_id, $warehouse);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $product_quantity_after = $result->fetch_assoc()['quantity'] ?? 0;
+
+            // Update outbound_content
+            $update = "UPDATE outbound_content SET quantity_after = ? WHERE id = ?";
+            $stmt = $conn->prepare($update);
+            $stmt->bind_param("si", $product_quantity_after, $outbound_content_id);
+            $stmt->execute();
+        
+
+        
+        // Update progress every 100 rows
+        $processed_rows++;
+        if ($processed_rows % 100 == 0 || $processed_rows == $total_rows) {
+            $percentage = round(($processed_rows / $total_rows) * 100);
+            echo "<script>
+                document.getElementById('bar').style.width = '$percentage%';
+                document.getElementById('bar').textContent = '$percentage%';
+                document.getElementById('status').textContent = 'Processed: $processed_rows / $total_rows rows';
+            </script>";
+            ob_flush();
+            flush();
         }
 
-        $updated = true;
-        $current_chunk++;
-    }
-
-    if ($updated) {
-        writeCsvRows($csvFile, $headers, $csvRows);
-    }
-
-    $completed_rows = 0;
-    foreach ($csvRows as $row) {
-        if (!empty($row[0]) || !empty($row[1]) || !empty($row[2])) {
-            if (strtolower(trim($row[5])) === 'completed') {
-                $completed_rows++;
-            }
+        if ($row_saved) {
+            $saved_rows++;
         }
-    }
 
-    $remaining_rows = 0;
-    foreach ($csvRows as $row) {
-        if (!empty($row[0]) || !empty($row[1]) || !empty($row[2])) {
-            $status = strtolower(trim($row[5]));
-            if ($status !== 'completed') {
-                $remaining_rows++;
-            }
+        // For now, just collect processed data
+        $processedData[] = [$customer, $barcode, $sold_for, $order_number, $order_number_duplicate];
+    }
+    
+    // Build the message
+    $message = "Processing complete! ";
+    $message .= "Saved to database: $saved_rows/$total_rows, ";
+    $message .= "Successful inserts: $successful_inserts, ";
+    $message .= "Skipped duplicates: $skipped_duplicates, ";
+    $message .= "Failed inserts: " . count($failed_inserts);
+    
+    ob_end_clean(); // Clear the progress bar output
+    
+    if (!empty($successful_records)) {
+        $message .= "<br><br><strong>Successful Insertions:</strong><br>";
+        $message .= "<table style='width:100%; border-collapse:collapse; margin-top:10px;'>";
+        $message .= "<thead><tr style='background-color:#d4edda;'>";
+        $message .= "<th style='border:1px solid #ddd; padding:8px;'>Barcode</th>";
+        $message .= "<th style='border:1px solid #ddd; padding:8px;'>Order Number</th>";
+        $message .= "</tr></thead><tbody>";
+        
+        foreach ($successful_records as $success) {
+            $message .= "<tr>";
+            $message .= "<td style='border:1px solid #ddd; padding:8px;'>" . htmlspecialchars($success['barcode']) . "</td>";
+            $message .= "<td style='border:1px solid #ddd; padding:8px;'>" . htmlspecialchars($success['order_number']) . "</td>";
+            $message .= "</tr>";
         }
+        
+        $message .= "</tbody></table>";
     }
-
-    $done = $offset + $chunkSize >= $total_rows;
-    echo json_encode([
-        'totalRows' => $total_rows,
-        'completedRows' => $completed_rows,
-        'remainingRows' => $remaining_rows,
-        'chunkProcessed' => $current_chunk,
-        'successCount' => $success_count,
-        'failedCount' => $failed_count,
-        'failedRows' => $failed_rows,
-        'nextOffset' => min($offset + $chunkSize, $total_rows),
-        'done' => $done,
-    ]);
-    exit;
+    
+    if (!empty($failed_inserts)) {
+        $message .= "<br><br><strong>Failed Insertions:</strong><br>";
+        $message .= "<table style='width:100%; border-collapse:collapse; margin-top:10px;'>";
+        $message .= "<thead><tr style='background-color:#f8d7da;'>";
+        $message .= "<th style='border:1px solid #ddd; padding:8px;'>Barcode</th>";
+        $message .= "<th style='border:1px solid #ddd; padding:8px;'>Order Number</th>";
+        $message .= "<th style='border:1px solid #ddd; padding:8px;'>Error</th>";
+        $message .= "</tr></thead><tbody>";
+        
+        foreach ($failed_inserts as $failed) {
+            $message .= "<tr>";
+            $message .= "<td style='border:1px solid #ddd; padding:8px;'>" . htmlspecialchars($failed['barcode']) . "</td>";
+            $message .= "<td style='border:1px solid #ddd; padding:8px;'>" . htmlspecialchars($failed['order_number']) . "</td>";
+            $message .= "<td style='border:1px solid #ddd; padding:8px;'>" . htmlspecialchars($failed['error']) . "</td>";
+            $message .= "</tr>";
+        }
+        
+        $message .= "</tbody></table>";
+    }
 }
 ?>
 
@@ -392,15 +379,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['batch'])) {
                 </tbody>
             </table>
             
-            <div id="batch-controls" style="margin-top: 20px;">
-                <button id="startBatch" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Batch Insert</button>
-            </div>
-            <div id="batch-status" style="display:none; margin-top: 16px;">
-                <div style="width:100%; height:28px; background:#ddd; border-radius:4px; overflow:hidden;">
-                    <div id="batchBar" style="width:0%; height:100%; background:#4CAF50; color:white; text-align:center; line-height:28px;">0%</div>
-                </div>
-                <p id="batchMessage" style="margin-top:10px; color:#333;">Ready to start batch insert.</p>
-            </div>
+            <form method="post" style="margin-top: 20px;">
+                <button type="submit" name="insert" value="1" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Insert to Database</button>
+            </form>
         <?php endif; ?>
     </div>
 </body>
