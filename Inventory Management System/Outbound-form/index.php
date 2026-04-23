@@ -10,7 +10,7 @@ if (strpos($access, "logistics") === false && $user_position_name !== "Administr
 
 if (!isset($_SESSION['outbound_id'])) {
     // Query the last outbound log's hashed_id
-    $check_lastoutbound = "SELECT hashed_id FROM outbound_logs ORDER BY hashed_id DESC LIMIT 1";
+    $check_lastoutbound = "SELECT hashed_id FROM outbound_logs ORDER BY CAST(hashed_id AS UNSIGNED) DESC LIMIT 1;";
     $result = $conn->query($check_lastoutbound);
 
     if ($result && $result->num_rows > 0) {
@@ -22,7 +22,7 @@ if (!isset($_SESSION['outbound_id'])) {
 
     // Loop until a unique JSON filename is found
     while (true) {
-        $outbound_id = str_pad($numeric_id, 16, '0', STR_PAD_LEFT);
+        $outbound_id = $numeric_id;
         $filename = $outbound_id . ".json"; // Adjust path as needed
 
         if (!file_exists($filename)) {
