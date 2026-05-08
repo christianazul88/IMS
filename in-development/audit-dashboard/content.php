@@ -12,8 +12,10 @@ $stmt->close();
 $today = date('Y-m-d');
 $schedule_date = date('Y-m-d', strtotime($audit['schedule_date']));
 
-if ($schedule_date != $today) {
-    echo "<div class='alert alert-warning'>Audit is scheduled for " . date('M d, Y', strtotime($audit['schedule_date'])) . ". You cannot start it today.</div>";
+if ($today < $schedule_date) {
+    echo "<div class='alert alert-warning'>
+            Audit is scheduled for " . date('M d, Y', strtotime($audit['schedule_date'])) . ". You cannot start it today.
+          </div>";
     exit;
 }
 
@@ -44,7 +46,7 @@ $totals = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 // Fetch assignments
-$assignments_query = "SELECT aa.*, u.user_fname, u.user_lname FROM audit_assignments aa LEFT JOIN users u ON aa.user_id = u.hashed_id COLLATE utf8mb4_unicode_ci WHERE aa.audit_id = ?";
+$assignments_query = "SELECT aa.*, u.user_fname, u.user_lname, w.warehouse_name, il.location_name FROM audit_assignments aa LEFT JOIN users u ON aa.user_id = u.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN warehouse w ON aa.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN item_location il ON aa.item_location = il.id  WHERE aa.audit_id = ?";
 $stmt = $conn->prepare($assignments_query);
 $stmt->bind_param("i", $audit_id);
 $stmt->execute();
@@ -66,15 +68,72 @@ while ($row = $scans_result->fetch_assoc()) {
     $scans[] = $row;
 }
 $stmt->close();
-?>
+
+$check_query = "SELECT * FROM audit_logs_timestamps WHERE audit_id = ? AND `status` = 'start' LIMIT 1";
+$stmt = $conn->prepare($check_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+
+$result = $stmt->get_result();
+$audit_log_timestamp = $result->fetch_assoc();
+$stmt->close();
+
+if (!$audit_log_timestamp) {
+    $insert_query = "INSERT INTO audit_logs_timestamps (audit_id, `status`, date_time) VALUES (?, 'start', NOW())";
+    $stmt = $conn->prepare($insert_query);
+    $stmt->bind_param("i", $audit_id);
+    $stmt->execute();
+    $stmt->close();
+
+    $last_status = 'start';
+} else {
+    // $audit_log_timestamp_id = $audit_log_timestamp['id'];
+    $audit_log_last_status_query = "SELECT * FROM audit_logs_timestamps WHERE audit_id = ? ORDER BY date_time DESC LIMIT 1";
+    $stmt = $conn->prepare($audit_log_last_status_query);
+    $stmt->bind_param("i", $audit_id);
+    $stmt->execute();
+    $last_status = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $last_status = $last_status['status'] ?? '';
+}
 ?>
 
 <div class="card bg-primary text-white mb-3">
     <div class="card-body">
-        <h5 class="card-title">Audit Dashboard</h5>
-        <p class="card-text">Real-time monitoring for Audit #<?php echo $audit['audit_num']; ?> - <?php echo $audit['warehouse_name']; ?></p>
+        <div class="row">
+            <div class="col-4">
+                <h5 class="card-title">Audit Dashboard</h5>
+                <p class="card-text">Real-time monitoring for Audit #<?php echo $audit['audit_num']; ?> - <?php echo $audit['warehouse_name']; ?></p>
+            </div>
+            <div class="col-8 text-end">
+                <a href="../Choose-Area/" class="btn btn-light <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
+                    Start Scanning
+                </a>
+
+                <?php if ($last_status === 'start' || $last_status === 'resume'): ?>
+
+                    <a href="pause_audit.php" class="btn btn-warning">Pause</a>
+                    <a href="end.php" class="btn btn-danger">End Audit</a>
+
+                <?php elseif ($last_status === 'pause'): ?>
+
+                    <a href="resume_audit.php" class="btn btn-success">Resume</a>
+                    <a href="end.php" class="btn btn-danger">End Audit</a>
+
+                <?php elseif ($last_status === 'end'): ?>
+
+                    <span class="badge bg-secondary">Audit Ended</span>
+
+                <?php endif; ?>
+            </div>
+        </div>
+        
     </div>
 </div>
+
+<?php
+$warehouse_id_audit = $audit['warehouse'];
+?>
 
 <!-- Overview Cards -->
 <div class="row mb-4">
@@ -132,6 +191,11 @@ $stmt->close();
 <div class="card mb-4">
     <div class="card-header">
         <h6 class="mb-0">Audit Assignments</h6>
+        <div class="row">
+            <div class="col-md-12 text-end mt-2">
+                <!-- <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignModal">Assign Staff</button> -->
+            </div>
+        </div>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -149,8 +213,19 @@ $stmt->close();
                     <?php foreach ($assignments as $assignment): ?>
                     <tr>
                         <td><?php echo $assignment['user_fname'] . ' ' . $assignment['user_lname']; ?></td>
-                        <td><?php echo $assignment['warehouse']; ?></td>
-                        <td><?php echo $assignment['item_location']; ?></td>
+                        <td><?php echo $assignment['warehouse_name']; ?></td>
+                        <td>
+                            <?php 
+                            if($assignment['status'] == 'pending' || $assignment['status'] == 'in_progress') {
+                                echo $assignment['location_name'];
+                            } else {
+                            ?>
+                            <a href="../finish/?audit_id=<?php echo $audit_id; ?>&area=<?php echo $assignment['item_location'];?>"><?php echo $assignment['location_name']; ?></a>
+                            <?php
+                            }
+                            ?>
+                            
+                        </td>
                         <td>
                             <span class="badge bg-<?php 
                                 echo $assignment['status'] == 'pending' ? 'secondary' : 
@@ -231,11 +306,191 @@ $stmt->close();
     </div>
 </div>
 
+
+<!-- assign staff modal -->
+<div class="modal fade" id="assignModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content shadow-sm border-0">
+
+      <!-- ✅ Header -->
+      <div class="modal-header bg-primary text-white">
+        <div>
+          <h5 class="modal-title mb-0">Assign Staff</h5>
+          <small class="opacity-75">Assign staff to each warehouse location</small>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <!-- ✅ Body -->
+      <div class="modal-body p-4">
+
+        <!-- Instruction -->
+        <div class="alert alert-info">
+          Select a staff member for each location. All locations must be assigned before submitting.
+        </div>
+
+        <form id="assignStaffForm" action="assign_staff.php" method="post">
+
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle text-center">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th>Staff</th>
+
+                            <?php
+                            $locations = [];
+
+                            $locations_Sql = "SELECT id, location_name
+                                            FROM item_location
+                                            WHERE warehouse = ?";
+
+                            $stmt_locations = $conn->prepare($locations_Sql);
+                            $stmt_locations->bind_param("s", $warehouse_id_audit);
+                            $stmt_locations->execute();
+
+                            $locations_result = $stmt_locations->get_result();
+
+                            while ($location = $locations_result->fetch_assoc()) {
+                                $locations[] = $location;
+
+                                echo "<th>" . htmlspecialchars($location['location_name']) . "</th>";
+                            }
+                            ?>
+
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        <?php
+                        $users_Sql = "SELECT user_fname, user_lname, hashed_id
+                                    FROM users
+                                    WHERE FIND_IN_SET(?, warehouse_access)
+                                    AND status IN ('', 1)";
+
+                        $stmt_users = $conn->prepare($users_Sql);
+                        $stmt_users->bind_param("s", $warehouse_id_audit);
+                        $stmt_users->execute();
+
+                        $users_result = $stmt_users->get_result();
+
+                        while ($staff = $users_result->fetch_assoc()) {
+
+                            $staff_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
+                            $staff_id = $staff['hashed_id'];
+                        ?>
+
+                            <tr>
+
+                                <td class="text-start fw-semibold">
+                                    <?php echo htmlspecialchars($staff_name); ?>
+                                </td>
+
+                                <?php foreach ($locations as $location) { ?>
+
+                                    <td>
+
+                                        <input
+                                            class="form-check-input staff-radio"
+                                            type="radio"
+                                            name="location_assignment[<?php echo $location['id']; ?>]"
+                                            value="<?php echo $staff_id; ?>"
+                                            data-staff="<?php echo $staff_id; ?>">
+
+                                    </td>
+
+                                <?php } ?>
+
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-primary select-all-btn"
+                                        data-staff="<?php echo $staff_id; ?>">
+                                        Select All
+                                    </button>
+                                </td>
+
+                            </tr>
+
+                        <?php } ?>
+
+                    </tbody>
+
+                </table>
+            </div>
+
+            <button type="submit" class="btn btn-success">
+                Save Assignment
+            </button>
+
+        </form>
+      </div>
+
+      <!-- ✅ Footer -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-success px-4" onclick="assignStaff()">
+          Assign Staff
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
 <script>
 // For real-time updates (static for now, but structure ready)
 function updateDashboard() {
-    // Fetch updated data via AJAX and update elements
-    // For now, static
+
+    fetch('audit_dashboard_data.php?audit_id=<?php echo $audit_id; ?>')
+        .then(res => res.json())
+        .then(data => {
+
+            const t = data.totals;
+
+            /* =========================
+               UPDATE CARDS
+            ========================= */
+
+            document.querySelectorAll(".card-title.text-primary")[0].innerText =
+                Number(t.total_expected || 0).toFixed(2);
+
+            document.querySelectorAll(".card-title.text-success")[0].innerText =
+                Number(t.total_scanned || 0).toFixed(2);
+
+            document.querySelectorAll(".card-title.text-warning")[0].innerText =
+                Number(t.total_variance_qty || 0).toFixed(2);
+
+            document.querySelectorAll(".card-title.text-danger")[0].innerText =
+                Number(t.total_variance_value || 0).toFixed(2);
+
+            /* =========================
+               UPDATE PROGRESS BAR
+            ========================= */
+
+            let expected = Number(t.total_expected || 0);
+            let scanned = Number(t.total_scanned || 0);
+            let progress = expected > 0 ? (scanned / expected) * 100 : 0;
+
+            const progressBar = document.querySelector(".progress-bar");
+            progressBar.style.width = progress + "%";
+            progressBar.innerText = progress.toFixed(1) + "%";
+
+            /* =========================
+               (OPTIONAL) you can extend:
+               - assignments table
+               - recent scans table
+            ========================= */
+
+        })
+        .catch(err => {
+            console.error("Dashboard update failed:", err);
+        });
 }
 
 function startAudit() {
@@ -265,5 +520,25 @@ function startAudit() {
     }
 }
 
-setInterval(updateDashboard, 30000); // Update every 30 seconds
+setInterval(updateDashboard, 10); // Update every 30 seconds
+</script>
+
+<script>
+document.querySelectorAll('.select-all-btn').forEach(button => {
+
+    button.addEventListener('click', function () {
+
+        const staffId = this.dataset.staff;
+
+        document.querySelectorAll(
+            '.staff-radio[data-staff="' + staffId + '"]'
+        ).forEach(radio => {
+
+            radio.checked = true;
+
+        });
+
+    });
+
+});
 </script>
