@@ -4,7 +4,7 @@ session_start();
 
 if (isset($_SESSION['user_id'])) {
             // Redirect to Dashboard if the account is active
-            header("Location: dashboard/");
+            header("Location: audit-automation-module/");
             exit(); // Prevent further script execution after a redirect
     
 }
@@ -164,7 +164,7 @@ if (isset($_SESSION['user_id'])) {
                 if (data.success) {
                     // Login successful, delay redirection by 1.5 seconds
                     setTimeout(() => {
-                        window.location.href = 'dashboard/';
+                        window.location.href = 'audit-automation-module/';
                     }, 1500);
                 } else {
                     // Login failed, show SweetAlert2 error message
