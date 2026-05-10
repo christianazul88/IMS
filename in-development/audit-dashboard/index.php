@@ -27,6 +27,7 @@ if (!isset($_SESSION['audit_id'])) {
     <!-- ===============================================--><!--    Document Title--><!-- ===============================================-->
     <title>LPO</title>
     <?php include "../page_properties/header.php";?>
+    
   </head>
 
   <body>

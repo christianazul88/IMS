@@ -309,7 +309,99 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         }
 
+        // SAVE SCANNED BARCODE TO JSON
+        if (!in_array($barcode, $json_data)) {
+
+            $json_data[] = $barcode;
+
+            // REMOVE DUPLICATES
+            $json_data = array_unique($json_data);
+
+            // SAVE BACK TO FILE
+            file_put_contents(
+                $json_path,
+                json_encode(array_values($json_data), JSON_PRETTY_PRINT)
+            );
+
+        }
+
+        // Add to items_to_audit with scanned status
+        $insert_item_audit = "
+            INSERT INTO items_to_audit 
+            (
+                audit_id, 
+                unique_barcode, 
+                audit_status,
+                scanned_date
+            ) 
+            VALUES (?, ?, 'scanned', NOW())
+        ";
+        $stmt = $conn->prepare($insert_item_audit);
+        $stmt->bind_param("is", $audit_id, $barcode);
+        $stmt->execute();
+
+
+        // =========================================================
+        // UPDATE AUDIT SUMMARY
+        // =========================================================
+        $parts = explode("-", $barcode);
+        $parent = $parts[0];
+
+        $get_audit_item_info = "
+            SELECT * 
+            FROM audit_items 
+            WHERE audit_id = ? 
+            AND parent_barcode = ? 
+            LIMIT 1
+        ";
+
+        $stmt = $conn->prepare($get_audit_item_info);
+        $stmt->bind_param("is", $audit_id, $parent);
+        $stmt->execute();
+
+        $row = $stmt->get_result()->fetch_assoc();
+
+        $expected_qty = $row['expected_qty'];
+        $scanned_qty = $row['scanned_qty'] + 1;
+        $scanned_outbounded_qty = $row['scanned_outbounded_qty'] + 1;
+
+        $variance = $expected_qty - $scanned_qty;
+
+        $variance_value = $row['unit_cost'] * $variance;
+        $scanned_value = $row['unit_cost'] * $scanned_qty;
+
+        $update_audit_items = "
+            UPDATE audit_items 
+            SET scanned_qty = ?,
+                variance_qty = ?,
+                variance_value = ?,
+                scanned_value = ?,
+                scanned_outbounded_qty = ?
+            WHERE audit_id = ?
+            AND parent_barcode = ?
+        ";
+
+        $stmt = $conn->prepare($update_audit_items);
+
+        $stmt->bind_param(
+            "iddddis",
+            $scanned_qty,
+            $variance,
+            $variance_value,
+            $scanned_value,
+            $scanned_outbounded_qty,
+            $audit_id,
+            $parent
+        );
+
+        $stmt->execute();
+
+        
+        
+
+
     } else {
+        echo "Scan successful for barcode: " . htmlspecialchars($barcode);
 
         // =========================================================
         // ITEM EXISTS IN AUDIT
@@ -336,18 +428,67 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         }
 
+        $matched_location = false;
+        //check $barcode location id
+        $check_barcode_details = "
+            SELECT item_location 
+            FROM stocks
+            WHERE unique_barcode = ?
+            LIMIT 1;";
+        $stmt = $conn->prepare($check_barcode_details);
+        $stmt->bind_param("s", $barcode);
+        $stmt->execute();
+        $barcode_details_result = $stmt->get_result();
+        if ($barcode_details_result->num_rows === 0) {
+            // die("Barcode details not found.");
+            echo "DENIED: Barcode details not found.";
+        } else {
+            $barcode_details = $barcode_details_result->fetch_assoc();
+            $item_location_id = $barcode_details['item_location'];
+
+            //check if $item_location_id matches selected area
+            if ($item_location_id != $selected_area) {
+                $matched_location = false;
+                
+                // exit;
+            } else {
+                $matched_location = true;
+            }
+        }
+
         // =========================================================
         // UPDATE ITEM TO SCANNED
         // =========================================================
-        $update_item_audit = "
-            UPDATE items_to_audit 
-            SET audit_status = 'scanned' 
-            WHERE audit_id = ? 
-            AND unique_barcode = ?
-        ";
+        if ($matched_location === false) {
+            $update_item_audit = "
+                UPDATE items_to_audit 
+                SET audit_status = 'scanned',
+                    scanned_date = NOW(),
+                    belong_to_other_location = 'yes',
+                    belong_to_type = 'item_location',
+                    belong_to_value = ?
+                WHERE audit_id = ? 
+                AND unique_barcode = ?
+            ";
+            $stmt = $conn->prepare($update_item_audit);
+            $stmt->bind_param("sis", $item_location_id, $audit_id, $barcode);
+        } else {
+            $update_item_audit = "
+                UPDATE items_to_audit 
+                SET audit_status = 'scanned',
+                    scanned_date = NOW(),
+                    belong_to_other_location = 'no',
+                    belong_to_type = NULL,
+                    belong_to_value = NULL
+                WHERE audit_id = ? 
+                AND unique_barcode = ?
+            ";
+            $stmt = $conn->prepare($update_item_audit);
+            $stmt->bind_param("is", $audit_id, $barcode);
+        }
+        
 
-        $stmt = $conn->prepare($update_item_audit);
-        $stmt->bind_param("is", $audit_id, $barcode);
+        
 
         if ($stmt->execute()) {
 
@@ -373,6 +514,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $expected_qty = $row['expected_qty'];
             $scanned_qty = $row['scanned_qty'] + 1;
+            $scanned_outbounded_qty = $row['scanned_outbounded_qty'] + 1;
 
             $variance = $expected_qty - $scanned_qty;
 

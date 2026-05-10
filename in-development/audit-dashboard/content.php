@@ -45,6 +45,19 @@ $stmt->execute();
 $totals = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
+$variance_query = "SELECT 
+    SUM(CASE WHEN variance_qty > 0 THEN variance_qty ELSE 0 END) as positive_variance,
+    SUM(CASE WHEN variance_qty < 0 THEN ABS(variance_qty) ELSE 0 END) as negative_variance,
+    SUM(CASE WHEN variance_qty = 0 THEN 1 ELSE 0 END) as zero_variance
+FROM audit_items 
+WHERE audit_id = ?";
+
+$stmt = $conn->prepare($variance_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$variance = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
 // Fetch assignments
 $assignments_query = "SELECT aa.*, u.user_fname, u.user_lname, w.warehouse_name, il.location_name FROM audit_assignments aa LEFT JOIN users u ON aa.user_id = u.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN warehouse w ON aa.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN item_location il ON aa.item_location = il.id  WHERE aa.audit_id = ?";
 $stmt = $conn->prepare($assignments_query);
@@ -135,6 +148,32 @@ if (!$audit_log_timestamp) {
 $warehouse_id_audit = $audit['warehouse'];
 ?>
 
+<div class="row mb-4">
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Scan vs Expected Overview</div>
+            <div class="card-body">
+                <div style="height: 250px;">
+                    <canvas id="scanChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Variance Distribution</div>
+            <div class="card-body">
+            <div style="height: 250px;">
+                <canvas id="varianceChart"></canvas>
+            </div>
+        </div>
+        </div>
+    </div>
+
+</div>
+
 <!-- Overview Cards -->
 <div class="row mb-4">
     <div class="col-md-3">
@@ -193,7 +232,7 @@ $warehouse_id_audit = $audit['warehouse'];
         <h6 class="mb-0">Audit Assignments</h6>
         <div class="row">
             <div class="col-md-12 text-end mt-2">
-                <!-- <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignModal">Assign Staff</button> -->
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignModal">Assign Staff</button>
             </div>
         </div>
     </div>
@@ -209,34 +248,35 @@ $warehouse_id_audit = $audit['warehouse'];
                         <th>Assigned At</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php foreach ($assignments as $assignment): ?>
+                <tbody id="assignmentsTableBody">
+                <!-- <tbody>
+                    <?php // foreach ($assignments as $assignment): ?>
                     <tr>
-                        <td><?php echo $assignment['user_fname'] . ' ' . $assignment['user_lname']; ?></td>
-                        <td><?php echo $assignment['warehouse_name']; ?></td>
+                        <td><?php // echo $assignment['user_fname'] . ' ' . $assignment['user_lname']; ?></td>
+                        <td><?php //echo $assignment['warehouse_name']; ?></td>
                         <td>
                             <?php 
-                            if($assignment['status'] == 'pending' || $assignment['status'] == 'in_progress') {
-                                echo $assignment['location_name'];
-                            } else {
+                            //if($assignment['status'] == 'pending' || $assignment['status'] == 'in_progress') {
+                              //  echo $assignment['location_name'];
+                            //} else {
                             ?>
-                            <a href="../finish/?audit_id=<?php echo $audit_id; ?>&area=<?php echo $assignment['item_location'];?>"><?php echo $assignment['location_name']; ?></a>
+                            <a href="../finish/?audit_id=<?php// echo $audit_id; ?>&area=<?php// echo $assignment['item_location'];?>"><?php echo $assignment['location_name']; ?></a>
                             <?php
-                            }
+                            //}
                             ?>
                             
                         </td>
                         <td>
                             <span class="badge bg-<?php 
-                                echo $assignment['status'] == 'pending' ? 'secondary' : 
-                                     ($assignment['status'] == 'in_progress' ? 'primary' : 
-                                     ($assignment['status'] == 'approved' ? 'success' : 'warning')); 
-                            ?>"><?php echo ucfirst(str_replace('_', ' ', $assignment['status'])); ?></span>
+                              //  echo $assignment['status'] == 'pending' ? 'secondary' : 
+                                //     ($assignment['status'] == 'in_progress' ? 'primary' : 
+                                  //   ($assignment['status'] == 'approved' ? 'success' : 'warning')); 
+                            ?>"><?php// echo ucfirst(str_replace('_', ' ', $assignment['status'])); ?></span>
                         </td>
-                        <td><?php echo date('M d, Y H:i', strtotime($assignment['date_assigned'])); ?></td>
+                        <td><?php //echo date('M d, Y H:i', strtotime($assignment['date_assigned'])); ?></td>
                     </tr>
-                    <?php endforeach; ?>
-                </tbody>
+                    <?php// endforeach; ?>
+                </tbody> -->
             </table>
         </div>
     </div>
@@ -258,16 +298,7 @@ $warehouse_id_audit = $audit['warehouse'];
                         <th>Scanned At</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php foreach ($scans as $scan): ?>
-                    <tr>
-                        <td><?php echo $scan['unique_barcode']; ?></td>
-                        <td><span class="badge bg-<?php echo $scan['audit_status'] == 'scanned' ? 'success' : 'secondary'; ?>"><?php echo ucfirst($scan['audit_status']); ?></span></td>
-                        <td><?php echo $scan['belong_to_other_location'] == 'yes' ? 'Yes' : 'No'; ?></td>
-                        <td><?php echo $scan['scanned_date'] ? date('M d, Y H:i', strtotime($scan['scanned_date'])) : '-'; ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
+                <tbody id="recentScansTableBody">
             </table>
         </div>
     </div>
@@ -433,9 +464,9 @@ $warehouse_id_audit = $audit['warehouse'];
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
           Cancel
         </button>
-        <button type="button" class="btn btn-success px-4" onclick="assignStaff()">
+        <!-- <button type="button" class="btn btn-success px-4" onclick="assignStaff()">
           Assign Staff
-        </button>
+        </button> -->
       </div>
 
     </div>
@@ -444,101 +475,384 @@ $warehouse_id_audit = $audit['warehouse'];
 
 
 <script>
-// For real-time updates (static for now, but structure ready)
 function updateDashboard() {
+
 
     fetch('audit_dashboard_data.php?audit_id=<?php echo $audit_id; ?>')
         .then(res => res.json())
         .then(data => {
 
-            const t = data.totals;
+
+        // UPDATE SCAN CHART
+        scanChart.data.datasets[0].data = [
+            Number(data.totals.total_expected || 0),
+            Number(data.totals.total_scanned || 0)
+        ];
+        scanChart.update();
+
+        // UPDATE VARIANCE CHART (if you include variance in JSON)
+        varianceChart.data.datasets[0].data = [
+            Number(data.variance.positive_variance || 0),
+            Number(data.variance.negative_variance || 0),
+            Number(data.variance.zero_variance || 0)
+        ];
+        varianceChart.update();
+            
+        const t = data.totals;
+
+        /* =========================
+            UPDATE CARDS
+        ========================= */
+
+        document.querySelectorAll(".card-title.text-primary")[0].innerText =
+            Number(t.total_expected || 0).toFixed(2);
+
+        document.querySelectorAll(".card-title.text-success")[0].innerText =
+            Number(t.total_scanned || 0).toFixed(2);
+
+        document.querySelectorAll(".card-title.text-warning")[0].innerText =
+            Number(t.total_variance_qty || 0).toFixed(2);
+
+        document.querySelectorAll(".card-title.text-danger")[0].innerText =
+            Number(t.total_variance_value || 0).toFixed(2);
+
+        /* =========================
+            UPDATE PROGRESS BAR
+        ========================= */
+
+        let expected = Number(t.total_expected || 0);
+        let scanned = Number(t.total_scanned || 0);
+        let progress = expected > 0 ? (scanned / expected) * 100 : 0;
+
+        const progressBar = document.querySelector(".progress-bar");
+
+        progressBar.style.width = progress + "%";
+        progressBar.innerText = progress.toFixed(1) + "%";
+        progressBar.setAttribute("aria-valuenow", progress);
+
+        /* =========================
+            UPDATE ASSIGNMENTS TABLE
+        ========================= */
+
+        if (data.assignments) {
+
+            let assignmentsHTML = '';
+
+            data.assignments.forEach(assignment => {
+
+                let badgeClass = 'secondary';
+
+                if (assignment.status === 'in_progress') {
+                    badgeClass = 'primary';
+                } else if (assignment.status === 'approved') {
+                    badgeClass = 'success';
+                } else if (assignment.status === 'rejected') {
+                    badgeClass = 'warning';
+                }
+
+                let locationHTML = '';
+
+                if (
+                    assignment.status === 'pending' ||
+                    assignment.status === 'in_progress'
+                ) {
+
+                    locationHTML = assignment.location_name;
+
+                } else {
+
+                    locationHTML =
+                        `<a href="../finish/?audit_id=<?php echo $audit_id; ?>&area=${assignment.item_location}">
+                            ${assignment.location_name}
+                        </a>`;
+                }
+
+                assignmentsHTML += `
+                    <tr>
+                        <td>
+                            ${assignment.user_fname} ${assignment.user_lname}
+                        </td>
+
+                        <td>
+                            ${assignment.warehouse_name}
+                        </td>
+
+                        <td>
+                            ${locationHTML}
+                        </td>
+
+                        <td>
+                            <span class="badge bg-${badgeClass}">
+                                ${assignment.status.replace('_', ' ')}
+                            </span>
+                        </td>
+
+                        <td>
+                            ${formatDate(assignment.date_assigned)}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('assignmentsTableBody').innerHTML =
+                assignmentsHTML;
+            }
 
             /* =========================
-               UPDATE CARDS
+               UPDATE RECENT SCANS
             ========================= */
 
-            document.querySelectorAll(".card-title.text-primary")[0].innerText =
-                Number(t.total_expected || 0).toFixed(2);
+            if (data.recent_scans) {
 
-            document.querySelectorAll(".card-title.text-success")[0].innerText =
-                Number(t.total_scanned || 0).toFixed(2);
+                let scansHTML = '';
 
-            document.querySelectorAll(".card-title.text-warning")[0].innerText =
-                Number(t.total_variance_qty || 0).toFixed(2);
+                data.recent_scans.forEach(scan => {
 
-            document.querySelectorAll(".card-title.text-danger")[0].innerText =
-                Number(t.total_variance_value || 0).toFixed(2);
+                    let badgeClass =
+                        scan.audit_status === 'scanned'
+                            ? 'success'
+                            : 'secondary';
 
-            /* =========================
-               UPDATE PROGRESS BAR
-            ========================= */
+                    scansHTML += `
+                        <tr>
 
-            let expected = Number(t.total_expected || 0);
-            let scanned = Number(t.total_scanned || 0);
-            let progress = expected > 0 ? (scanned / expected) * 100 : 0;
+                            <td>
+                                ${scan.unique_barcode}
+                            </td>
 
-            const progressBar = document.querySelector(".progress-bar");
-            progressBar.style.width = progress + "%";
-            progressBar.innerText = progress.toFixed(1) + "%";
+                            <td>
+                                <span class="badge bg-${badgeClass}">
+                                    ${capitalize(scan.audit_status)}
+                                </span>
+                            </td>
 
-            /* =========================
-               (OPTIONAL) you can extend:
-               - assignments table
-               - recent scans table
-            ========================= */
+                            <td>
+                                ${scan.belong_to_other_location === 'yes'
+                                    ? 'Yes'
+                                    : 'No'}
+                            </td>
+
+                            <td>
+                                ${scan.scanned_date
+                                    ? formatDate(scan.scanned_date)
+                                    : '-'}
+                            </td>
+
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('recentScansTableBody').innerHTML =
+                    scansHTML;
+            }
 
         })
         .catch(err => {
             console.error("Dashboard update failed:", err);
         });
+
+
 }
 
-function startAudit() {
-    if (confirm('Are you sure you want to start the audit? This action cannot be undone.')) {
-        const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
-        loadingModal.show();
-        
-        fetch('start_audit.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ audit_id: <?php echo $audit_id; ?> })
-        })
-        .then(response => response.json())
-        .then(data => {
-            loadingModal.hide();
-            if (data.success) {
-                alert('Audit started successfully!');
-                location.reload();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            loadingModal.hide();
-            alert('Error starting audit: ' + error);
-        });
-    }
+/* =========================
+   HELPERS
+========================= */
+
+function capitalize(text) {
+
+    if (!text) return '';
+
+    return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-setInterval(updateDashboard, 10); // Update every 30 seconds
+function formatDate(dateString) {
+
+    const date = new Date(dateString);
+
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+/* =========================
+   AUTO REFRESH
+========================= */
+
+updateDashboard();
+
+
+
+
+setInterval(updateDashboard, 10000);
 </script>
 
 <script>
-document.querySelectorAll('.select-all-btn').forEach(button => {
+function startAudit() {
 
-    button.addEventListener('click', function () {
+    if (!confirm('Are you sure you want to start the audit?')) {
+        return;
+    }
 
-        const staffId = this.dataset.staff;
+    const loadingModal = new bootstrap.Modal(
+        document.getElementById('loadingModal')
+    );
 
-        document.querySelectorAll(
-            '.staff-radio[data-staff="' + staffId + '"]'
-        ).forEach(radio => {
+    loadingModal.show();
 
-            radio.checked = true;
+    fetch('start_audit.php', {
 
-        });
+        method: 'POST',
+
+        headers: {
+            'Content-Type': 'application/json'
+        },
+
+        body: JSON.stringify({
+            audit_id: <?php echo $audit_id; ?>
+        })
+
+    })
+    .then(response => response.json())
+    .then(data => {
+
+        loadingModal.hide();
+
+        if (data.success) {
+
+            alert('Audit started successfully.');
+
+            location.reload();
+
+        } else {
+
+            alert(data.message || 'Failed to start audit.');
+
+        }
+
+    })
+    .catch(error => {
+
+        loadingModal.hide();
+
+        console.error(error);
+
+        alert('Error starting audit.');
 
     });
+}
+</script>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const scanCtx = document.getElementById('scanChart').getContext('2d');
+
+const scanChart = new Chart(scanCtx, {
+    type: 'bar',
+    data: {
+        labels: ['Expected', 'Scanned'],
+        datasets: [{
+            label: 'Quantity',
+            data: [
+                <?php echo (float)($totals['total_expected'] ?? 0); ?>,
+                <?php echo (float)($totals['total_scanned'] ?? 0); ?>
+            ],
+            backgroundColor: [
+                '#0d6efd', // expected - blue
+                '#198754'  // scanned - green
+            ],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
 });
 </script>
+
+
+<script>
+const varianceCtx = document.getElementById('varianceChart').getContext('2d');
+
+const varianceChart = new Chart(varianceCtx, {
+    type: 'pie',
+    data: {
+        labels: ['Positive Variance', 'Negative Variance', 'No Variance'],
+        datasets: [{
+            data: [
+                <?php echo (float)($variance['positive_variance'] ?? 0); ?>,
+                <?php echo (float)($variance['negative_variance'] ?? 0); ?>,
+                <?php echo (float)($variance['zero_variance'] ?? 0); ?>
+            ],
+            backgroundColor: [
+                '#ffc107', // yellow
+                '#dc3545', // red
+                '#198754'  // green
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+</script>
+
+
+<!-- below are the databases samples:
+audit_logs
+id,audit_num,warehouse,audit_status,schedule_date,created_by,updated_by,date_created,updated_at,deleted_at,
+1,1001,6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b3081...,active,2026-05-11 00:00:00,6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c0...,6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c0...,2026-05-11 00:42:52,2026-05-11 00:42:59,NULL
+
+audit_assignments
+id,audit_id,user_id,warehouse,item_location,statusdate_assigned,approved_by,approved_at,remarks
+1,1,6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c0...,6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b3081...,259,approved,2026-05-11 00:43:09,NULL,NULL,NULL,
+
+
+audit_assignment_logs
+id, user_id, audit_assignment_id, date_time, status, remarks
+1, hss, 1, 2026-05-11 00:43:28, start, null
+2, hss, 1, 2026-05-11 01:15:42, pause, null
+3, hss, 1, 2026-05-11 01:20:10, resume, null
+4, hss, 1, 2026-05-11 02:00:00, pause, null
+5, hss, 1, 2026-05-11 02:10:00, resume, null
+6, hss, 1, 2026-05-11 03:00:00, end, null
+
+audit_items
+id,audit_id,parent_barcode,expected_qty,scanned_qty,variance_qty,scanned_outbounded_qt,variance_value,unit_cost,scanned_value,item_location,last_scanned_at,
+1,1,6386029,3.00,3.00,0.00,0.00,0.00,55.00,165.00,NULL,NULL,
+
+items_to_audit
+id,audit_id,unique_barcode,audit_status,belong_to_other_location,belong_to_type,belong_to_value,scanned_date,
+1,1,6386029-3,scanned,yes,item_location,2026-05-11 00:50:56
+2,1,6386029-4,pending,yes,item_location,2026-05-11 00:51:09
+3,1,6386029-5,scanned,yes,item_location,2026-05-11 00:51:13
+4,1,6386029-2,scanned,NULL,NULL,NULL,2026-05-11 00:43:51
+
+
+audit_logs_timestamps
+id,audit_id,date_time,status
+1,1,2026-05-11 00:42:52,start
+2,1,2026-05-11 01:15:42,pause
+3,1,2026-05-11 01:20:10,resume
+4,1,2026-05-11 02:00:00,pause
+5,1,2026-05-11 02:10:00,resume
+6,1,2026-05-11 03:00:00,end -->

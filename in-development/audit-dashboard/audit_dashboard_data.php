@@ -28,6 +28,22 @@ $stmt->execute();
 $totals = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
+
+$variance_query = "SELECT 
+    SUM(CASE WHEN variance_qty > 0 THEN variance_qty ELSE 0 END) as positive_variance,
+    SUM(CASE WHEN variance_qty < 0 THEN ABS(variance_qty) ELSE 0 END) as negative_variance,
+    SUM(CASE WHEN variance_qty = 0 THEN 1 ELSE 0 END) as zero_variance
+FROM audit_items 
+WHERE audit_id = ?";
+
+$stmt = $conn->prepare($variance_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$variance = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+
+
 /* =========================
    ASSIGNMENTS
 ========================= */
@@ -78,5 +94,6 @@ $stmt->close();
 echo json_encode([
     "totals" => $totals,
     "assignments" => $assignments,
-    "scans" => $scans
+    "recent_scans" => $scans,
+    "variance" => $variance
 ]);

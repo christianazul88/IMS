@@ -125,67 +125,260 @@ foreach ($grouped as $parent => $data) {
     $product_cache[$parent] = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 }
+
+$total_time = 0;
+// id, user_id, audit_assignment_id, date_time, status, remarks
+// 1, hss, 14, 2026-05-11 00:43:28, start, null
+// 2, hss, 14, 2026-05-11 01:15:42, pause, null
+// 3, hss, 14, 2026-05-11 01:20:10, resume, null
+// 4, hss, 14, 2026-05-11 02:00:00, pause, null
+// 5, hss, 14, 2026-05-11 02:10:00, resume, null
+// 6, hss, 14, 2026-05-11 03:00:00, end, null
+
+
+// ======================================================
+// GET AUDIT LOGS
+// ======================================================
+
+$get_logs_query = "
+    SELECT *
+    FROM audit_assignment_logs
+    WHERE audit_assignment_id = ?
+    ORDER BY date_time ASC
+";
+
+$stmt = $conn->prepare($get_logs_query);
+$stmt->bind_param("i", $audit_assignment_id);
+$stmt->execute();
+
+$result = $stmt->get_result();
+
+$logs = [];
+
+while ($row = $result->fetch_assoc()) {
+    $logs[] = $row;
+}
+
+$stmt->close();
+
+// ======================================================
+// CALCULATE TOTAL ACTIVE TIME
+// ======================================================
+
+$total_active_seconds = 0;
+$total_pause_seconds = 0;
+
+$active_start = null;
+$pause_start = null;
+
+foreach ($logs as $log) {
+
+    $status = $log['status'];
+    $time = strtotime($log['date_time']);
+
+    // START / RESUME
+    if ($status === 'start' || $status === 'resume') {
+
+        $active_start = $time;
+
+        // END PAUSE TIMER
+        if ($pause_start !== null) {
+
+            $total_pause_seconds += ($time - $pause_start);
+            $pause_start = null;
+        }
+    }
+
+    // PAUSE
+    elseif ($status === 'pause') {
+
+        if ($active_start !== null) {
+
+            $total_active_seconds += ($time - $active_start);
+            $active_start = null;
+        }
+
+        $pause_start = $time;
+    }
+
+    // END
+    elseif ($status === 'end') {
+
+        if ($active_start !== null) {
+
+            $total_active_seconds += ($time - $active_start);
+            $active_start = null;
+        }
+    }
+}
+
+// ======================================================
+// FORMAT TIME
+// ======================================================
+
+$total_minutes = floor($total_active_seconds / 60);
+
+$hours = floor($total_minutes / 60);
+$minutes = $total_minutes % 60;
+
+$formatted_time = "";
+
+if ($hours > 0) {
+    $formatted_time .= $hours . " hr ";
+}
+
+$formatted_time .= $minutes . " min";
+
+// TOTAL PAUSE
+
+$total_pause_minutes = floor($total_pause_seconds / 60);
+
+$pause_hours = floor($total_pause_minutes / 60);
+$pause_minutes = $total_pause_minutes % 60;
+
+$formatted_pause = "";
+
+if ($pause_hours > 0) {
+    $formatted_pause .= $pause_hours . " hr ";
+}
+
+$formatted_pause .= $pause_minutes . " min";
 ?>
 
 <style>
+
 body {
-    font-family: monospace;
-    background: #f5f5f5;
+    background: #eceff1;
+    font-family: 'Courier New', monospace;
     padding: 20px;
 }
 
 .receipt {
     background: #fff;
-    max-width: 550px;
+    max-width: 700px;
     margin: auto;
-    padding: 20px;
-    border: 1px dashed #000;
+    padding: 25px;
+    border-radius: 10px;
+    border: 2px dashed #000;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
 }
 
-.center {
+.receipt-header {
     text-align: center;
 }
 
+.receipt-header h2 {
+    margin: 0;
+    font-size: 28px;
+    letter-spacing: 2px;
+}
+
+.receipt-header p {
+    margin: 3px 0;
+    font-size: 13px;
+    color: #666;
+}
+
 .line {
-    border-top: 1px dashed #000;
-    margin: 10px 0;
+    border-top: 1px dashed #777;
+    margin: 15px 0;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fafafa;
+}
+
+.summary-card small {
+    display: block;
+    color: #777;
+    margin-bottom: 5px;
+}
+
+.summary-card strong {
+    font-size: 18px;
 }
 
 .group {
+    border: 1px dashed #ccc;
+    border-radius: 8px;
+    padding: 12px;
     margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px dashed #ccc;
+    background: #fcfcfc;
 }
 
 .header {
     display: flex;
     justify-content: space-between;
     font-weight: bold;
+    font-size: 15px;
 }
 
 .sequences {
+    margin-top: 6px;
     font-size: 12px;
-    color: #333;
-    margin-top: 3px;
+    color: #444;
+    word-break: break-word;
+    line-height: 1.5;
 }
 
 .product-info {
+    margin-top: 8px;
     font-size: 12px;
     color: #666;
-    margin-top: 3px;
+    line-height: 1.5;
 }
 
-.btns {
+.timeline {
+    margin-top: 20px;
+}
+
+.timeline-item {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed #ddd;
+    padding: 6px 0;
+    font-size: 13px;
+}
+
+.print-btn {
     width: 100%;
-    padding: 10px;
-    background: green;
-    color: white;
+    padding: 12px;
     border: none;
+    background: #198754;
+    color: white;
+    font-weight: bold;
+    border-radius: 8px;
+    margin-bottom: 20px;
     cursor: pointer;
-    margin-bottom: 10px;
+}
+
+.print-btn:hover {
+    opacity: 0.9;
+}
+
+.footer-note {
+    text-align: center;
+    font-size: 12px;
+    color: #777;
+    margin-top: 20px;
 }
 
 @media print {
+
+    body {
+        background: white;
+        padding: 0;
+    }
 
     body * {
         visibility: hidden;
@@ -203,11 +396,19 @@ body {
         width: 100%;
     }
 
-    .btn {
+    .btn,
+    .print-btn {
         display: none !important;
     }
+
+    .receipt {
+        box-shadow: none;
+        border-radius: 0;
+    }
 }
+
 </style>
+
 
 <div class="row mb-3">
     <div class="col-3">
@@ -218,25 +419,71 @@ body {
 
 <div class="receipt">
 
-    <button class="btns" onclick="window.print()">PRINT RECEIPT</button>
+    <button class="print-btn" onclick="window.print()">
+        PRINT RECEIPT
+    </button>
 
-    <div class="center">
-        <h3>AUDIT RECEIPT</h3>
-        <p>Area: <?php echo htmlspecialchars($selected_area); ?></p>
+    <div class="receipt-header">
+        <h2>AUDIT RECEIPT</h2>
+
+        <p>
+            Warehouse:
+            <?php echo htmlspecialchars($audit['warehouse_name']); ?>
+        </p>
+
+        <p>
+            Area:
+            <?php echo htmlspecialchars($selected_area); ?>
+        </p>
+
+        <p>
+            Date:
+            <?php echo date('M d, Y h:i A'); ?>
+        </p>
+    </div>
+
+    <div class="line"></div>
+
+    <div class="summary-grid">
+
+        <div class="summary-card">
+            <small>Total Scanned</small>
+            <strong><?php echo number_format($total); ?></strong>
+        </div>
+
+        <div class="summary-card">
+            <small>Unique Products</small>
+            <strong><?php echo number_format(count($grouped)); ?></strong>
+        </div>
+
+        <div class="summary-card">
+            <small>Active Audit Time</small>
+            <strong><?php echo $formatted_time; ?></strong>
+        </div>
+
+        <div class="summary-card">
+            <small>Paused Time</small>
+            <strong><?php echo $formatted_pause; ?></strong>
+        </div>
+
     </div>
 
     <div class="line"></div>
 
     <?php if (empty($grouped)): ?>
 
-        <p class="center">No scanned items yet.</p>
+        <p style="text-align:center;">
+            No scanned items found.
+        </p>
 
     <?php else: ?>
 
         <?php foreach ($grouped as $parent => $data): ?>
 
-            <?php $info = $product_cache[$parent] ?? null; ?>
-            <?php $seqList = implode(", ", $data["sequences"]); ?>
+            <?php
+            $info = $product_cache[$parent] ?? null;
+            $seqList = implode(", ", $data["sequences"]);
+            ?>
 
             <div class="group">
 
@@ -246,20 +493,40 @@ body {
                 </div>
 
                 <div class="sequences">
-                    Sequences: <?php echo htmlspecialchars($seqList); ?>
+                    <strong>Sequences:</strong>
+                    <?php echo htmlspecialchars($seqList); ?>
                 </div>
 
                 <div class="product-info">
+
                     <?php if ($info): ?>
-                        <?php echo htmlspecialchars(
-                            $info['description'] . " | " .
-                            $info['category_name'] . " | " .
-                            $info['brand_name'] . " | $" .
-                            number_format($info['capital'], 2)
-                        ); ?>
+
+                        <div>
+                            <strong>Description:</strong>
+                            <?php echo htmlspecialchars($info['description']); ?>
+                        </div>
+
+                        <div>
+                            <strong>Category:</strong>
+                            <?php echo htmlspecialchars($info['category_name']); ?>
+                        </div>
+
+                        <div>
+                            <strong>Brand:</strong>
+                            <?php echo htmlspecialchars($info['brand_name']); ?>
+                        </div>
+
+                        <div>
+                            <strong>Capital:</strong>
+                            ₱<?php echo number_format($info['capital'], 2); ?>
+                        </div>
+
                     <?php else: ?>
-                        No product info found
+
+                        Product information unavailable.
+
                     <?php endif; ?>
+
                 </div>
 
             </div>
@@ -270,14 +537,34 @@ body {
 
     <div class="line"></div>
 
-    <div class="header">
-        <span>Total Items</span>
-        <span><?php echo $total; ?></span>
+    <div class="timeline">
+
+        <h4 style="margin-bottom:10px;">
+            AUDIT TIMELINE
+        </h4>
+
+        <?php foreach ($logs as $log): ?>
+
+            <div class="timeline-item">
+
+                <span>
+                    <?php echo strtoupper($log['status']); ?>
+                </span>
+
+                <span>
+                    <?php echo date('M d, Y h:i:s A', strtotime($log['date_time'])); ?>
+                </span>
+
+            </div>
+
+        <?php endforeach; ?>
+
     </div>
 
-    <p class="center" style="font-size:12px;color:#666;">
-        Live Audit System
-    </p>
+    <div class="footer-note">
+        Live Audit System<br>
+        Generated Receipt
+    </div>
 
 </div>
 

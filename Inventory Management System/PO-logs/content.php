@@ -15,7 +15,7 @@ if(isset($_SESSION['po_list'])){
     </div>
 </div>
 </div> -->
-<div class="card">
+<div class="card p-1">
   <div class="card-header bg-warning">
     <h2 class="text-white">Purchased Order Logs</h2>
   </div>
@@ -57,7 +57,7 @@ if(isset($_SESSION['po_list'])){
         LEFT JOIN supplier s ON s.hashed_id = po.supplier
         LEFT JOIN warehouse wh ON wh.hashed_id = po.warehouse
         WHERE po.warehouse IN ($imploded_warehouse_ids)
-        ORDER BY po.id DESC";
+        ORDER BY po.id DESC LIMIT 30";
         $purchased_order_res = $conn->query($purchased_order_query);
         if($purchased_order_res->num_rows>0){
           while($row=$purchased_order_res->fetch_assoc()){
