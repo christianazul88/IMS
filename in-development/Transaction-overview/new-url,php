@@ -1,0 +1,189 @@
+<?php 
+error_reporting(E_ALL);
+ini_set('max_execution_time', 300);
+ini_set('memory_limit', '4G');
+ini_set('display_errors', 1); 
+ini_set('pcre.backtrack_limit', '10000000');
+
+include "../config/database.php";
+include "../config/on_session.php";
+
+header('Content-Type: text/csv');
+header('Content-Disposition: attachment; filename="transactions_' . date('Ymd_His') . '.csv"');
+
+$from = htmlspecialchars($_GET['from'] ?? '');
+$to = htmlspecialchars($_GET['to'] ?? '');
+$raw_category = $_GET['category'] ?? '';
+$categories = explode(',', $_GET['category'] ?? '');
+$escaped = array_map(fn($cat) => "'" . trim(htmlspecialchars($cat, ENT_QUOTES)) . "'", $categories);
+$imploded_category = implode(',', $escaped);
+$warehouse_transaction = htmlspecialchars($_GET['wh'] ?? '');
+
+$grand_total_qty = 0;
+$grand_total_unit_cost = 0;
+$grand_total_gross = 0;
+$grand_total_net = 0;
+$num = 1;
+
+$output = fopen('php://output', 'w');
+
+// Write header meta row
+fputcsv($output, [
+    'PREPARED BY', $user_fullname,
+    'FROM', date('F j, Y', strtotime($from)),
+    'TO', date('F j, Y', strtotime($to)),
+    'DATE', date('F j, Y')
+]);
+
+// Prepare warehouse name
+if (empty($warehouse_transaction)) {
+    $ware_treans = $imploded_warehouse_names;
+} else {
+    $warehouse_trans_sql = "SELECT warehouse_name FROM warehouse WHERE hashed_id = '$warehouse_transaction' LIMIT 1";
+    $warehouse_trans_res = $conn->query($warehouse_trans_sql);
+    $ware_treans = ($warehouse_trans_res->num_rows > 0) ? $warehouse_trans_res->fetch_assoc()['warehouse_name'] : 'N/A';
+}
+fputcsv($output, ['WAREHOUSE', $ware_treans]);
+
+// Headers
+fputcsv($output, [
+    '#', 'CATEGORY (11 blanks)', '', '', '', '', '', '', '', '', '', '',
+    'QTY', 'SUBTOTAL UNIT COST', 'SUBTOTAL GROSS SALES', 'SUBTOTAL NET INCOME'
+]);
+
+if (empty($raw_category) && empty($warehouse_transaction)) {
+    $category_additional_query = "AND ol.warehouse IN ($user_warehouse_id)";
+    $item_additional_query = "AND ol.warehouse IN ($user_warehouse_id)";
+} elseif (!empty($raw_category) && !empty($warehouse_transaction)) {
+    $category_additional_query = "AND c.hashed_id IN ($raw_category) AND ol.warehouse = '$warehouse_transaction'";
+    $item_additional_query = "AND ol.warehouse = '$warehouse_transaction'";
+} elseif (empty($raw_category) && !empty($warehouse_transaction)) {
+    $category_additional_query = "AND ol.warehouse = '$warehouse_transaction'";
+    $item_additional_query = "AND ol.warehouse = '$warehouse_transaction'";
+}
+
+if ($from && $to) {
+    $category_query = "
+        SELECT 
+            c.hashed_id AS category_id,
+            c.category_name,
+            COUNT(oc.unique_barcode) AS outbounded_qty,
+            SUM(s.capital) AS unit_cost,
+            SUM(oc.sold_price) AS gross_sale
+        FROM category c
+        LEFT JOIN product p ON p.category = c.hashed_id
+        LEFT JOIN stocks s ON s.product_id = p.hashed_id
+        LEFT JOIN outbound_content oc ON oc.unique_barcode = s.unique_barcode
+        LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
+        WHERE
+            s.item_status !=8
+            AND DATE(ol.date_sent) BETWEEN '$from' AND '$to'
+            $category_additional_query
+        GROUP BY c.category_name
+    ";
+
+    $category_result = $conn->query($category_query);
+    if ($category_result->num_rows > 0) {
+        while ($row = $category_result->fetch_assoc()) {
+            $category_id = $row['category_id'];
+            $category_name = $row['category_name'];
+            $outbound_qty = $row['outbounded_qty'];
+            $sub_unit_cost = $row['unit_cost'];
+            $sub_gross = $row['gross_sale'];
+            $sub_netincome = $sub_gross - $sub_unit_cost;
+
+            $grand_total_qty += $outbound_qty;
+            $grand_total_unit_cost += $sub_unit_cost;
+            $grand_total_gross += $sub_gross;
+
+            // Add category row (insert 11 empty columns for colspan)
+            fputcsv($output, [
+                $num, $category_name, '', '', '', '', '', '', '', '', '', '', 
+                $outbound_qty, $sub_unit_cost, $sub_gross, $sub_netincome
+            ]);
+
+            // Subheaders
+            fputcsv($output, [
+                '', 'ORDER #', 'OUTBOUND #', 'CUSTOMER', 'OUTBOUND DATE', 'SUPPLIER', 'LOCAL/IMPORT',
+                'DESCRIPTION', 'BRAND', 'BARCODE', 'BATCH', 'STAFF', 'STATUS',
+                'UNIT COST', 'GROSS SALE', 'NET INCOME'
+            ]);
+
+            // Item query
+            $item_query = "
+                SELECT
+                    oc.unique_barcode,
+                    oc.sold_price,
+                    ol.order_num,
+                    oc.hashed_id AS outbound_num,
+                    ol.customer_fullname,
+                    ol.date_sent,
+                    sup.supplier_name,
+                    sup.local_international,
+                    p.description,
+                    b.brand_name,
+                    s.batch_code,
+                    s.capital,
+                    u.user_fname,
+                    u.user_lname,
+                    oc.status AS outbound_status
+                FROM outbound_content oc
+                LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
+                LEFT JOIN stocks s ON s.unique_barcode = oc.unique_barcode
+                LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
+                LEFT JOIN product p ON p.hashed_id = s.product_id
+                LEFT JOIN brand b ON b.hashed_id = p.brand
+                LEFT JOIN users u ON u.hashed_id = ol.user_id
+                WHERE 
+                    p.category = '$category_id'
+                    AND s.item_status != 8
+                    AND DATE(ol.date_sent) BETWEEN '$from' AND '$to'
+                    $item_additional_query
+                ORDER BY u.user_fname, oc.status ASC
+            ";
+            $item_res = $conn->query($item_query);
+            if ($item_res->num_rows > 0) {
+                while ($row = $item_res->fetch_assoc()) {
+                    $status_map = [
+                        0 => 'Paid',
+                        1 => 'Returned',
+                        2 => 'Voided',
+                        6 => 'Outbounded',
+                    ];
+                    $status = $status_map[$row['outbound_status']] ?? 'Unknown';
+
+                    fputcsv($output, [
+                        '',
+                        $row['order_num'],
+                        $row['outbound_num'],
+                        $row['customer_fullname'],
+                        $row['date_sent'],
+                        $row['supplier_name'],
+                        $row['local_international'],
+                        $row['description'],
+                        $row['brand_name'],
+                        $row['unique_barcode'],
+                        $row['batch_code'],
+                        $row['user_fname'] . ' ' . $row['user_lname'],
+                        $status,
+                        $row['capital'],
+                        $row['sold_price'],
+                        $row['sold_price'] - $row['capital']
+                    ]);
+                }
+            }
+            $num++;
+        }
+
+        // Optionally add total
+        fputcsv($output, ['', '', '', '', '', '', '', '', '', '', '', 'TOTALS', $grand_total_qty, $grand_total_unit_cost, $grand_total_gross, ($grand_total_gross - $grand_total_unit_cost)]);
+    } else {
+        fputcsv($output, ['No Data Available']);
+    }
+} else {
+    fputcsv($output, ['Missing date range']);
+}
+
+fclose($output);
+exit;
+?>

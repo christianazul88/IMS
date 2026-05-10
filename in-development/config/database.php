@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '../../../vendor/autoload.php'; // Adjust path based on your file structure
 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '../../../'); // Adjust path if .env is in a different directory
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__); // Adjust path if .env is in a different directory
 $dotenv->load();
 
 date_default_timezone_set($_ENV['TIMEZONE']);

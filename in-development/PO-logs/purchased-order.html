@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purchase Order</title>
+  <style>
+    body {
+      font-family: 'Calibri', sans-serif; /* Calibri font applied */
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    .logo-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .logo-section img {
+      width: 80px;
+      height: auto;
+    }
+    .company-name {
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      flex: 1;
+    }
+    .barcode-img {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 120px; /* Make the barcode image bigger */
+      height: auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 26px;
+      margin: 0;
+    }
+    .details-table {
+      width: 100%;
+      margin-bottom: 30px;
+    }
+    .details-table td {
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .details-table th {
+      width: 30%;
+      font-weight: bold;
+    }
+    .product-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .product-table th, .product-table td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+    .product-table th {
+      background-color: #f0f0f0;
+    }
+    .footer {
+      margin-top: 20px;
+      text-align: right;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Logo Section -->
+    <div class="logo-section">
+      <img src="../../assets/img/logo/LPO Logo.png" alt="Company Logo">
+      <div class="company-name">
+        <!-- Company name or other text could be here if needed -->
+      </div>
+    </div>
+    
+    <!-- Barcode Image on Top Right Corner -->
+    <img src="barcode.gif" alt="Company Barcode" class="barcode-img">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>Purchase Order</h1>
+    </div>
+
+    <!-- Details Table -->
+    <table class="details-table">
+      <tr>
+        <th style="text-align: left;">P.O #:</th>
+        <td>' . $po_id . '</td>
+        <th style="text-align: left;">Supplier:</th>
+        <td>' . htmlspecialchars($po_supplier) . '</td>
+      </tr>
+      <tr>
+        <th style="text-align: left;">Order Date:</th>
+        <td>2025-01-07</td>
+        <th style="text-align: left;">Ship To:</th>
+        <td>XYZ Warehouse</td>
+      </tr>
+    </table>
+
+    <!-- Product Table with Description, Brand, Category, and Quantity -->
+    <table class="product-table">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Brand</th>
+          <th>Category</th>
+          <th>Quantity</th>
+        </tr>
+      </thead>
+      <tbody>
+        ' . $orderRows . '
+      </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>Prepared by: <span>Michael Yao</span></p>
+    </div>
+  </div>
+</body>
+</html>
