@@ -6,6 +6,10 @@ if (isset($_GET['audit_id'])) {
     $_SESSION['audit_id'] = $_GET['audit_id'];
 }
 
+if(isset($_GET['area'])){
+    $_SESSION['selected_area'] = $_GET['area'];
+}
+
 if (!isset($_SESSION['audit_id'])) {
     header("Location: ../audit-automation-module/");
     exit;

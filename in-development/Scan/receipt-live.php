@@ -9,14 +9,13 @@ $json_file = "../audit_json/" . $audit_id . "-" . $selected_area . ".json";
 
 $barcodes = [];
 
-if(file_exists($json_file)){
+if (file_exists($json_file)) {
 
     $data = json_decode(file_get_contents($json_file), true);
 
-    if(is_array($data)){
+    if (is_array($data)) {
         $barcodes = array_reverse($data);
     }
-
 }
 
 ?>
@@ -69,7 +68,7 @@ if(file_exists($json_file)){
 
     <div class="receipt-line"></div>
 
-    <?php if(empty($barcodes)): ?>
+    <?php if (empty($barcodes)): ?>
 
         <div class="text-center text-muted">
             No scanned items yet.
@@ -77,11 +76,11 @@ if(file_exists($json_file)){
 
     <?php else: ?>
 
-        <?php foreach($barcodes as $index => $code): ?>
+        <?php foreach ($barcodes as $index => $item): ?>
 
             <div class="receipt-item">
                 <span><?php echo count($barcodes) - $index; ?>.</span>
-                <span><?php echo htmlspecialchars($code); ?></span>
+                <span><?php echo htmlspecialchars($item['barcode'] ?? ''); ?></span>
             </div>
 
         <?php endforeach; ?>

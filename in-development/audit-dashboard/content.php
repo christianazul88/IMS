@@ -36,9 +36,13 @@ if ($audit['audit_status'] == 'pending') {
 $totals_query = "SELECT 
     SUM(expected_qty) as total_expected,
     SUM(scanned_qty) as total_scanned,
+    SUM(scanned_outbounded_qty) as total_scanned_outbounded_qty,
+    SUM(scanned_belong_to_other_wh) as total_scanned_belong_to_other_wh,
+    SUM(scanned_belong_to_other_location) as total_scanned_belong_to_other_location,
     SUM(variance_qty) as total_variance_qty,
     SUM(variance_value) as total_variance_value
-FROM audit_items WHERE audit_id = ?";
+FROM audit_items 
+WHERE audit_id = ?";
 $stmt = $conn->prepare($totals_query);
 $stmt->bind_param("i", $audit_id);
 $stmt->execute();
@@ -111,7 +115,7 @@ if (!$audit_log_timestamp) {
 }
 ?>
 
-<div class="card bg-primary text-white mb-3">
+<div class="card bg-warning text-white mb-3">
     <div class="card-body">
         <div class="row">
             <div class="col-4">
@@ -136,6 +140,16 @@ if (!$audit_log_timestamp) {
                 <?php elseif ($last_status === 'end'): ?>
 
                     <span class="badge bg-secondary">Audit Ended</span>
+
+                    <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
+                    class="btn btn-success">
+                    Download Detailed CSV
+                    </a>
+
+                    <a href="generate_summary_report.php?audit_id=<?php echo $audit_id; ?>"
+                    class="btn btn-primary">
+                    Download Summary CSV
+                    </a>
 
                 <?php endif; ?>
             </div>
@@ -176,38 +190,84 @@ $warehouse_id_audit = $audit['warehouse'];
 
 <!-- Overview Cards -->
 <div class="row mb-4">
-    <div class="col-md-3">
+
+    <div class="col-md-4">
         <div class="card text-center">
             <div class="card-body">
-                <h5 class="card-title text-primary"><?php echo number_format($totals['total_expected'] ?? 0, 2); ?></h5>
+                <h5 class="card-title text-primary">
+                    <?php echo number_format($totals['total_expected'] ?? 0, 2); ?>
+                </h5>
                 <p class="card-text">Expected Qty</p>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+
+    <div class="col-md-4 mt-2">
         <div class="card text-center">
             <div class="card-body">
-                <h5 class="card-title text-success"><?php echo number_format($totals['total_scanned'] ?? 0, 2); ?></h5>
+                <h5 class="card-title text-success">
+                    <?php echo number_format($totals['total_scanned'] ?? 0, 2); ?>
+                </h5>
                 <p class="card-text">Scanned Qty</p>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+
+    <div class="col-md-4 mt-2">
         <div class="card text-center">
             <div class="card-body">
-                <h5 class="card-title text-warning"><?php echo number_format($totals['total_variance_qty'] ?? 0, 2); ?></h5>
+                <h5 class="card-title text-info">
+                    <?php echo number_format($totals['total_scanned_outbounded_qty'] ?? 0, 2); ?>
+                </h5>
+                <p class="card-text">Outbounded</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-2 mt-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-secondary">
+                    <?php echo number_format($totals['total_scanned_belong_to_other_wh'] ?? 0, 2); ?>
+                </h5>
+                <p class="card-text">Other WH</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-2 mt-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-dark">
+                    <?php echo number_format($totals['total_scanned_belong_to_other_location'] ?? 0, 2); ?>
+                </h5>
+                <p class="card-text">Other Location</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mt-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-warning">
+                    <?php echo number_format($totals['total_variance_qty'] ?? 0, 2); ?>
+                </h5>
                 <p class="card-text">Variance Qty</p>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+
+    <div class="col-md-4 mt-2">
         <div class="card text-center">
             <div class="card-body">
-                <h5 class="card-title text-danger"><?php echo number_format($totals['total_variance_value'] ?? 0, 2); ?></h5>
+                <h5 class="card-title text-danger">
+                    <?php echo number_format($totals['total_variance_value'] ?? 0, 2); ?>
+                </h5>
                 <p class="card-text">Variance Value</p>
             </div>
         </div>
     </div>
+
 </div>
 
 <!-- Progress Bar -->
@@ -360,96 +420,72 @@ $warehouse_id_audit = $audit['warehouse'];
           Select a staff member for each location. All locations must be assigned before submitting.
         </div>
 
+        <!-- <form id="assignStaffForm" action="assign_staff.php" method="post"> -->
         <form id="assignStaffForm" action="assign_staff.php" method="post">
 
-            <div class="table-responsive">
-                <table class="table table-bordered align-middle text-center">
+            <div class="mb-3">
+                <label class="form-label">Staff</label>
+                <select name="staff_id" class="form-select" required>
+                    <option value="">-- Select Staff --</option>
 
-                    <thead class="table-light">
-                        <tr>
-                            <th>Staff</th>
+                    <?php
+                    $users_Sql = "SELECT hashed_id, user_fname, user_lname
+                                FROM users
+                                WHERE FIND_IN_SET(?, warehouse_access)
+                                AND status IN ('', 1)";
 
-                            <?php
-                            $locations = [];
+                    $stmt_users = $conn->prepare($users_Sql);
+                    $stmt_users->bind_param("s", $warehouse_id_audit);
+                    $stmt_users->execute();
+                    $users_result = $stmt_users->get_result();
 
-                            $locations_Sql = "SELECT id, location_name
-                                            FROM item_location
-                                            WHERE warehouse = ?";
+                    while ($staff = $users_result->fetch_assoc()) {
+                        $staff_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
+                    ?>
+                        <option value="<?php echo htmlspecialchars($staff['hashed_id']); ?>">
+                            <?php echo htmlspecialchars($staff_name); ?>
+                        </option>
+                    <?php } ?>
+                </select>
+            </div>
 
-                            $stmt_locations = $conn->prepare($locations_Sql);
-                            $stmt_locations->bind_param("s", $warehouse_id_audit);
-                            $stmt_locations->execute();
+            <div class="mb-3">
+                <label class="form-label">Item Location</label>
+                <select name="location_id" id="locationSelect" class="form-select" required>
+                    <option value="">-- Select Location --</option>
 
-                            $locations_result = $stmt_locations->get_result();
+                    <?php
+                    $locations_Sql = "SELECT id, location_name
+                          FROM item_location
+                          WHERE warehouse = ?";
 
-                            while ($location = $locations_result->fetch_assoc()) {
-                                $locations[] = $location;
+                    $stmt_locations = $conn->prepare($locations_Sql);
+                    $stmt_locations->bind_param("s", $warehouse_id_audit);
+                    $stmt_locations->execute();
+                    $locations_result = $stmt_locations->get_result();
+                    while ($location = $locations_result->fetch_assoc()) {
+                    ?>
+                        <option value="<?php echo htmlspecialchars($location['id']); ?>">
+                            <?php echo htmlspecialchars($location['location_name']); ?>
+                        </option>
+                    <?php } ?>
 
-                                echo "<th>" . htmlspecialchars($location['location_name']) . "</th>";
-                            }
-                            ?>
+                    <!-- 🔥 IMPORTANT -->
+                    <option value="other">+ Add New Location</option>
+                </select>
+            </div>
 
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-
-                        <?php
-                        $users_Sql = "SELECT user_fname, user_lname, hashed_id
-                                    FROM users
-                                    WHERE FIND_IN_SET(?, warehouse_access)
-                                    AND status IN ('', 1)";
-
-                        $stmt_users = $conn->prepare($users_Sql);
-                        $stmt_users->bind_param("s", $warehouse_id_audit);
-                        $stmt_users->execute();
-
-                        $users_result = $stmt_users->get_result();
-
-                        while ($staff = $users_result->fetch_assoc()) {
-
-                            $staff_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
-                            $staff_id = $staff['hashed_id'];
-                        ?>
-
-                            <tr>
-
-                                <td class="text-start fw-semibold">
-                                    <?php echo htmlspecialchars($staff_name); ?>
-                                </td>
-
-                                <?php foreach ($locations as $location) { ?>
-
-                                    <td>
-
-                                        <input
-                                            class="form-check-input staff-radio"
-                                            type="radio"
-                                            name="location_assignment[<?php echo $location['id']; ?>]"
-                                            value="<?php echo $staff_id; ?>"
-                                            data-staff="<?php echo $staff_id; ?>">
-
-                                    </td>
-
-                                <?php } ?>
-
-                                <td>
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-primary select-all-btn"
-                                        data-staff="<?php echo $staff_id; ?>">
-                                        Select All
-                                    </button>
-                                </td>
-
-                            </tr>
-
-                        <?php } ?>
-
-                    </tbody>
-
-                </table>
+            <!-- 🔥 Optional new location -->
+            <div class="mb-3">
+                <label class="form-label">New Location</label>
+                <input
+                    type="text"
+                    name="new_location"
+                    id="newLocationInput"
+                    class="form-control"
+                    placeholder="Type new location"
+                    disabled
+                >
             </div>
 
             <button type="submit" class="btn btn-success">
@@ -473,6 +509,26 @@ $warehouse_id_audit = $audit['warehouse'];
   </div>
 </div>
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const locationSelect = document.getElementById("locationSelect");
+    const newLocationInput = document.getElementById("newLocationInput");
+
+    locationSelect.addEventListener("change", function () {
+
+        if (this.value === "other") {
+            newLocationInput.disabled = false;
+            newLocationInput.required = true;
+            newLocationInput.focus();
+        } else {
+            newLocationInput.disabled = true;
+            newLocationInput.required = false;
+            newLocationInput.value = "";
+        }
+
+    });
+});
+</script>
 
 <script>
 function updateDashboard() {
@@ -504,16 +560,25 @@ function updateDashboard() {
             UPDATE CARDS
         ========================= */
 
-        document.querySelectorAll(".card-title.text-primary")[0].innerText =
+        document.querySelector(".card-title.text-primary").innerText =
             Number(t.total_expected || 0).toFixed(2);
 
-        document.querySelectorAll(".card-title.text-success")[0].innerText =
+        document.querySelector(".card-title.text-success").innerText =
             Number(t.total_scanned || 0).toFixed(2);
 
-        document.querySelectorAll(".card-title.text-warning")[0].innerText =
+        document.querySelector(".card-title.text-info").innerText =
+            Number(t.total_scanned_outbounded_qty || 0).toFixed(2);
+
+        document.querySelector(".card-title.text-secondary").innerText =
+            Number(t.total_scanned_belong_to_other_wh || 0).toFixed(2);
+
+        document.querySelector(".card-title.text-dark").innerText =
+            Number(t.total_scanned_belong_to_other_location || 0).toFixed(2);
+
+        document.querySelector(".card-title.text-warning").innerText =
             Number(t.total_variance_qty || 0).toFixed(2);
 
-        document.querySelectorAll(".card-title.text-danger")[0].innerText =
+        document.querySelector(".card-title.text-danger").innerText =
             Number(t.total_variance_value || 0).toFixed(2);
 
         /* =========================

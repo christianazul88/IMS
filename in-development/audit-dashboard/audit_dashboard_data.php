@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 include "../config/database.php";
 include "../config/on_session.php";
 
@@ -17,6 +20,9 @@ if (!$audit_id) {
 $totals_query = "SELECT 
     SUM(expected_qty) as total_expected,
     SUM(scanned_qty) as total_scanned,
+    SUM(scanned_outbounded_qty) as total_scanned_outbounded_qty,
+    SUM(scanned_belong_to_other_wh) as total_scanned_belong_to_other_wh,
+    SUM(scanned_belong_to_other_location) as total_scanned_belong_to_other_location,
     SUM(variance_qty) as total_variance_qty,
     SUM(variance_value) as total_variance_value
 FROM audit_items 

@@ -32,6 +32,7 @@ $barcodes = [];
 
 if (file_exists($json_file)) {
     $data = json_decode(file_get_contents($json_file), true);
+
     if (is_array($data)) {
         $barcodes = array_reverse($data);
     }
@@ -47,45 +48,226 @@ $stmt->close();
 $location_status = $audit_info['status'];
 $audit_assignment_id = $audit_info['id'];
 
-if($location_status === "pending" || $location_status === "in_progress"){
-    $update_status_query = "UPDATE audit_assignments SET `status` = 'for_approval' WHERE audit_id = ? AND item_location = ?";
+if ($location_status === "pending" || $location_status === "in_progress") {
+
+    $update_status_query = "
+        UPDATE audit_assignments 
+        SET status = 'for_approval' 
+        WHERE audit_id = ? 
+        AND item_location = ?
+    ";
+
     $stmt = $conn->prepare($update_status_query);
     $stmt->bind_param("ii", $audit_id, $selected_area);
     $stmt->execute();
     $stmt->close();
 }
 
-$check_audit_assignment_logs_query = "SELECT * FROM audit_assignment_logs WHERE audit_assignment_id = ? AND `status` = 'end' LIMIT 1";
+$check_audit_assignment_logs_query = "
+    SELECT * 
+    FROM audit_assignment_logs 
+    WHERE audit_assignment_id = ? 
+    AND status = 'end' 
+    LIMIT 1
+";
+
 $stmt = $conn->prepare($check_audit_assignment_logs_query);
 $stmt->bind_param("i", $audit_assignment_id);
 $stmt->execute();
 $assignment_log = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-if(!$assignment_log){
-    $insert_log_query = "INSERT INTO audit_assignment_logs (audit_assignment_id, `status`, date_time, user_id) VALUES (?, 'end', NOW(), ?)";
+if (!$assignment_log) {
+
+    $insert_log_query = "
+        INSERT INTO audit_assignment_logs 
+        (
+            audit_assignment_id, 
+            status, 
+            date_time, 
+            user_id
+        ) 
+        VALUES (?, 'end', NOW(), ?)
+    ";
+
     $stmt = $conn->prepare($insert_log_query);
     $stmt->bind_param("is", $audit_assignment_id, $user_id);
     $stmt->execute();
     $stmt->close();
 }
 
-
-
 $total = count($barcodes);
+
+// ======================================================
+// GET EXPECTED QTY FROM AUDIT ASSIGNMENTS
+// ======================================================
+
+$expected_qty = 0;
+
+$get_expected_query = "
+    SELECT expected_qty
+    FROM audit_assignments
+    WHERE audit_id = ?
+    AND warehouse = ?
+    AND item_location = ?
+    LIMIT 1
+";
+
+$stmt = $conn->prepare($get_expected_query);
+
+$stmt->bind_param(
+    "isi",
+    $audit_id,
+    $audit['warehouse'],
+    $selected_area
+);
+
+$stmt->execute();
+
+$expected_result = $stmt->get_result()->fetch_assoc();
+
+$stmt->close();
+
+if ($expected_result) {
+    $expected_qty = $expected_result['expected_qty'] ?? 0;
+}
+
+// ======================================================
+// COMPUTE VARIANCE
+// ======================================================
+
+$variance_qty = $total - $expected_qty;
+
+if ($variance_qty > 0) {
+
+    $variance_label = "POSITIVE";
+    $variance_badge = "#198754";
+
+} elseif ($variance_qty < 0) {
+
+    $variance_label = "NEGATIVE";
+    $variance_badge = "#dc3545";
+
+} else {
+
+    $variance_label = "BALANCED";
+    $variance_badge = "#6c757d";
+}
+
+// ======================================================
+// DETAILED BARCODE SUMMARY
+// ======================================================
+
+$detailed_summary = [];
+
+foreach ($barcodes as $row) {
+
+    $barcode = $row['barcode'] ?? '';
+
+    if (empty($barcode)) {
+        continue;
+    }
+
+    $current_location_id = $row['item_location'] ?? '';
+    $current_item_status = $row['item_status'] ?? 0;
+    $current_warehouse_id = $row['warehouse'] ?? '';
+
+    $outbounded = false;
+    $belong_to_other_warehouse = false;
+    $belong_to_other_location = false;
+    $dont_belong_to_system_stocks = false;
+
+    // CHECK IF EXISTS IN STOCKS
+
+    $stock_query = "
+        SELECT unique_barcode
+        FROM stocks
+        WHERE unique_barcode = ?
+        LIMIT 1
+    ";
+
+    $stmt = $conn->prepare($stock_query);
+    $stmt->bind_param("s", $barcode);
+    $stmt->execute();
+
+    $stock_result = $stmt->get_result();
+
+    if ($stock_result->num_rows === 0) {
+        $dont_belong_to_system_stocks = true;
+    }
+
+    $stmt->close();
+
+    // OUTBOUNDED
+
+    if (
+        $current_item_status != 0 &&
+        $dont_belong_to_system_stocks === false
+    ) {
+        $outbounded = true;
+    }
+
+    // OTHER WAREHOUSE
+
+    if (
+        $current_warehouse_id !== $audit['warehouse'] &&
+        $dont_belong_to_system_stocks === false
+    ) {
+        $belong_to_other_warehouse = true;
+    }
+
+    // OTHER LOCATION
+
+    if (
+        $current_location_id != $selected_area &&
+        $dont_belong_to_system_stocks === false
+    ) {
+        $belong_to_other_location = true;
+    }
+
+    $detailed_summary[] = [
+
+        "barcode" => $barcode,
+
+        "system_stock" => $dont_belong_to_system_stocks
+            ? "NO"
+            : "YES",
+
+        "outbounded" => $outbounded
+            ? "YES"
+            : "NO",
+
+        "other_warehouse" => $belong_to_other_warehouse
+            ? "YES"
+            : "NO",
+
+        "other_location" => $belong_to_other_location
+            ? "YES"
+            : "NO"
+    ];
+}
 
 // ======================================================
 // GROUP BY PARENT BARCODE
 // ======================================================
+
 $grouped = [];
 
-foreach ($barcodes as $code) {
+foreach ($barcodes as $item) {
+
+    $code = $item['barcode'] ?? '';
+
+    if (empty($code)) {
+        continue;
+    }
 
     $parts = explode("-", $code);
+
     $parent = $parts[0];
     $seq = $parts[1] ?? '';
 
     if (!isset($grouped[$parent])) {
+
         $grouped[$parent] = [
             "qty" => 0,
             "sequences" => []
@@ -97,14 +279,19 @@ foreach ($barcodes as $code) {
 }
 
 // ======================================================
-// FETCH PRODUCT INFO ONCE PER PARENT
+// FETCH PRODUCT INFO
 // ======================================================
+
 $product_cache = [];
 
 foreach ($grouped as $parent => $data) {
 
     $barcode_details_query = "
-        SELECT p.description, c.category_name, b.brand_name, s.capital 
+        SELECT 
+            p.description, 
+            c.category_name, 
+            b.brand_name, 
+            s.capital 
         FROM product p
         LEFT JOIN category c 
             ON p.category = c.hashed_id COLLATE utf8mb4_unicode_ci
@@ -123,18 +310,9 @@ foreach ($grouped as $parent => $data) {
     $stmt->execute();
 
     $product_cache[$parent] = $stmt->get_result()->fetch_assoc();
+
     $stmt->close();
 }
-
-$total_time = 0;
-// id, user_id, audit_assignment_id, date_time, status, remarks
-// 1, hss, 14, 2026-05-11 00:43:28, start, null
-// 2, hss, 14, 2026-05-11 01:15:42, pause, null
-// 3, hss, 14, 2026-05-11 01:20:10, resume, null
-// 4, hss, 14, 2026-05-11 02:00:00, pause, null
-// 5, hss, 14, 2026-05-11 02:10:00, resume, null
-// 6, hss, 14, 2026-05-11 03:00:00, end, null
-
 
 // ======================================================
 // GET AUDIT LOGS
@@ -176,12 +354,10 @@ foreach ($logs as $log) {
     $status = $log['status'];
     $time = strtotime($log['date_time']);
 
-    // START / RESUME
     if ($status === 'start' || $status === 'resume') {
 
         $active_start = $time;
 
-        // END PAUSE TIMER
         if ($pause_start !== null) {
 
             $total_pause_seconds += ($time - $pause_start);
@@ -189,7 +365,6 @@ foreach ($logs as $log) {
         }
     }
 
-    // PAUSE
     elseif ($status === 'pause') {
 
         if ($active_start !== null) {
@@ -201,7 +376,6 @@ foreach ($logs as $log) {
         $pause_start = $time;
     }
 
-    // END
     elseif ($status === 'end') {
 
         if ($active_start !== null) {
@@ -211,10 +385,6 @@ foreach ($logs as $log) {
         }
     }
 }
-
-// ======================================================
-// FORMAT TIME
-// ======================================================
 
 $total_minutes = floor($total_active_seconds / 60);
 
@@ -228,8 +398,6 @@ if ($hours > 0) {
 }
 
 $formatted_time .= $minutes . " min";
-
-// TOTAL PAUSE
 
 $total_pause_minutes = floor($total_pause_seconds / 60);
 
@@ -255,28 +423,12 @@ body {
 
 .receipt {
     background: #fff;
-    max-width: 700px;
+    max-width: 900px;
     margin: auto;
     padding: 25px;
     border-radius: 10px;
     border: 2px dashed #000;
     box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-}
-
-.receipt-header {
-    text-align: center;
-}
-
-.receipt-header h2 {
-    margin: 0;
-    font-size: 28px;
-    letter-spacing: 2px;
-}
-
-.receipt-header p {
-    margin: 3px 0;
-    font-size: 13px;
-    color: #666;
 }
 
 .line {
@@ -298,16 +450,6 @@ body {
     background: #fafafa;
 }
 
-.summary-card small {
-    display: block;
-    color: #777;
-    margin-bottom: 5px;
-}
-
-.summary-card strong {
-    font-size: 18px;
-}
-
 .group {
     border: 1px dashed #ccc;
     border-radius: 8px;
@@ -320,26 +462,6 @@ body {
     display: flex;
     justify-content: space-between;
     font-weight: bold;
-    font-size: 15px;
-}
-
-.sequences {
-    margin-top: 6px;
-    font-size: 12px;
-    color: #444;
-    word-break: break-word;
-    line-height: 1.5;
-}
-
-.product-info {
-    margin-top: 8px;
-    font-size: 12px;
-    color: #666;
-    line-height: 1.5;
-}
-
-.timeline {
-    margin-top: 20px;
 }
 
 .timeline-item {
@@ -347,7 +469,6 @@ body {
     justify-content: space-between;
     border-bottom: 1px dashed #ddd;
     padding: 6px 0;
-    font-size: 13px;
 }
 
 .print-btn {
@@ -362,23 +483,7 @@ body {
     cursor: pointer;
 }
 
-.print-btn:hover {
-    opacity: 0.9;
-}
-
-.footer-note {
-    text-align: center;
-    font-size: 12px;
-    color: #777;
-    margin-top: 20px;
-}
-
 @media print {
-
-    body {
-        background: white;
-        padding: 0;
-    }
 
     body * {
         visibility: hidden;
@@ -389,184 +494,239 @@ body {
         visibility: visible;
     }
 
-    #print-area {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-    }
-
-    .btn,
-    .print-btn {
+    .print-btn,
+    .btn {
         display: none !important;
-    }
-
-    .receipt {
-        box-shadow: none;
-        border-radius: 0;
     }
 }
 
 </style>
 
-
 <div class="row mb-3">
     <div class="col-3">
-        <a href="../audit-dashboard/" class="btn btn-primary">Back to Dashboard</a>
+        <a href="../audit-dashboard/" class="btn btn-primary">
+            Back to Dashboard
+        </a>
     </div>
 </div>
+
 <div id="print-area">
 
 <div class="receipt">
 
-    <button class="print-btn" onclick="window.print()">
-        PRINT RECEIPT
-    </button>
+<button class="print-btn" onclick="window.print()">
+    PRINT RECEIPT
+</button>
 
-    <div class="receipt-header">
-        <h2>AUDIT RECEIPT</h2>
+<h2 style="text-align:center;">
+    AUDIT RECEIPT
+</h2>
 
-        <p>
-            Warehouse:
-            <?php echo htmlspecialchars($audit['warehouse_name']); ?>
-        </p>
+<div class="line"></div>
 
-        <p>
-            Area:
-            <?php echo htmlspecialchars($selected_area); ?>
-        </p>
+<div class="summary-grid">
 
-        <p>
-            Date:
-            <?php echo date('M d, Y h:i A'); ?>
-        </p>
+    <div class="summary-card">
+        <small>Expected Qty</small>
+        <strong>
+            <?php echo number_format($expected_qty); ?>
+        </strong>
     </div>
 
-    <div class="line"></div>
+    <div class="summary-card">
+        <small>Variance</small>
 
-    <div class="summary-grid">
-
-        <div class="summary-card">
-            <small>Total Scanned</small>
-            <strong><?php echo number_format($total); ?></strong>
-        </div>
-
-        <div class="summary-card">
-            <small>Unique Products</small>
-            <strong><?php echo number_format(count($grouped)); ?></strong>
-        </div>
-
-        <div class="summary-card">
-            <small>Active Audit Time</small>
-            <strong><?php echo $formatted_time; ?></strong>
-        </div>
-
-        <div class="summary-card">
-            <small>Paused Time</small>
-            <strong><?php echo $formatted_pause; ?></strong>
-        </div>
-
-    </div>
-
-    <div class="line"></div>
-
-    <?php if (empty($grouped)): ?>
-
-        <p style="text-align:center;">
-            No scanned items found.
-        </p>
-
-    <?php else: ?>
-
-        <?php foreach ($grouped as $parent => $data): ?>
+        <strong style="color: <?php echo $variance_badge; ?>;">
 
             <?php
-            $info = $product_cache[$parent] ?? null;
-            $seqList = implode(", ", $data["sequences"]);
+            if ($variance_qty > 0) {
+                echo "+" . number_format($variance_qty);
+            } else {
+                echo number_format($variance_qty);
+            }
             ?>
 
-            <div class="group">
+        </strong>
 
-                <div class="header">
-                    <span><?php echo htmlspecialchars($parent); ?></span>
-                    <span><?php echo $data["qty"]; ?> pcs</span>
-                </div>
-
-                <div class="sequences">
-                    <strong>Sequences:</strong>
-                    <?php echo htmlspecialchars($seqList); ?>
-                </div>
-
-                <div class="product-info">
-
-                    <?php if ($info): ?>
-
-                        <div>
-                            <strong>Description:</strong>
-                            <?php echo htmlspecialchars($info['description']); ?>
-                        </div>
-
-                        <div>
-                            <strong>Category:</strong>
-                            <?php echo htmlspecialchars($info['category_name']); ?>
-                        </div>
-
-                        <div>
-                            <strong>Brand:</strong>
-                            <?php echo htmlspecialchars($info['brand_name']); ?>
-                        </div>
-
-                        <div>
-                            <strong>Capital:</strong>
-                            ₱<?php echo number_format($info['capital'], 2); ?>
-                        </div>
-
-                    <?php else: ?>
-
-                        Product information unavailable.
-
-                    <?php endif; ?>
-
-                </div>
-
-            </div>
-
-        <?php endforeach; ?>
-
-    <?php endif; ?>
-
-    <div class="line"></div>
-
-    <div class="timeline">
-
-        <h4 style="margin-bottom:10px;">
-            AUDIT TIMELINE
-        </h4>
-
-        <?php foreach ($logs as $log): ?>
-
-            <div class="timeline-item">
-
-                <span>
-                    <?php echo strtoupper($log['status']); ?>
-                </span>
-
-                <span>
-                    <?php echo date('M d, Y h:i:s A', strtotime($log['date_time'])); ?>
-                </span>
-
-            </div>
-
-        <?php endforeach; ?>
-
+        <div style="margin-top:5px; font-size:12px;">
+            <?php echo $variance_label; ?>
+        </div>
     </div>
 
-    <div class="footer-note">
-        Live Audit System<br>
-        Generated Receipt
+    <div class="summary-card">
+        <small>Total Scanned</small><br>
+        <strong><?php echo number_format($total); ?></strong>
+    </div>
+
+    <div class="summary-card">
+        <small>Unique Products</small><br>
+        <strong><?php echo number_format(count($grouped)); ?></strong>
+    </div>
+
+    <div class="summary-card">
+        <small>Active Audit Time</small><br>
+        <strong><?php echo $formatted_time; ?></strong>
+    </div>
+
+    <div class="summary-card">
+        <small>Paused Time</small><br>
+        <strong><?php echo $formatted_pause; ?></strong>
     </div>
 
 </div>
+
+<div class="line"></div>
+
+<h4 style="margin-bottom:15px;">
+    BARCODE DETAILED SUMMARY
+</h4>
+
+<div style="overflow-x:auto; margin-bottom:20px;">
+
+<table style="
+    width:100%;
+    border-collapse: collapse;
+    font-size: 12px;
+">
+
+<thead>
+
+<tr style="background:#f1f1f1;">
+
+    <th style="border:1px solid #ccc; padding:8px;">
+        Barcode
+    </th>
+
+    <th style="border:1px solid #ccc; padding:8px;">
+        In System
+    </th>
+
+    <th style="border:1px solid #ccc; padding:8px;">
+        Outbounded
+    </th>
+
+    <th style="border:1px solid #ccc; padding:8px;">
+        Other WH
+    </th>
+
+    <th style="border:1px solid #ccc; padding:8px;">
+        Other Location
+    </th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+<?php foreach ($detailed_summary as $summary): ?>
+
+<tr>
+
+    <td style="border:1px solid #ccc; padding:8px;">
+        <?php echo htmlspecialchars($summary['barcode']); ?>
+    </td>
+
+    <td style="border:1px solid #ccc; padding:8px; text-align:center;">
+        <?php echo $summary['system_stock']; ?>
+    </td>
+
+    <td style="border:1px solid #ccc; padding:8px; text-align:center;">
+        <?php echo $summary['outbounded']; ?>
+    </td>
+
+    <td style="border:1px solid #ccc; padding:8px; text-align:center;">
+        <?php echo $summary['other_warehouse']; ?>
+    </td>
+
+    <td style="border:1px solid #ccc; padding:8px; text-align:center;">
+        <?php echo $summary['other_location']; ?>
+    </td>
+
+</tr>
+
+<?php endforeach; ?>
+
+</tbody>
+
+</table>
+
+</div>
+
+<div class="line"></div>
+
+<?php foreach ($grouped as $parent => $data): ?>
+
+<?php
+$info = $product_cache[$parent] ?? null;
+$seqList = implode(", ", $data["sequences"]);
+?>
+
+<div class="group">
+
+    <div class="header">
+        <span><?php echo htmlspecialchars($parent); ?></span>
+        <span><?php echo $data["qty"]; ?> pcs</span>
+    </div>
+
+    <div style="margin-top:8px;">
+        <strong>Sequences:</strong>
+        <?php echo htmlspecialchars($seqList); ?>
+    </div>
+
+    <?php if ($info): ?>
+
+    <div style="margin-top:8px; font-size:12px;">
+
+        <div>
+            <strong>Description:</strong>
+            <?php echo htmlspecialchars($info['description']); ?>
+        </div>
+
+        <div>
+            <strong>Category:</strong>
+            <?php echo htmlspecialchars($info['category_name']); ?>
+        </div>
+
+        <div>
+            <strong>Brand:</strong>
+            <?php echo htmlspecialchars($info['brand_name']); ?>
+        </div>
+
+        <div>
+            <strong>Capital:</strong>
+            ₱<?php echo number_format($info['capital'], 2); ?>
+        </div>
+
+    </div>
+
+    <?php endif; ?>
+
+</div>
+
+<?php endforeach; ?>
+
+<div class="line"></div>
+
+<h4>
+    AUDIT TIMELINE
+</h4>
+
+<?php foreach ($logs as $log): ?>
+
+<div class="timeline-item">
+
+    <span>
+        <?php echo strtoupper($log['status']); ?>
+    </span>
+
+    <span>
+        <?php echo date('M d, Y h:i:s A', strtotime($log['date_time'])); ?>
+    </span>
+
+</div>
+
+<?php endforeach; ?>
 
 </div>
 
@@ -579,48 +739,8 @@ if($location_status === "for_approval"){
         <a href="#" id="btnReject" class="btn btn-danger ms-3">Reject</a>
     </div>
 </div>
-
-<script>
-document.getElementById('btnApprove').addEventListener('click', function(e) {
-    e.preventDefault();
-
-    const url = this.getAttribute('href');
-
-    Swal.fire({
-        title: 'Confirm Approval?',
-        text: "Are you sure you want to approve this record?",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#198754',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Yes, Approve'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = url;
-        }
-    });
-});
-
-document.getElementById('btnReject').addEventListener('click', function(e) {
-    e.preventDefault();
-
-    const url = this.getAttribute('href');
-
-    Swal.fire({
-        title: 'Confirm Rejection?',
-        text: "Are you sure you want to reject this record?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc3545',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Yes, Reject'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = url;
-        }
-    });
-});
-</script>
 <?php
 }
 ?>
+
+</div>

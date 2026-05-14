@@ -15,65 +15,122 @@ $audit_query = "SELECT al.*, w.warehouse_name
 $stmt = $conn->prepare($audit_query);
 $stmt->bind_param("i", $audit_id);
 $stmt->execute();
-
 $audit = $stmt->get_result()->fetch_assoc();
-
 $stmt->close();
 
 $warehouse_id_audit = $audit['warehouse'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    if (!isset($_POST['location_assignment'])) {
+    $staff_id = $_POST['staff_id'] ?? null;
+    $location_id = $_POST['location_id'] ?? null;
+    $new_location = trim($_POST['new_location'] ?? '');
 
-        die("No assignments submitted.");
+    // =========================
+    // VALIDATION
+    // =========================
+    if (empty($staff_id)) {
+        die("Staff is required.");
     }
 
-    $assignments = $_POST['location_assignment'];
+    if (empty($location_id)) {
+        die("Please select a location.");
+    }
 
-    // Track insert status
-    $allInserted = true;
+    // =========================
+    // HANDLE "OTHER LOCATION"
+    // =========================
+    if ($location_id === "other") {
 
-    $insert_query = "INSERT INTO audit_assignments
-                    (
-                        item_location,
-                        user_id,
-                        audit_id,
-                        warehouse,
-                        status,
-                        date_assigned
-                    )
-                    VALUES (?, ?, ?, ?, 'pending', NOW())";
+        if (empty($new_location)) {
+            die("Please enter a new location.");
+        }
+
+        // Insert new location
+        $insertLoc = $conn->prepare("
+            INSERT INTO item_location (location_name, warehouse)
+            VALUES (?, ?)
+        ");
+
+        $insertLoc->bind_param("ss", $new_location, $warehouse_id_audit);
+
+        if (!$insertLoc->execute()) {
+            die("Failed to create new location.");
+        }
+
+        $location_id = $insertLoc->insert_id;
+
+        $insertLoc->close();
+    }
+
+    // =========================
+    // GET EXPECTED QTY
+    // =========================
+    $get_expected_qty = "
+        SELECT COUNT(*) AS total_expected
+        FROM stocks
+        WHERE warehouse = ?
+        AND item_location = ?
+        AND item_status = 0
+    ";
+
+    $stmt_expected = $conn->prepare($get_expected_qty);
+
+    $stmt_expected->bind_param(
+        "si",
+        $warehouse_id_audit,
+        $location_id
+    );
+
+    $stmt_expected->execute();
+
+    $expected_result = $stmt_expected->get_result()->fetch_assoc();
+
+    $expected_qty = $expected_result['total_expected'] ?? 0;
+
+    $stmt_expected->close();
+
+
+    // =========================
+    // INSERT ASSIGNMENT
+    // =========================
+    $insert_query = "
+        INSERT INTO audit_assignments
+        (
+            item_location,
+            user_id,
+            audit_id,
+            warehouse,
+            expected_qty,
+            status,
+            date_assigned
+        )
+        VALUES (?, ?, ?, ?, ?, 'pending', NOW())
+    ";
 
     $stmt = $conn->prepare($insert_query);
 
-    foreach ($assignments as $location_name => $staff_name) {
+    $stmt->bind_param(
+        "ssisi",
+        $location_id,
+        $staff_id,
+        $audit_id,
+        $warehouse_id_audit,
+        $expected_qty
+    );
 
-        $stmt->bind_param(
-            "isss",
-            $location_name,
-            $staff_name,
-            $audit_id,
-            $warehouse_id_audit
-        );
+    if ($stmt->execute()) {
 
-        if (!$stmt->execute()) {
-
-            $allInserted = false;
-            break;
-        }
-    }
-
-    $stmt->close();
-
-    // Redirect if all successful
-    if ($allInserted) {
+        $stmt->close();
 
         header("Location: index.php");
         exit();
+
     } else {
 
-        echo "Failed to save some assignments.";
+        $stmt->close();
+
+        echo "Failed to save assignment.";
     }
 }
 ?>

@@ -37,14 +37,14 @@
         <table id="audit-log-table" class="table table-borderless table-hover table-striped align-middle mb-0">
           <thead class="text-white">
             <tr>
-              <th class="sortable" onclick="setSort('audit_num')">Audit Number</th>
-              <th class="sortable" onclick="setSort('warehouse_name')">Warehouse</th>
-              <th class="sortable" onclick="setSort('schedule_date')">Schedule Date</th>
-              <th class="sortable" onclick="setSort('date_created')">Date Created</th>
-              <th class="sortable" onclick="setSort('user_fname')">Created By</th>
-              <th class="sortable" onclick="setSort('updated_at')">Date Updated</th>
-              <th class="sortable" onclick="setSort('updater_fname')">Updated By</th>
-              <th class="sortable" onclick="setSort('audit_status')">Audit Status</th>
+              <th class="sortable text-white" onclick="setSort('audit_num')">Audit Number</th>
+              <th class="sortable text-white" onclick="setSort('warehouse_name')">Warehouse</th>
+              <th class="sortable text-white" onclick="setSort('schedule_date')">Schedule Date</th>
+              <th class="sortable text-white" onclick="setSort('date_created')">Date Created</th>
+              <th class="sortable text-white" onclick="setSort('user_fname')">Created By</th>
+              <th class="sortable text-white" onclick="setSort('updated_at')">Date Updated</th>
+              <th class="sortable text-white" onclick="setSort('updater_fname')">Updated By</th>
+              <th class="sortable text-white" onclick="setSort('audit_status')">Audit Status</th>
               <th>Action</th>
             </tr>
           </thead>
