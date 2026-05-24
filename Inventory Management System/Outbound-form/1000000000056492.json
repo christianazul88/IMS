@@ -1,0 +1,34 @@
+[
+    {
+        "barcode": "7660642-3",
+        "product_description": "Pre-owned Desktop Ryzen 5 5600GT Asrock B450M 16GB DDR4 800W Keytech TS300 ARGB 120GB SSD",
+        "batch_num": "PObatch-1729",
+        "brand_name": "Ryzen",
+        "category_name": "Desktop",
+        "capital": "13350.00"
+    },
+    {
+        "barcode": "0446449-5",
+        "product_description": "Brand New Desktop Ryzen 7 B450 Motherboard 8GB DDR4 120GB SSD 500GB HDD Inplay Case With Led Fans",
+        "batch_num": "PObatch-1748",
+        "brand_name": "Ryzen",
+        "category_name": "Desktop",
+        "capital": "14750.00"
+    },
+    {
+        "barcode": "1754280-5",
+        "product_description": "Brand New Ryzen 5 5600G Asus Prime A520M-K 16GB Hiksemi Armor 3200MHZ",
+        "batch_num": "PObatch-1652",
+        "brand_name": "No Brand",
+        "category_name": "Desktop",
+        "capital": "13000.00"
+    },
+    {
+        "barcode": "5424744-7",
+        "product_description": "Accessories Memory Lexar 120GB SSD 2.5",
+        "batch_num": "PObatch-1540",
+        "brand_name": "Lexar",
+        "category_name": "Memory",
+        "capital": "1150.00"
+    }
+]
