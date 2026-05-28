@@ -101,6 +101,7 @@ if (($handle = fopen($file, "r")) !== FALSE) {
                     UPDATE outbound_logs
                     SET 
                         order_num = '$order_number_escaped',
+                        order_line_id = '$order_number_escaped',
                         customer_fullname = '$customer_escaped',
                         date_sent = '$outbound_date_escaped',
                         user_id = '$staff_escaped'
