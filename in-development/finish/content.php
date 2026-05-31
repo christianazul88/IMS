@@ -1,12 +1,16 @@
 <?php
 $audit_id = $_SESSION['audit_id'];
+$selected_area = $_GET['area'];
+$user_id = $_GET['user_id'] ?? $user_id;
 
-// Fetch audit details
+// =========================
+// AUDIT DETAILS
+// =========================
 $audit_query = "SELECT al.*, w.warehouse_name 
-FROM audit_logs al 
-LEFT JOIN warehouse w 
-ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci 
-WHERE al.id = ?";
+                FROM audit_logs al 
+                LEFT JOIN warehouse w 
+                ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci 
+                WHERE al.id = ?";
 
 $stmt = $conn->prepare($audit_query);
 $stmt->bind_param("i", $audit_id);
@@ -18,729 +22,455 @@ $today = date('Y-m-d');
 $schedule_date = date('Y-m-d', strtotime($audit['schedule_date']));
 
 if ($today < $schedule_date) {
-    echo "<div class='alert alert-warning'>
-        Audit is scheduled for " . date('M d, Y', strtotime($audit['schedule_date'])) . ".
-    </div>";
+    echo "<div class='alert alert-warning'>Audit is scheduled for " . date('M d, Y', strtotime($audit['schedule_date'])) . "</div>";
     exit;
 }
 
-$selected_area = $_SESSION['selected_area'];
+if ($audit['audit_status'] == 'pending') {
+    echo "<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const startModal = new bootstrap.Modal(document.getElementById('startAuditModal'));
+            startModal.show();
+        });
+    </script>";
+} elseif ($audit['audit_status'] != 'active') {
+    echo "<div class='alert alert-info'>Audit status: " . ucfirst($audit['audit_status']) . "</div>";
+    exit;
+}
 
-$json_file = "../audit_json/" . $audit_id . "-" . $selected_area . ".json";
+// =========================
+// ASSIGNMENT
+// =========================
+$audit_assignment_query = "SELECT id FROM audit_assignments WHERE item_location = ? LIMIT 1";
+$stmt = $conn->prepare($audit_assignment_query);
+$stmt->bind_param("i", $selected_area);
+$stmt->execute();
+$assignment_data = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
+$audit_assignment_id = $assignment_data['id'] ?? null;
+
+// ==========================
+// FETCH audit staff status
+// ==========================
+$status = 'idle';
+
+$status_query = "
+    SELECT `status`
+    FROM audit_assignment_staffs
+    WHERE audit_assignments_id = ?
+      AND user_id = ?
+    LIMIT 1
+";
+
+$stmt = $conn->prepare($status_query);
+$stmt->bind_param("ii", $audit_assignment_id, $user_id);
+$stmt->execute();
+$res = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+$status = $res['status'] ?? 'idle';
+
+// =========================
+// FETCH SCANNED ITEMS
+// =========================
 $barcodes = [];
 
-if (file_exists($json_file)) {
-    $data = json_decode(file_get_contents($json_file), true);
-
-    if (is_array($data)) {
-        $barcodes = array_reverse($data);
-    }
-}
-
-$audit_info_query = "SELECT * FROM audit_assignments WHERE audit_id = ? AND item_location = ?";
-$stmt = $conn->prepare($audit_info_query);
-$stmt->bind_param("ii", $audit_id, $selected_area);
-$stmt->execute();
-$audit_info = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-$location_status = $audit_info['status'];
-$audit_assignment_id = $audit_info['id'];
-
-if ($location_status === "pending" || $location_status === "in_progress") {
-
-    $update_status_query = "
-        UPDATE audit_assignments 
-        SET status = 'for_approval' 
-        WHERE audit_id = ? 
-        AND item_location = ?
-    ";
-
-    $stmt = $conn->prepare($update_status_query);
-    $stmt->bind_param("ii", $audit_id, $selected_area);
-    $stmt->execute();
-    $stmt->close();
-}
-
-$check_audit_assignment_logs_query = "
-    SELECT * 
-    FROM audit_assignment_logs 
-    WHERE audit_assignment_id = ? 
-    AND status = 'end' 
-    LIMIT 1
+$barcode_query = "
+    SELECT 
+        ia.unique_barcode AS barcode,
+        p.description,
+        b.brand_name,
+        c.category_name,
+        il.location_name,
+        ia.outbounded
+    FROM items_to_audit ia
+    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+    LEFT JOIN product p ON p.hashed_id = s.product_id
+    LEFT JOIN brand b ON b.hashed_id = p.brand
+    LEFT JOIN category c ON c.hashed_id = p.category
+    LEFT JOIN item_location il ON il.id = s.item_location
+    WHERE ia.audit_id = ?
+      AND ia.audit_assignment_id = ?
+      AND ia.user_id = ?
+    ORDER BY ia.scanned_date ASC
 ";
 
-$stmt = $conn->prepare($check_audit_assignment_logs_query);
-$stmt->bind_param("i", $audit_assignment_id);
+$stmt = $conn->prepare($barcode_query);
+$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $user_id);
 $stmt->execute();
-$assignment_log = $stmt->get_result()->fetch_assoc();
+$result = $stmt->get_result();
+
+while ($row = $result->fetch_assoc()) {
+    $barcodes[] = $row;
+}
 $stmt->close();
 
-if (!$assignment_log) {
-
-    $insert_log_query = "
-        INSERT INTO audit_assignment_logs 
-        (
-            audit_assignment_id, 
-            status, 
-            date_time, 
-            user_id
-        ) 
-        VALUES (?, 'end', NOW(), ?)
-    ";
-
-    $stmt = $conn->prepare($insert_log_query);
-    $stmt->bind_param("is", $audit_assignment_id, $user_id);
-    $stmt->execute();
-    $stmt->close();
-}
-
-$total = count($barcodes);
-
-// ======================================================
-// GET EXPECTED QTY FROM AUDIT ASSIGNMENTS
-// ======================================================
-
-$expected_qty = 0;
-
-$get_expected_query = "
-    SELECT expected_qty
-    FROM audit_assignments
-    WHERE audit_id = ?
-    AND warehouse = ?
-    AND item_location = ?
-    LIMIT 1
-";
-
-$stmt = $conn->prepare($get_expected_query);
-
-$stmt->bind_param(
-    "isi",
-    $audit_id,
-    $audit['warehouse'],
-    $selected_area
-);
-
-$stmt->execute();
-
-$expected_result = $stmt->get_result()->fetch_assoc();
-
-$stmt->close();
-
-if ($expected_result) {
-    $expected_qty = $expected_result['expected_qty'] ?? 0;
-}
-
-// ======================================================
-// COMPUTE VARIANCE
-// ======================================================
-
-$variance_qty = $total - $expected_qty;
-
-if ($variance_qty > 0) {
-
-    $variance_label = "POSITIVE";
-    $variance_badge = "#198754";
-
-} elseif ($variance_qty < 0) {
-
-    $variance_label = "NEGATIVE";
-    $variance_badge = "#dc3545";
-
-} else {
-
-    $variance_label = "BALANCED";
-    $variance_badge = "#6c757d";
-}
-
-// ======================================================
-// DETAILED BARCODE SUMMARY
-// ======================================================
-
-$detailed_summary = [];
+// =========================
+// GROUP BARCODES
+// =========================
+$grouped = [];
 
 foreach ($barcodes as $row) {
 
-    $barcode = $row['barcode'] ?? '';
+    $parts = explode('-', $row['barcode']);
+    $parent = $parts[0];
+    $sequence = $parts[1] ?? 0;
 
-    if (empty($barcode)) {
-        continue;
-    }
-
-    $current_location_id = $row['item_location'] ?? '';
-    $current_item_status = $row['item_status'] ?? 0;
-    $current_warehouse_id = $row['warehouse'] ?? '';
-
-    $outbounded = false;
-    $belong_to_other_warehouse = false;
-    $belong_to_other_location = false;
-    $dont_belong_to_system_stocks = false;
-
-    // CHECK IF EXISTS IN STOCKS
-
-    $stock_query = "
-        SELECT unique_barcode
-        FROM stocks
-        WHERE unique_barcode = ?
-        LIMIT 1
-    ";
-
-    $stmt = $conn->prepare($stock_query);
-    $stmt->bind_param("s", $barcode);
-    $stmt->execute();
-
-    $stock_result = $stmt->get_result();
-
-    if ($stock_result->num_rows === 0) {
-        $dont_belong_to_system_stocks = true;
-    }
-
-    $stmt->close();
-
-    // OUTBOUNDED
-
-    if (
-        $current_item_status != 0 &&
-        $dont_belong_to_system_stocks === false
-    ) {
-        $outbounded = true;
-    }
-
-    // OTHER WAREHOUSE
-
-    if (
-        $current_warehouse_id !== $audit['warehouse'] &&
-        $dont_belong_to_system_stocks === false
-    ) {
-        $belong_to_other_warehouse = true;
-    }
-
-    // OTHER LOCATION
-
-    if (
-        $current_location_id != $selected_area &&
-        $dont_belong_to_system_stocks === false
-    ) {
-        $belong_to_other_location = true;
-    }
-
-    $detailed_summary[] = [
-
-        "barcode" => $barcode,
-
-        "system_stock" => $dont_belong_to_system_stocks
-            ? "NO"
-            : "YES",
-
-        "outbounded" => $outbounded
-            ? "YES"
-            : "NO",
-
-        "other_warehouse" => $belong_to_other_warehouse
-            ? "YES"
-            : "NO",
-
-        "other_location" => $belong_to_other_location
-            ? "YES"
-            : "NO"
+    $grouped[$parent][] = [
+        'full' => $row['barcode'],
+        'sequence' => $sequence,
+        'description' => $row['description'],
+        'brand_name' => $row['brand_name'],
+        'category_name' => $row['category_name'],
+        'location_name' => $row['location_name'],
+        'outbounded' => $row['outbounded']
     ];
 }
 
-// ======================================================
-// GROUP BY PARENT BARCODE
-// ======================================================
+// =========================
+// TOTALS
+// =========================
+$total_scanned = count($barcodes);
 
-$grouped = [];
+// expected values
+$total_expected_qty = (float)$audit['total_expected_qty'];
+$total_expected_amount = (float)$audit['total_expected_amount'];
 
-foreach ($barcodes as $item) {
-
-    $code = $item['barcode'] ?? '';
-
-    if (empty($code)) {
-        continue;
-    }
-
-    $parts = explode("-", $code);
-
-    $parent = $parts[0];
-    $seq = $parts[1] ?? '';
-
-    if (!isset($grouped[$parent])) {
-
-        $grouped[$parent] = [
-            "qty" => 0,
-            "sequences" => []
-        ];
-    }
-
-    $grouped[$parent]["qty"]++;
-    $grouped[$parent]["sequences"][] = $seq;
-}
-
-// ======================================================
-// FETCH PRODUCT INFO
-// ======================================================
-
-$product_cache = [];
-
-foreach ($grouped as $parent => $data) {
-
-    $barcode_details_query = "
-        SELECT 
-            p.description, 
-            c.category_name, 
-            b.brand_name, 
-            s.capital 
-        FROM product p
-        LEFT JOIN category c 
-            ON p.category = c.hashed_id COLLATE utf8mb4_unicode_ci
-        LEFT JOIN brand b 
-            ON p.brand = b.hashed_id COLLATE utf8mb4_unicode_ci
-        LEFT JOIN stocks s 
-            ON p.hashed_id = s.product_id COLLATE utf8mb4_unicode_ci
-        WHERE s.unique_barcode LIKE ? 
-        LIMIT 1
-    ";
-
-    $like = $parent . "-%";
-
-    $stmt = $conn->prepare($barcode_details_query);
-    $stmt->bind_param("s", $like);
-    $stmt->execute();
-
-    $product_cache[$parent] = $stmt->get_result()->fetch_assoc();
-
-    $stmt->close();
-}
-
-// ======================================================
-// GET AUDIT LOGS
-// ======================================================
-
-$get_logs_query = "
-    SELECT *
-    FROM audit_assignment_logs
-    WHERE audit_assignment_id = ?
-    ORDER BY date_time ASC
+// scanned amount
+$amount_query = "
+    SELECT SUM(s.capital) AS total_amount
+    FROM items_to_audit ia
+    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+    WHERE ia.audit_id = ?
+      AND ia.audit_assignment_id = ?
+      AND ia.user_id = ?
 ";
-
-$stmt = $conn->prepare($get_logs_query);
-$stmt->bind_param("i", $audit_assignment_id);
+$stmt = $conn->prepare($amount_query);
+$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $user_id);
 $stmt->execute();
-
-$result = $stmt->get_result();
-
-$logs = [];
-
-while ($row = $result->fetch_assoc()) {
-    $logs[] = $row;
-}
-
+$total_scanned_amount = $stmt->get_result()->fetch_assoc()['total_amount'] ?? 0;
 $stmt->close();
 
-// ======================================================
-// CALCULATE TOTAL ACTIVE TIME
-// ======================================================
+// outbounded qty
+$out_qty_query = "
+    SELECT COUNT(*) AS total
+    FROM items_to_audit
+    WHERE audit_id = ? AND outbounded = 'yes'
+";
+$stmt = $conn->prepare($out_qty_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$total_outbounded_qty = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+$stmt->close();
 
-$total_active_seconds = 0;
-$total_pause_seconds = 0;
+// variance
+$variance_qty = $total_scanned - $total_outbounded_qty - $total_expected_qty;
+$variance_amount = $total_scanned_amount - $total_expected_amount;
 
-$active_start = null;
-$pause_start = null;
+// avg value
+$avg_value = $total_scanned ? ($total_scanned_amount / $total_scanned) : 0;
 
-foreach ($logs as $log) {
 
-    $status = $log['status'];
-    $time = strtotime($log['date_time']);
+// =========================
+// OUTBOUNDED COUNT (FILTERED)
+// =========================
+$outbounded_filtered_query = "
+    SELECT COUNT(*) AS total_outbounded
+    FROM items_to_audit
+    WHERE audit_id = ?
+      AND audit_assignment_id = ?
+      AND user_id = ?
+      AND outbounded = 'yes'
+";
 
-    if ($status === 'start' || $status === 'resume') {
+$stmt = $conn->prepare($outbounded_filtered_query);
+$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $user_id);
+$stmt->execute();
+$total_outbounded_filtered = $stmt->get_result()->fetch_assoc()['total_outbounded'] ?? 0;
+$stmt->close();
 
-        $active_start = $time;
+if($status === 'idle' || $status === 'in_progress' || $status === 'pending'){
+    // =========================
+    // UPDATE STATUS TO FOR APPROVAL
+    // =========================
+    $update_query = "
+        UPDATE audit_assignment_staffs
+        SET `status` = 'for_approval'
+        WHERE audit_assignments_id = ?
+        AND user_id = ?
+    ";
 
-        if ($pause_start !== null) {
+    $stmt = $conn->prepare($update_query);
 
-            $total_pause_seconds += ($time - $pause_start);
-            $pause_start = null;
-        }
+    if (!$stmt) {
+        die("Prepare failed: " . $conn->error);
     }
 
-    elseif ($status === 'pause') {
+    $stmt->bind_param("is", $audit_assignment_id, $user_id);
 
-        if ($active_start !== null) {
-
-            $total_active_seconds += ($time - $active_start);
-            $active_start = null;
-        }
-
-        $pause_start = $time;
-    }
-
-    elseif ($status === 'end') {
-
-        if ($active_start !== null) {
-
-            $total_active_seconds += ($time - $active_start);
-            $active_start = null;
-        }
+    if ($stmt->execute()) {
+        $stmt->close();
+        // header("Location: ../finish/?area=success=true");
+        // exit;
+    } else {
+        $stmt->close();
+        die("Update failed: " . $conn->error);
     }
 }
 
-$total_minutes = floor($total_active_seconds / 60);
-
-$hours = floor($total_minutes / 60);
-$minutes = $total_minutes % 60;
-
-$formatted_time = "";
-
-if ($hours > 0) {
-    $formatted_time .= $hours . " hr ";
-}
-
-$formatted_time .= $minutes . " min";
-
-$total_pause_minutes = floor($total_pause_seconds / 60);
-
-$pause_hours = floor($total_pause_minutes / 60);
-$pause_minutes = $total_pause_minutes % 60;
-
-$formatted_pause = "";
-
-if ($pause_hours > 0) {
-    $formatted_pause .= $pause_hours . " hr ";
-}
-
-$formatted_pause .= $pause_minutes . " min";
 ?>
+<div class="container-fluid">
 
-<style>
+    <!-- HEADER -->
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
 
-body {
-    background: #eceff1;
-    font-family: 'Courier New', monospace;
-    padding: 20px;
-}
+            <div class="d-flex justify-content-between align-items-center">
 
-.receipt {
-    background: #fff;
-    max-width: 900px;
-    margin: auto;
-    padding: 25px;
-    border-radius: 10px;
-    border: 2px dashed #000;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-}
+                <!-- LEFT: TITLE -->
+                <div>
+                    <h5 class="fw-bold mb-0">AUDIT RECEIPT DASHBOARD</h5>
+                    <div class="text-muted small">
+                        Warehouse: <?= htmlspecialchars($audit['warehouse_name'] ?? 'N/A') ?>
+                    </div>
+                    <div class="text-muted small">
+                        Audit #: <?= $audit['audit_num'] ?>
+                    </div>
+                </div>
 
-.line {
-    border-top: 1px dashed #777;
-    margin: 15px 0;
-}
+                <!-- RIGHT: ACTIONS -->
+                <div class="text-end">
 
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin-bottom: 20px;
-}
+                    <a href="../audit-dashboard/" class="btn btn-outline-dark btn-sm mb-2">
+                        ← Back to Dashboard
+                    </a>
 
-.summary-card {
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 12px;
-    background: #fafafa;
-}
+                    <br>
 
-.group {
-    border: 1px dashed #ccc;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 15px;
-    background: #fcfcfc;
-}
+                    <span class="badge bg-<?= $audit['audit_status'] === 'active' ? 'success' : 'secondary' ?> fs-6">
+                        <?= strtoupper($audit['audit_status']) ?>
+                    </span>
 
-.header {
-    display: flex;
-    justify-content: space-between;
-    font-weight: bold;
-}
+                </div>
 
-.timeline-item {
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 1px dashed #ddd;
-    padding: 6px 0;
-}
+            </div>
 
-.print-btn {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    background: #198754;
-    color: white;
-    font-weight: bold;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    cursor: pointer;
-}
-
-@media print {
-
-    body * {
-        visibility: hidden;
-    }
-
-    #print-area,
-    #print-area * {
-        visibility: visible;
-    }
-
-    .print-btn,
-    .btn {
-        display: none !important;
-    }
-}
-
-</style>
-
-<div class="row mb-3">
-    <div class="col-3">
-        <a href="../audit-dashboard/" class="btn btn-primary">
-            Back to Dashboard
-        </a>
-    </div>
-</div>
-
-<div id="print-area">
-
-<div class="receipt">
-
-<button class="print-btn" onclick="window.print()">
-    PRINT RECEIPT
-</button>
-
-<h2 style="text-align:center;">
-    AUDIT RECEIPT
-</h2>
-
-<div class="line"></div>
-
-<div class="summary-grid">
-
-    <div class="summary-card">
-        <small>Expected Qty</small>
-        <strong>
-            <?php echo number_format($expected_qty); ?>
-        </strong>
-    </div>
-
-    <div class="summary-card">
-        <small>Variance</small>
-
-        <strong style="color: <?php echo $variance_badge; ?>;">
-
-            <?php
-            if ($variance_qty > 0) {
-                echo "+" . number_format($variance_qty);
-            } else {
-                echo number_format($variance_qty);
-            }
-            ?>
-
-        </strong>
-
-        <div style="margin-top:5px; font-size:12px;">
-            <?php echo $variance_label; ?>
         </div>
     </div>
 
-    <div class="summary-card">
-        <small>Total Scanned</small><br>
-        <strong><?php echo number_format($total); ?></strong>
-    </div>
+    <div class="card shadow-sm border-0 mb-3">
 
-    <div class="summary-card">
-        <small>Unique Products</small><br>
-        <strong><?php echo number_format(count($grouped)); ?></strong>
-    </div>
+        <div class="card-body d-flex justify-content-between align-items-center">
 
-    <div class="summary-card">
-        <small>Active Audit Time</small><br>
-        <strong><?php echo $formatted_time; ?></strong>
-    </div>
+            <div>
+                <div class="fw-semibold">Assignment Status Control</div>
+                <div class="text-muted small">
+                    Current Status: 
+                    <span class="fw-bold"><?= strtoupper($status) ?></span>
+                </div>
+            </div>
 
-    <div class="summary-card">
-        <small>Paused Time</small><br>
-        <strong><?php echo $formatted_pause; ?></strong>
-    </div>
+            <div class="text-end">
 
-</div>
+                <?php if ($status === 'for_approval'): ?>
 
-<div class="line"></div>
+                    <!-- APPROVE / REJECT -->
+                    <a href="approve.php?id=<?= $audit_assignment_id ?>&user=<?= $user_id ?>&area=<?php echo $selected_area;?>"
+                    class="btn btn-success btn-sm">
+                        Approve
+                    </a>
 
-<h4 style="margin-bottom:15px;">
-    BARCODE DETAILED SUMMARY
-</h4>
+                    <a href="reject.php?id=<?= $audit_assignment_id ?>&user=<?= $user_id ?>&area=<?php echo $selected_area;?>"
+                    class="btn btn-danger btn-sm">
+                        Decline
+                    </a>
 
-<div style="overflow-x:auto; margin-bottom:20px;">
+                <?php elseif ($status === 'approved'): ?>
 
-<table style="
-    width:100%;
-    border-collapse: collapse;
-    font-size: 12px;
-">
+                    <!-- APPROVED (LOCKED) -->
+                    <button class="btn btn-success btn-sm" disabled>
+                        ✔ Approved & Closed
+                    </button>
 
-<thead>
+                <?php elseif ($status === 'rejected'): ?>
 
-<tr style="background:#f1f1f1;">
+                    <!-- RESTART SCANNING -->
+                    <a href="/Choose-Area/"
+                    class="btn btn-warning btn-sm">
+                        Restart Scanning
+                    </a>
 
-    <th style="border:1px solid #ccc; padding:8px;">
-        Barcode
-    </th>
+                <?php else: ?>
 
-    <th style="border:1px solid #ccc; padding:8px;">
-        In System
-    </th>
+                    <span class="text-muted">No action available</span>
 
-    <th style="border:1px solid #ccc; padding:8px;">
-        Outbounded
-    </th>
+                <?php endif; ?>
 
-    <th style="border:1px solid #ccc; padding:8px;">
-        Other WH
-    </th>
+            </div>
 
-    <th style="border:1px solid #ccc; padding:8px;">
-        Other Location
-    </th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-<?php foreach ($detailed_summary as $summary): ?>
-
-<tr>
-
-    <td style="border:1px solid #ccc; padding:8px;">
-        <?php echo htmlspecialchars($summary['barcode']); ?>
-    </td>
-
-    <td style="border:1px solid #ccc; padding:8px; text-align:center;">
-        <?php echo $summary['system_stock']; ?>
-    </td>
-
-    <td style="border:1px solid #ccc; padding:8px; text-align:center;">
-        <?php echo $summary['outbounded']; ?>
-    </td>
-
-    <td style="border:1px solid #ccc; padding:8px; text-align:center;">
-        <?php echo $summary['other_warehouse']; ?>
-    </td>
-
-    <td style="border:1px solid #ccc; padding:8px; text-align:center;">
-        <?php echo $summary['other_location']; ?>
-    </td>
-
-</tr>
-
-<?php endforeach; ?>
-
-</tbody>
-
-</table>
-
-</div>
-
-<div class="line"></div>
-
-<?php foreach ($grouped as $parent => $data): ?>
-
-<?php
-$info = $product_cache[$parent] ?? null;
-$seqList = implode(", ", $data["sequences"]);
-?>
-
-<div class="group">
-
-    <div class="header">
-        <span><?php echo htmlspecialchars($parent); ?></span>
-        <span><?php echo $data["qty"]; ?> pcs</span>
-    </div>
-
-    <div style="margin-top:8px;">
-        <strong>Sequences:</strong>
-        <?php echo htmlspecialchars($seqList); ?>
-    </div>
-
-    <?php if ($info): ?>
-
-    <div style="margin-top:8px; font-size:12px;">
-
-        <div>
-            <strong>Description:</strong>
-            <?php echo htmlspecialchars($info['description']); ?>
-        </div>
-
-        <div>
-            <strong>Category:</strong>
-            <?php echo htmlspecialchars($info['category_name']); ?>
-        </div>
-
-        <div>
-            <strong>Brand:</strong>
-            <?php echo htmlspecialchars($info['brand_name']); ?>
-        </div>
-
-        <div>
-            <strong>Capital:</strong>
-            ₱<?php echo number_format($info['capital'], 2); ?>
         </div>
 
     </div>
 
-    <?php endif; ?>
+    <!-- ANALYTICS -->
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
 
-</div>
+            <div class="row text-center g-2">
 
-<?php endforeach; ?>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2">
+                        <div class="text-muted small">SCANNED</div>
+                        <div class="fw-bold fs-5"><?= $total_scanned ?></div>
+                    </div>
+                </div>
 
-<div class="line"></div>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2">
+                        <div class="text-muted small">AMOUNT</div>
+                        <div class="fw-bold text-success">
+                            ₱ <?= number_format($total_scanned_amount, 2) ?>
+                        </div>
+                    </div>
+                </div>
 
-<h4>
-    AUDIT TIMELINE
-</h4>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2">
+                        <div class="text-muted small">OUTBOUNDED SCANNED</div>
+                        <div class="fw-bold fs-5 text-danger">
+                            <?= $total_outbounded_filtered ?>
+                        </div>
+                    </div>
+                </div>
 
-<?php foreach ($logs as $log): ?>
+                <div class="col-3 col-md-3">
+                    <div class="border rounded p-2">
+                        <div class="text-muted small">VARIANCE QTY</div>
+                        <div class="fw-bold <?= $variance_qty < 0 ? 'text-danger' : 'text-success' ?>">
+                            <?= number_format($variance_qty) ?>
+                        </div>
+                    </div>
+                </div>
 
-<div class="timeline-item">
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2">
+                        <div class="text-muted small">AVG VALUE</div>
+                        <div class="fw-bold">
+                            ₱ <?= number_format($avg_value, 2) ?>
+                        </div>
+                    </div>
+                </div>
 
-    <span>
-        <?php echo strtoupper($log['status']); ?>
-    </span>
+                <div class="col-6 col-md-3 mt-2">
+                    <div class="border rounded p-2">
+                        <div class="text-muted small">EXPECTED AMOUNT</div>
+                        <div class="fw-bold">
+                            ₱ <?= number_format($total_expected_amount, 2) ?>
+                        </div>
+                    </div>
+                </div>
 
-    <span>
-        <?php echo date('M d, Y h:i:s A', strtotime($log['date_time'])); ?>
-    </span>
+                <div class="col-6 col-md-6 mt-2">
+                    <div class="border rounded p-2">
+                        <div class="text-muted small">AMOUNT VARIANCE</div>
+                        <div class="fw-bold <?= $variance_amount < 0 ? 'text-danger' : 'text-success' ?>">
+                            ₱ <?= number_format($variance_amount, 2) ?>
+                        </div>
+                    </div>
+                </div>
 
-</div>
+            </div>
 
-<?php endforeach; ?>
-
-</div>
-
-<?php 
-if($location_status === "for_approval"){
-?>
-<div class="row mt-3">
-    <div class="col-12 text-center">
-        <a href="approve.php" id="btnApprove" class="btn btn-success">Approved</a>
-        <a href="#" id="btnReject" class="btn btn-danger ms-3">Reject</a>
+        </div>
     </div>
-</div>
-<?php
-}
-?>
+
+    <!-- GROUPED RECEIPT -->
+    <div class="card shadow-sm border-0">
+
+        <div class="card-header bg-white d-flex justify-content-between">
+            <span class="fw-semibold">SCANNED ITEMS (GROUPED RECEIPT)</span>
+            <span class="badge bg-dark"><?= $total_scanned ?> ITEMS</span>
+        </div>
+
+        <div class="card-body">
+
+            <?php if (empty($grouped)): ?>
+
+                <div class="text-center text-muted py-5">
+                    No scanned items yet
+                </div>
+
+            <?php else: ?>
+
+                <button class="btn btn-outline-dark btn-sm mb-3"
+                        data-bs-toggle="collapse"
+                        data-bs-target=".group-collapse">
+                    Toggle All
+                </button>
+
+                <?php foreach ($grouped as $parent => $items): ?>
+
+                    <?php $id = "g_" . $parent; ?>
+
+                    <div class="border rounded mb-2">
+
+                        <div class="p-2 bg-light d-flex justify-content-between">
+
+                            <button class="btn btn-link p-0 fw-bold text-decoration-none"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#<?= $id ?>">
+                                <?= $parent ?> (<?= count($items) ?>)
+                            </button>
+
+                            <small class="text-muted">Parent</small>
+
+                        </div>
+
+                        <div class="collapse group-collapse" id="<?= $id ?>">
+
+                            <div class="p-2 font-monospace small">
+
+                                <?php foreach ($items as $item): ?>
+
+                                    <div class="border-bottom py-2">
+
+                                        <div class="d-flex justify-content-between">
+                                            <span class="fw-bold"><?= $item['full'] ?></span>
+
+                                            <?php if ($item['outbounded'] === 'yes'): ?>
+                                                <span class="badge bg-danger">OUT</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-success">IN</span>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="text-muted">
+                                            <?= htmlspecialchars($item['description'] ?? 'N/A') ?>
+                                        </div>
+
+                                        <div class="d-flex justify-content-between text-muted small">
+                                            <span>
+                                                <?= $item['brand_name'] ?> / <?= $item['category_name'] ?>
+                                            </span>
+                                            <span>Seq <?= $item['sequence'] ?></span>
+                                        </div>
+
+                                    </div>
+
+                                <?php endforeach; ?>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php endforeach; ?>
+
+            <?php endif; ?>
+
+        </div>
+    </div>
 
 </div>

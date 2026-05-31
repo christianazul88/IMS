@@ -3,49 +3,84 @@ include "../config/database.php";
 include "../config/on_session.php";
 
 $audit_id = $_SESSION['audit_id'];
-
-// Fetch audit details
-$audit_query = "SELECT al.*, w.warehouse_name 
-FROM audit_logs al 
-LEFT JOIN warehouse w 
-ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci 
-WHERE al.id = ?";
-
-$stmt = $conn->prepare($audit_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$audit = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-$today = date('Y-m-d');
-$schedule_date = date('Y-m-d', strtotime($audit['schedule_date']));
-
-if ($today < $schedule_date) {
-    echo "<div class='alert alert-warning'>
-        Audit is scheduled for " . date('M d, Y', strtotime($audit['schedule_date'])) . ".
-    </div>";
-    exit;
-}
-
-$selected_area = $_SESSION['selected_area'];
-
-$json_file = "../audit_json/" . $audit_id . "-" . $selected_area . ".json";
-
+$audit_assignment_id = $_GET['id'];
+$staff_id = $_GET['user'];
+$selected_area = $_GET['area'];
 $barcodes = [];
 
-if (file_exists($json_file)) {
-    $data = json_decode(file_get_contents($json_file), true);
-    if (is_array($data)) {
-        $barcodes = array_reverse($data);
-    }
+$barcode_query = "
+    SELECT  unique_barcode AS barcode,
+            warehouse_origin,
+            warehouse_onscanned,
+            item_location_origin,
+            item_location_onscanned,
+            outbounded
+    FROM items_to_audit
+    WHERE audit_id = ?
+        AND audit_assignment_id = ?
+        AND user_id = ?
+    ORDER BY scanned_date ASC
+";
+
+$stmt = $conn->prepare($barcode_query);
+$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
+$stmt->execute();
+
+$result = $stmt->get_result();
+
+while ($row = $result->fetch_assoc()) {
+    $barcodes[] = $row;
 }
 
-$update_status_query = "UPDATE audit_assignments SET `status` = 'approved' WHERE audit_id = ? AND item_location = ?";
-$stmt = $conn->prepare($update_status_query);
-$stmt->bind_param("ii", $audit_id, $selected_area);
+$stmt->close();
+
+foreach ($barcodes as $row) {
+
+    $unique_barcode = $row['barcode'];
+    $warehouse_origin = $row['warehouse_origin'];
+    $item_location_origin = $row['item_location_origin'];
+    $outbounded = $row['outbounded'];
+
+    $update_items_to_audit = "
+        UPDATE items_to_audit
+        SET
+            audit_assignment_id = NULL,
+            user_id = NULL,
+            warehouse_onscanned = NULL,
+            item_location_onscanned = NULL,
+            warehouse_origin = ?,
+            item_location_origin = ?,
+            audit_status = 'pending',
+            scanned_date = NULL
+        WHERE unique_barcode = ?
+        AND audit_id = ?
+    ";
+
+    $stmt = $conn->prepare($update_items_to_audit);
+    $stmt->bind_param(
+        "sssi",
+        $warehouse_origin,
+        $item_location_origin,
+        $unique_barcode,
+        $audit_id
+    );
+    $stmt->execute();
+    $stmt->close();
+}
+
+$update_audit_assignment_staffs = "
+    UPDATE audit_assignment_staffs
+    SET `status` = 'rejected'
+    WHERE audit_assignments_id = ?
+    AND user_id = ?
+";
+
+$stmt = $conn->prepare($update_audit_assignment_staffs);
+$stmt->bind_param("ii", $audit_assignment_id, $staff_id);
 $stmt->execute();
 $stmt->close();
 
-header("Location: ../finish/?audit_id=" . $audit_id . "&area=" . $selected_area);
+
+header("Location: ../finish/?audit_id=" . $audit_id . "&area=" . $selected_area . "&user_id=" . $staff_id);
 exit;
 ?>

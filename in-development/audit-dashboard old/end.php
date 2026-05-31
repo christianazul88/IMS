@@ -35,6 +35,18 @@ if ($audit['audit_status'] == 'pending') {
 
 // Rest of the code only if active
 
+// Fetch totals from audit_items
+$totals_query = "SELECT 
+    SUM(expected_qty) as total_expected,
+    SUM(scanned_qty) as total_scanned,
+    SUM(variance_qty) as total_variance_qty,
+    SUM(variance_value) as total_variance_value
+FROM audit_items WHERE audit_id = ?";
+$stmt = $conn->prepare($totals_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$totals = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
 // Fetch assignments
 $assignments_query = "SELECT aa.*, u.user_fname, u.user_lname, w.warehouse_name, il.location_name FROM audit_assignments aa LEFT JOIN users u ON aa.user_id = u.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN warehouse w ON aa.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN item_location il ON aa.item_location = il.id  WHERE aa.audit_id = ?";
@@ -60,7 +72,7 @@ while ($row = $scans_result->fetch_assoc()) {
 }
 $stmt->close();
 
-$insert_query = "INSERT INTO audit_logs_timestamps (audit_id, `status`, date_time) VALUES (?, 'pause', NOW())";
+$insert_query = "INSERT INTO audit_logs_timestamps (audit_id, `status`, date_time) VALUES (?, 'end', NOW())";
 $stmt = $conn->prepare($insert_query);
 $stmt->bind_param("i", $audit_id);
 $stmt->execute();

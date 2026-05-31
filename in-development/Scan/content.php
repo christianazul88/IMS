@@ -19,9 +19,47 @@ if ($today < $schedule_date) {
     exit;
 }
 
+if ($audit['audit_status'] == 'pending') {
+    // Show start modal
+    echo "<script>document.addEventListener('DOMContentLoaded', function() { 
+        const startModal = new bootstrap.Modal(document.getElementById('startAuditModal'));
+        startModal.show();
+    });</script>";
+} elseif ($audit['audit_status'] != 'active') {
+    echo "<div class='alert alert-info'>Audit status: " . ucfirst($audit['audit_status']) . "</div>";
+    exit;
+}
+
+
+$check_query = "SELECT * FROM audit_logs_timestamps WHERE audit_id = ? AND `status` = 'start' LIMIT 1";
+$stmt = $conn->prepare($check_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+
+$result = $stmt->get_result();
+$audit_log_timestamp = $result->fetch_assoc();
+$stmt->close();
+
+if (!$audit_log_timestamp) {
+    // $insert_query = "INSERT INTO audit_logs_timestamps (audit_id, `status`, date_time) VALUES (?, 'start', NOW())";
+    // $stmt = $conn->prepare($insert_query);
+    // $stmt->bind_param("i", $audit_id);
+    // $stmt->execute();
+    // $stmt->close();
+
+    $last_status = 'end';
+} else {
+    // $audit_log_timestamp_id = $audit_log_timestamp['id'];
+    $audit_log_last_status_query = "SELECT * FROM audit_logs_timestamps WHERE audit_id = ? ORDER BY date_time DESC LIMIT 1";
+    $stmt = $conn->prepare($audit_log_last_status_query);
+    $stmt->bind_param("i", $audit_id);
+    $stmt->execute();
+    $last_status = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $last_status = $last_status['status'] ?? '';
+}
+
 $warehouse_id_audit = $audit['warehouse'];
-
-
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['area'])) {
@@ -40,40 +78,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $area_info = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     $selected_area_name = $area_info['location_name'];
-}
-
-$audit_info_query = "SELECT * FROM audit_assignments WHERE audit_id = ? AND item_location = ?";
-$stmt = $conn->prepare($audit_info_query);
-$stmt->bind_param("ii", $audit_id, $selected_area);
-$stmt->execute();
-$audit_info = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-$location_status = $audit_info['status'];
-$audit_assignment_id = $audit_info['id'];
-
-if($location_status === "pending"){
-    $update_status_query = "UPDATE audit_assignments SET `status` = 'in_progress' WHERE audit_id = ? AND item_location = ?";
-    $stmt = $conn->prepare($update_status_query);
-    $stmt->bind_param("ii", $audit_id, $selected_area);
-    $stmt->execute();
-    $stmt->close();
-}
-
-
-$check_audit_assignment_logs_query = "SELECT * FROM audit_assignment_logs WHERE audit_assignment_id = ? AND `status` = 'start' LIMIT 1";
-$stmt = $conn->prepare($check_audit_assignment_logs_query);
-$stmt->bind_param("i", $audit_assignment_id);
-$stmt->execute();
-$assignment_log = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-if(!$assignment_log){
-    $insert_log_query = "INSERT INTO audit_assignment_logs (audit_assignment_id, `status`, date_time) VALUES (?, 'start', NOW())";
-    $stmt = $conn->prepare($insert_log_query);
-    $stmt->bind_param("i", $audit_assignment_id);
-    $stmt->execute();
-    $stmt->close();
 }
 ?>
 

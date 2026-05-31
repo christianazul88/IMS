@@ -34,36 +34,38 @@ $warehouse = $audit['warehouse'];
 $stmt->close();
 
 // Get items from stocks
-$stocks_query = "SELECT parent_barcode, unique_barcode, capital, warehouse, item_location FROM stocks WHERE warehouse = ? AND item_status = 0";
+$stocks_query = "SELECT parent_barcode, unique_barcode, capital FROM stocks WHERE warehouse = ? AND item_status = 0";
 $stmt = $conn->prepare($stocks_query);
 $stmt->bind_param("s", $warehouse);
 $stmt->execute();
 $stocks_result = $stmt->get_result();
 
 // Prepare inserts
-$insert_items_to_audit = "INSERT INTO items_to_audit (audit_id, unique_barcode, warehouse_origin, item_location_origin, audit_status) VALUES (?, ?, ?, ?, 'pending')";
+$insert_items_to_audit = "INSERT INTO items_to_audit (audit_id, unique_barcode, audit_status) VALUES (?, ?, 'pending')";
 $stmt_items = $conn->prepare($insert_items_to_audit);
 
-$total_expected_qty = 0;
-$total_expected_amount = 0.00;
 $audit_items_data = [];
 while ($stock = $stocks_result->fetch_assoc()) {
     // Insert to items_to_audit
-    $stmt_items->bind_param("issi", $audit_id, $stock['unique_barcode'], $stock['warehouse'], $stock['item_location']);
+    $stmt_items->bind_param("is", $audit_id, $stock['unique_barcode']);
     $stmt_items->execute();
-
-    $total_expected_qty += 1; // Assuming qty is 1 per unique_barcode
-    $total_expected_amount += $stock['capital'];
     
+    // Collect for audit_items
+    $barcode = $stock['parent_barcode'];
+    if (!isset($audit_items_data[$barcode])) {
+        $audit_items_data[$barcode] = ['qty' => 0, 'cost' => $stock['capital']];
+    }
+    $audit_items_data[$barcode]['qty'] += 1; // Assuming qty is 1 per unique_barcode
 }
 $stmt_items->close();
 
-// UPDATE AUDIT LOGS
-$insert_audit_items = "UPDATE audit_logs SET total_expected_qty = ?, total_expected_amount = ? WHERE id = ? ";
+// Insert to audit_items
+$insert_audit_items = "INSERT INTO audit_items (audit_id, parent_barcode, expected_qty, unit_cost) VALUES (?, ?, ?, ?)";
 $stmt_audit = $conn->prepare($insert_audit_items);
-$stmt_audit->bind_param("idd", $total_expected_qty, $total_expected_amount, $audit_id);
-$stmt_audit->execute();
-
+foreach ($audit_items_data as $barcode => $data) {
+    $stmt_audit->bind_param("isdd", $audit_id, $barcode, $data['qty'], $data['cost']);
+    $stmt_audit->execute();
+}
 $stmt_audit->close();
 
 echo json_encode(['success' => true]);

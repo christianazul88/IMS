@@ -30,61 +30,6 @@ if ($audit['audit_status'] == 'pending') {
     exit;
 }
 
-// Rest of the code only if active
-
-// Fetch totals from audit_items
-$totals_query = "SELECT 
-    SUM(expected_qty) as total_expected,
-    SUM(scanned_qty) as total_scanned,
-    SUM(scanned_outbounded_qty) as total_scanned_outbounded_qty,
-    SUM(scanned_belong_to_other_wh) as total_scanned_belong_to_other_wh,
-    SUM(scanned_belong_to_other_location) as total_scanned_belong_to_other_location,
-    SUM(variance_qty) as total_variance_qty,
-    SUM(variance_value) as total_variance_value
-FROM audit_items 
-WHERE audit_id = ?";
-$stmt = $conn->prepare($totals_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$totals = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-$variance_query = "SELECT 
-    SUM(CASE WHEN variance_qty > 0 THEN variance_qty ELSE 0 END) as positive_variance,
-    SUM(CASE WHEN variance_qty < 0 THEN ABS(variance_qty) ELSE 0 END) as negative_variance,
-    SUM(CASE WHEN variance_qty = 0 THEN 1 ELSE 0 END) as zero_variance
-FROM audit_items 
-WHERE audit_id = ?";
-
-$stmt = $conn->prepare($variance_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$variance = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-// Fetch assignments
-$assignments_query = "SELECT aa.*, u.user_fname, u.user_lname, w.warehouse_name, il.location_name FROM audit_assignments aa LEFT JOIN users u ON aa.user_id = u.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN warehouse w ON aa.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN item_location il ON aa.item_location = il.id  WHERE aa.audit_id = ?";
-$stmt = $conn->prepare($assignments_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$assignments_result = $stmt->get_result();
-$assignments = [];
-while ($row = $assignments_result->fetch_assoc()) {
-    $assignments[] = $row;
-}
-$stmt->close();
-
-// Fetch recent scans (last 10)
-$scans_query = "SELECT ita.*, ai.parent_barcode FROM items_to_audit ita LEFT JOIN audit_items ai ON ita.audit_id = ai.audit_id AND ita.unique_barcode = ai.parent_barcode WHERE ita.audit_id = ? ORDER BY ita.scanned_date DESC LIMIT 10";
-$stmt = $conn->prepare($scans_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$scans_result = $stmt->get_result();
-$scans = [];
-while ($row = $scans_result->fetch_assoc()) {
-    $scans[] = $row;
-}
-$stmt->close();
 
 $check_query = "SELECT * FROM audit_logs_timestamps WHERE audit_id = ? AND `status` = 'start' LIMIT 1";
 $stmt = $conn->prepare($check_query);
@@ -96,13 +41,13 @@ $audit_log_timestamp = $result->fetch_assoc();
 $stmt->close();
 
 if (!$audit_log_timestamp) {
-    $insert_query = "INSERT INTO audit_logs_timestamps (audit_id, `status`, date_time) VALUES (?, 'start', NOW())";
-    $stmt = $conn->prepare($insert_query);
-    $stmt->bind_param("i", $audit_id);
-    $stmt->execute();
-    $stmt->close();
+    // $insert_query = "INSERT INTO audit_logs_timestamps (audit_id, `status`, date_time) VALUES (?, 'start', NOW())";
+    // $stmt = $conn->prepare($insert_query);
+    // $stmt->bind_param("i", $audit_id);
+    // $stmt->execute();
+    // $stmt->close();
 
-    $last_status = 'start';
+    $last_status = 'end';
 } else {
     // $audit_log_timestamp_id = $audit_log_timestamp['id'];
     $audit_log_last_status_query = "SELECT * FROM audit_logs_timestamps WHERE audit_id = ? ORDER BY date_time DESC LIMIT 1";
@@ -113,8 +58,78 @@ if (!$audit_log_timestamp) {
     $stmt->close();
     $last_status = $last_status['status'] ?? '';
 }
-?>
 
+$warehouse_id_audit = $audit['warehouse'];
+
+
+// =====================
+// AUDIT SUMMARY VALUES
+// =====================
+
+// expected values (already from audit query, but kept safe)
+$total_expected_qty = (float)$audit['total_expected_qty'];
+$total_expected_amount = (float)$audit['total_expected_amount'];
+
+// total scanned qty
+$scanned_qty_query = "
+    SELECT COUNT(*) AS total_scanned
+    FROM items_to_audit
+    WHERE audit_id = ? AND audit_status = 'scanned'
+";
+$stmt = $conn->prepare($scanned_qty_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$total_qty_scanned = $stmt->get_result()->fetch_assoc()['total_scanned'] ?? 0;
+$stmt->close();
+
+
+// total outbounded qty
+$outbounded_qty_query = "
+    SELECT COUNT(*) AS total_outbounded
+    FROM items_to_audit
+    WHERE audit_id = ? AND outbounded = 'yes' AND audit_status = 'scanned'
+";
+$stmt = $conn->prepare($outbounded_qty_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$total_outbounded_qty = $stmt->get_result()->fetch_assoc()['total_outbounded'] ?? 0;
+$stmt->close();
+
+
+// total scanned amount
+$scanned_amount_query = "
+    SELECT SUM(s.capital) AS total
+    FROM items_to_audit ia
+    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+    WHERE ia.audit_id = ? AND ia.audit_status = 'scanned'
+";
+$stmt = $conn->prepare($scanned_amount_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$total_amount_scanned = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+$stmt->close();
+
+
+// total outbounded amount
+$outbounded_amount_query = "
+    SELECT SUM(s.capital) AS total
+    FROM items_to_audit ia
+    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+    WHERE ia.audit_id = ? 
+    AND ia.audit_status = 'scanned' 
+    AND ia.outbounded = 'yes'
+";
+$stmt = $conn->prepare($outbounded_amount_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$total_amount_outbounded = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+$stmt->close();
+
+
+// variance
+$variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty ;
+
+?>
 <div class="card bg-warning text-white mb-3">
     <div class="card-body">
         <div class="row">
@@ -158,212 +173,339 @@ if (!$audit_log_timestamp) {
     </div>
 </div>
 
-<?php
-$warehouse_id_audit = $audit['warehouse'];
-?>
+<div class="card mt-3 border-0 shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Audit Summary</h5>
 
-<div class="row mb-4">
+        <div class="row g-3">
 
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">Scan vs Expected Overview</div>
-            <div class="card-body">
-                <div style="height: 250px;">
-                    <canvas id="scanChart"></canvas>
+            <div class="col-md-3">
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">Expected Qty</small>
+                    <h4 class="mb-0"><?php echo number_format($total_expected_qty); ?></h4>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">Variance Distribution</div>
-            <div class="card-body">
-            <div style="height: 250px;">
-                <canvas id="varianceChart"></canvas>
+            <div class="col-md-3">
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">Scanned Qty</small>
+                    <h4 class="mb-0 text-primary"><?php echo number_format($total_qty_scanned); ?></h4>
+                </div>
             </div>
-        </div>
+
+            <div class="col-md-3">
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">Outbounded Qty</small>
+                    <h4 class="mb-0 text-warning"><?php echo number_format($total_outbounded_qty); ?></h4>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">Variance Qty</small>
+                    <h4 class="mb-0 <?php echo ($variance_qty < 0) ? 'text-danger' : 'text-success'; ?>">
+                        <?php echo number_format($variance_qty); ?>
+                    </h4>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">Total Expected Amount</small>
+                    <h4 class="mb-0">₱ <?php echo number_format($total_expected_amount, 2); ?></h4>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">Scanned Amount</small>
+                    <h4 class="mb-0 text-primary">₱ <?php echo number_format($total_amount_scanned, 2); ?></h4>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">Outbounded Amount</small>
+                    <h4 class="mb-0 text-warning">₱ <?php echo number_format($total_amount_outbounded, 2); ?></h4>
+                </div>
+            </div>
+
         </div>
     </div>
-
 </div>
 
-<!-- Overview Cards -->
-<div class="row mb-4">
 
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-primary">
-                    <?php echo number_format($totals['total_expected'] ?? 0, 2); ?>
-                </h5>
-                <p class="card-text">Expected Qty</p>
-            </div>
-        </div>
-    </div>
 
-    <div class="col-md-4 mt-2">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-success">
-                    <?php echo number_format($totals['total_scanned'] ?? 0, 2); ?>
-                </h5>
-                <p class="card-text">Scanned Qty</p>
-            </div>
-        </div>
-    </div>
 
-    <div class="col-md-4 mt-2">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-info">
-                    <?php echo number_format($totals['total_scanned_outbounded_qty'] ?? 0, 2); ?>
-                </h5>
-                <p class="card-text">Outbounded</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-2 mt-2">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-secondary">
-                    <?php echo number_format($totals['total_scanned_belong_to_other_wh'] ?? 0, 2); ?>
-                </h5>
-                <p class="card-text">Other WH</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-2 mt-2">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-dark">
-                    <?php echo number_format($totals['total_scanned_belong_to_other_location'] ?? 0, 2); ?>
-                </h5>
-                <p class="card-text">Other Location</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mt-2">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-warning">
-                    <?php echo number_format($totals['total_variance_qty'] ?? 0, 2); ?>
-                </h5>
-                <p class="card-text">Variance Qty</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mt-2">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-danger">
-                    <?php echo number_format($totals['total_variance_value'] ?? 0, 2); ?>
-                </h5>
-                <p class="card-text">Variance Value</p>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<!-- Progress Bar -->
-<div class="card mb-4">
+<!-- for a position that can manage assignments on rackins -->
+<div class="card mt-3 mb-3">
     <div class="card-body">
-        <h6 class="card-title">Audit Progress</h6>
-        <?php
-        $expected = $totals['total_expected'] ?? 0;
-        $scanned = $totals['total_scanned'] ?? 0;
-        $progress = $expected > 0 ? ($scanned / $expected) * 100 : 0;
-        ?>
-        <div class="progress">
-            <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $progress; ?>%" aria-valuenow="<?php echo $progress; ?>" aria-valuemin="0" aria-valuemax="100"><?php echo number_format($progress, 1); ?>%</div>
-        </div>
-        <small class="text-muted">Scanned: <?php echo number_format($scanned, 2); ?> / Expected: <?php echo number_format($expected, 2); ?></small>
-    </div>
-</div>
-
-<!-- Assignments Table -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h6 class="mb-0">Audit Assignments</h6>
-        <div class="row">
-            <div class="col-md-12 text-end mt-2">
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignModal">Assign Staff</button>
-            </div>
-        </div>
-    </div>
-    <div class="card-body">
+        <h5 class="card-title">Audit Assignments</h5>
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table bordered-table">
                 <thead>
                     <tr>
-                        <th>Staff</th>
                         <th>Warehouse</th>
                         <th>Item Location</th>
                         <th>Status</th>
-                        <th>Assigned At</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
-                <tbody id="assignmentsTableBody">
-                <!-- <tbody>
-                    <?php // foreach ($assignments as $assignment): ?>
-                    <tr>
-                        <td><?php // echo $assignment['user_fname'] . ' ' . $assignment['user_lname']; ?></td>
-                        <td><?php //echo $assignment['warehouse_name']; ?></td>
-                        <td>
-                            <?php 
-                            //if($assignment['status'] == 'pending' || $assignment['status'] == 'in_progress') {
-                              //  echo $assignment['location_name'];
-                            //} else {
+                <tbody>
+                    <?php
+                    $assignments_query = "
+                    SELECT
+                        w.warehouse_name,
+                        il.location_name,
+                        il.id AS location_id,
+                        aa.status,
+                        aa.expected_qty,
+                        aa.sub_total_expected_amount,
+                        aa.id
+                    FROM audit_assignments aa
+                    LEFT JOIN warehouse w ON aa.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci
+                    LEFT JOIN item_location il ON aa.item_location = il.id
+                    WHERE aa.audit_id = ?";
+                    $stmt = $conn->prepare($assignments_query);
+                    $stmt->bind_param("i", $audit_id);
+                    $stmt->execute();
+                    $assignments_result = $stmt->get_result();
+                    if ($assignments_result->num_rows === 0) {
+                        ?>
+                        <tr><td colspan="3" class="text-center"><a href="syncnow.php" class="btn btn-secondary">Sync Now</a></td></tr>
+                        <?php
+                    } else {
+                        while ($row = $assignments_result->fetch_assoc()) {
+                            $random = chr(rand(65, 90)); // First character: A-Z
+
+                            for ($i = 1; $i < 95; $i++) {
+                                $random .= substr('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(0, 61), 1);
+                            }
+
                             ?>
-                            <a href="../finish/?audit_id=<?php// echo $audit_id; ?>&area=<?php// echo $assignment['item_location'];?>"><?php echo $assignment['location_name']; ?></a>
+                            <tr>
+                                <td><?php echo htmlspecialchars($row['warehouse_name']); ?></td>
+                                <td><?php echo htmlspecialchars($row['location_name']); ?></td>
+                                <td><?php echo htmlspecialchars($row['status']); ?></td>
+                                <td>
+                                    <a class="btn btn-primary fs-11" href="../view-staffs/?hash=<?php echo $row['id'] . $random; ?>">View assigned staffs</a>
+                                    <button class="btn btn-info btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#assign-modal" data-target-id="<?php echo $row['id']; ?>">Assign Staffs</button>
+                                </td>
+                            </tr>
                             <?php
-                            //}
-                            ?>
-                            
-                        </td>
-                        <td>
-                            <span class="badge bg-<?php 
-                              //  echo $assignment['status'] == 'pending' ? 'secondary' : 
-                                //     ($assignment['status'] == 'in_progress' ? 'primary' : 
-                                  //   ($assignment['status'] == 'approved' ? 'success' : 'warning')); 
-                            ?>"><?php// echo ucfirst(str_replace('_', ' ', $assignment['status'])); ?></span>
-                        </td>
-                        <td><?php //echo date('M d, Y H:i', strtotime($assignment['date_assigned'])); ?></td>
-                    </tr>
-                    <?php// endforeach; ?>
-                </tbody> -->
+                        }
+                    }
+                    
+                    $stmt->close();
+                    ?>
+                </tbody>
             </table>
         </div>
     </div>
 </div>
 
-<!-- Recent Scans -->
 <div class="card">
-    <div class="card-header">
-        <h6 class="mb-0">Recent Scans</h6>
-    </div>
     <div class="card-body">
+        <h5 class="card-title">Assignments</h5>
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table>
                 <thead>
                     <tr>
-                        <th>Barcode</th>
+                        <th>Staff</th>
                         <th>Status</th>
-                        <th>Belongs to Other</th>
-                        <th>Scanned At</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
-                <tbody id="recentScansTableBody">
+                <tbody>
+                    <?php 
+                    $audit_assignment_staffs_query = "
+                        SELECT 
+                            u.user_fname,
+                            u.user_lname,
+                            aas.user_id,
+                            aas.status,
+                            aas.audit_assignments_id,
+                            il.id AS location_id,
+                            il.location_name
+                        FROM audit_assignment_staffs aas
+                        LEFT JOIN users u
+                            ON u.hashed_id = aas.user_id
+                        LEFT JOIN audit_assignments aa
+                            ON aa.id = aas.audit_assignments_id
+                        LEFT JOIN item_location il
+                            ON il.id = aa.item_location
+                        WHERE aa.audit_id = ?
+                        ORDER BY il.location_name, u.user_fname, u.user_lname
+                    ";
+
+                    $stmt = $conn->prepare($audit_assignment_staffs_query);
+                    $stmt->bind_param("i", $audit_id);
+                    $stmt->execute();
+
+                    $audit_assignment_staffs_result = $stmt->get_result();
+
+                    if ($audit_assignment_staffs_result->num_rows > 0) {
+
+                        while ($staff = $audit_assignment_staffs_result->fetch_assoc()) {
+
+                            $full_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
+                            ?>
+                            <tr>
+                                <td>
+                                    <?php echo htmlspecialchars($full_name); ?>
+                                    <br>
+                                    <small class="text-muted">
+                                        <?php echo htmlspecialchars($staff['location_name']); ?>
+                                    </small>
+                                </td>
+
+                                <td>
+                                    <?php
+                                    switch ($staff['status']) {
+
+                                        case 'for_approval':
+                                            echo '<span class="badge bg-warning">For Approval</span>';
+                                            break;
+
+                                        case 'approved':
+                                            echo '<span class="badge bg-success">Approved</span>';
+                                            break;
+
+                                        case 'declined':
+                                            echo '<span class="badge bg-danger">Declined</span>';
+                                            break;
+
+                                        default:
+                                            echo '<span class="badge bg-secondary">' .
+                                                htmlspecialchars($staff['status']) .
+                                                '</span>';
+                                    }
+                                    ?>
+                                </td>
+
+                                <td>
+                                    <?php if ($staff['status'] !== 'idle' || $staff['status'] !== 'pending') : ?>
+
+                                        <a href="../finish/?area=<?php echo $staff['location_id'];?>&user_id=<?php echo $staff['user_id'];?>"
+                                        class="btn btn-success btn-sm">
+                                            View
+                                        </a>
+
+
+                                    <?php else : ?>
+
+                                        <span class="text-muted">No action required</span>
+
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php
+                        }
+
+                    } else {
+                        ?>
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                No staff assignments found.
+                            </td>
+                        </tr>
+                        <?php
+                    }
+
+                    $stmt->close();
+                    ?>
+                </tbody>
             </table>
         </div>
     </div>
 </div>
 
+<div class="card mb-3 mt-3">
+    <div class="card-body">
+        <h5 class="card-title">Recent Scans</h5>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Brand</th>
+                        <th>Category</th>
+                        <th>Rack/Location</th>
+                        <th>Warehouse</th>
+                        <th>Outbounded?</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Currently Missing/ Not Scanned Yet</h5>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Brand</th>
+                        <th>Category</th>
+                        <th>Rack/Location</th>
+                        <th>Warehouse</th>
+                        <th>Outbounded?</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- ASSIGNING STAFFS -->
+ <div class="modal fade" id="assign-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 500px">
+    <div class="modal-content position-relative">
+    <form id="assign-staff-form" method="POST" action="assign_staff.php">
+      <div class="position-absolute top-0 end-0 mt-2 me-2 z-1">
+        <button class="btn-close btn btn-sm btn-circle d-flex flex-center transition-base" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-2">
+        <input type="hidden" id="location_id" name="location_id" >
+        <label for="organizerMultiple">Select Staffs for the selected item location</label>
+        <select class="form-select js-choice bg-dark" id="organizerMultiple" multiple="multiple" size="10" name="staffs[]" data-options='{"removeItemButton":true,"placeholder":true,color: #212529 !important}'>
+        <option value="">Select staffs</option>
+        <?php
+        $users_query = "
+            SELECT user_fname, user_lname, hashed_id
+            FROM users
+            WHERE FIND_IN_SET(?, warehouse_access) > 0
+        ";
+
+        $stmt = $conn->prepare($users_query);
+        $stmt->bind_param("s", $warehouse_id_audit);
+        $stmt->execute();
+
+        $users_result = $stmt->get_result();
+
+        while ($user = $users_result->fetch_assoc()) {
+            echo "<option style='color:#000000;' value='" . htmlspecialchars($user['hashed_id']) . "'>" .
+            htmlspecialchars($user['user_fname'] . ' ' . $user['user_lname']) .
+            "</option>";
+        }
+        ?>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Close</button>
+        <button class="btn btn-primary" type="submit">Submit </button>
+      </div>
+    </form>
+    </div>
+  </div>
+</div>
+
+<!-- !!!!!!!!!IMPORTAN!!!!!!! -->
 <!-- Start Audit Modal -->
 <div class="modal fade" id="startAuditModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -397,365 +539,28 @@ $warehouse_id_audit = $audit['warehouse'];
     </div>
 </div>
 
-
-<!-- assign staff modal -->
-<div class="modal fade" id="assignModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content shadow-sm border-0">
-
-      <!-- ✅ Header -->
-      <div class="modal-header bg-primary text-white">
-        <div>
-          <h5 class="modal-title mb-0">Assign Staff</h5>
-          <small class="opacity-75">Assign staff to each warehouse location</small>
-        </div>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-
-      <!-- ✅ Body -->
-      <div class="modal-body p-4">
-
-        <!-- Instruction -->
-        <div class="alert alert-info">
-          Select a staff member for each location. All locations must be assigned before submitting.
-        </div>
-
-        <!-- <form id="assignStaffForm" action="assign_staff.php" method="post"> -->
-        <form id="assignStaffForm" action="assign_staff.php" method="post">
-
-            <div class="mb-3">
-                <label class="form-label">Staff</label>
-                <select name="staff_id" class="form-select" required>
-                    <option value="">-- Select Staff --</option>
-
-                    <?php
-                    $users_Sql = "SELECT hashed_id, user_fname, user_lname
-                                FROM users
-                                WHERE FIND_IN_SET(?, warehouse_access)
-                                AND status IN ('', 1)";
-
-                    $stmt_users = $conn->prepare($users_Sql);
-                    $stmt_users->bind_param("s", $warehouse_id_audit);
-                    $stmt_users->execute();
-                    $users_result = $stmt_users->get_result();
-
-                    while ($staff = $users_result->fetch_assoc()) {
-                        $staff_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
-                    ?>
-                        <option value="<?php echo htmlspecialchars($staff['hashed_id']); ?>">
-                            <?php echo htmlspecialchars($staff_name); ?>
-                        </option>
-                    <?php } ?>
-                </select>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Item Location</label>
-                <select name="location_id" id="locationSelect" class="form-select" required>
-                    <option value="">-- Select Location --</option>
-
-                    <?php
-                    $locations_Sql = "SELECT id, location_name
-                          FROM item_location
-                          WHERE warehouse = ?";
-
-                    $stmt_locations = $conn->prepare($locations_Sql);
-                    $stmt_locations->bind_param("s", $warehouse_id_audit);
-                    $stmt_locations->execute();
-                    $locations_result = $stmt_locations->get_result();
-                    while ($location = $locations_result->fetch_assoc()) {
-                    ?>
-                        <option value="<?php echo htmlspecialchars($location['id']); ?>">
-                            <?php echo htmlspecialchars($location['location_name']); ?>
-                        </option>
-                    <?php } ?>
-
-                    <!-- 🔥 IMPORTANT -->
-                    <option value="other">+ Add New Location</option>
-                </select>
-            </div>
-
-            <!-- 🔥 Optional new location -->
-            <div class="mb-3">
-                <label class="form-label">New Location</label>
-                <input
-                    type="text"
-                    name="new_location"
-                    id="newLocationInput"
-                    class="form-control"
-                    placeholder="Type new location"
-                    disabled
-                >
-            </div>
-
-            <button type="submit" class="btn btn-success">
-                Save Assignment
-            </button>
-
-        </form>
-      </div>
-
-      <!-- ✅ Footer -->
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-          Cancel
-        </button>
-        <!-- <button type="button" class="btn btn-success px-4" onclick="assignStaff()">
-          Assign Staff
-        </button> -->
-      </div>
-
-    </div>
-  </div>
-</div>
-
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const locationSelect = document.getElementById("locationSelect");
-    const newLocationInput = document.getElementById("newLocationInput");
+document.addEventListener('DOMContentLoaded', function () {
 
-    locationSelect.addEventListener("change", function () {
+    const assignModal = document.getElementById('assign-modal');
 
-        if (this.value === "other") {
-            newLocationInput.disabled = false;
-            newLocationInput.required = true;
-            newLocationInput.focus();
-        } else {
-            newLocationInput.disabled = true;
-            newLocationInput.required = false;
-            newLocationInput.value = "";
-        }
+    assignModal.addEventListener('show.bs.modal', function (event) {
 
+        // Button that triggered the modal
+        const button = event.relatedTarget;
+
+        // Get target ID
+        const targetId = button.getAttribute('data-target-id');
+
+        // Populate input
+        document.getElementById('location_id').value = targetId;
+
+        console.log('Selected ID:', targetId);
     });
+
 });
-</script>
 
-<script>
-function updateDashboard() {
 
-
-    fetch('audit_dashboard_data.php?audit_id=<?php echo $audit_id; ?>')
-        .then(res => res.json())
-        .then(data => {
-
-
-        // UPDATE SCAN CHART
-        scanChart.data.datasets[0].data = [
-            Number(data.totals.total_expected || 0),
-            Number(data.totals.total_scanned || 0)
-        ];
-        scanChart.update();
-
-        // UPDATE VARIANCE CHART (if you include variance in JSON)
-        varianceChart.data.datasets[0].data = [
-            Number(data.variance.positive_variance || 0),
-            Number(data.variance.negative_variance || 0),
-            Number(data.variance.zero_variance || 0)
-        ];
-        varianceChart.update();
-            
-        const t = data.totals;
-
-        /* =========================
-            UPDATE CARDS
-        ========================= */
-
-        document.querySelector(".card-title.text-primary").innerText =
-            Number(t.total_expected || 0).toFixed(2);
-
-        document.querySelector(".card-title.text-success").innerText =
-            Number(t.total_scanned || 0).toFixed(2);
-
-        document.querySelector(".card-title.text-info").innerText =
-            Number(t.total_scanned_outbounded_qty || 0).toFixed(2);
-
-        document.querySelector(".card-title.text-secondary").innerText =
-            Number(t.total_scanned_belong_to_other_wh || 0).toFixed(2);
-
-        document.querySelector(".card-title.text-dark").innerText =
-            Number(t.total_scanned_belong_to_other_location || 0).toFixed(2);
-
-        document.querySelector(".card-title.text-warning").innerText =
-            Number(t.total_variance_qty || 0).toFixed(2);
-
-        document.querySelector(".card-title.text-danger").innerText =
-            Number(t.total_variance_value || 0).toFixed(2);
-
-        /* =========================
-            UPDATE PROGRESS BAR
-        ========================= */
-
-        let expected = Number(t.total_expected || 0);
-        let scanned = Number(t.total_scanned || 0);
-        let progress = expected > 0 ? (scanned / expected) * 100 : 0;
-
-        const progressBar = document.querySelector(".progress-bar");
-
-        progressBar.style.width = progress + "%";
-        progressBar.innerText = progress.toFixed(1) + "%";
-        progressBar.setAttribute("aria-valuenow", progress);
-
-        /* =========================
-            UPDATE ASSIGNMENTS TABLE
-        ========================= */
-
-        if (data.assignments) {
-
-            let assignmentsHTML = '';
-
-            data.assignments.forEach(assignment => {
-
-                let badgeClass = 'secondary';
-
-                if (assignment.status === 'in_progress') {
-                    badgeClass = 'primary';
-                } else if (assignment.status === 'approved') {
-                    badgeClass = 'success';
-                } else if (assignment.status === 'rejected') {
-                    badgeClass = 'warning';
-                }
-
-                let locationHTML = '';
-
-                if (
-                    assignment.status === 'pending' ||
-                    assignment.status === 'in_progress'
-                ) {
-
-                    locationHTML = assignment.location_name;
-
-                } else {
-
-                    locationHTML =
-                        `<a href="../finish/?audit_id=<?php echo $audit_id; ?>&area=${assignment.item_location}">
-                            ${assignment.location_name}
-                        </a>`;
-                }
-
-                assignmentsHTML += `
-                    <tr>
-                        <td>
-                            ${assignment.user_fname} ${assignment.user_lname}
-                        </td>
-
-                        <td>
-                            ${assignment.warehouse_name}
-                        </td>
-
-                        <td>
-                            ${locationHTML}
-                        </td>
-
-                        <td>
-                            <span class="badge bg-${badgeClass}">
-                                ${assignment.status.replace('_', ' ')}
-                            </span>
-                        </td>
-
-                        <td>
-                            ${formatDate(assignment.date_assigned)}
-                        </td>
-                    </tr>
-                `;
-            });
-
-            document.getElementById('assignmentsTableBody').innerHTML =
-                assignmentsHTML;
-            }
-
-            /* =========================
-               UPDATE RECENT SCANS
-            ========================= */
-
-            if (data.recent_scans) {
-
-                let scansHTML = '';
-
-                data.recent_scans.forEach(scan => {
-
-                    let badgeClass =
-                        scan.audit_status === 'scanned'
-                            ? 'success'
-                            : 'secondary';
-
-                    scansHTML += `
-                        <tr>
-
-                            <td>
-                                ${scan.unique_barcode}
-                            </td>
-
-                            <td>
-                                <span class="badge bg-${badgeClass}">
-                                    ${capitalize(scan.audit_status)}
-                                </span>
-                            </td>
-
-                            <td>
-                                ${scan.belong_to_other_location === 'yes'
-                                    ? 'Yes'
-                                    : 'No'}
-                            </td>
-
-                            <td>
-                                ${scan.scanned_date
-                                    ? formatDate(scan.scanned_date)
-                                    : '-'}
-                            </td>
-
-                        </tr>
-                    `;
-                });
-
-                document.getElementById('recentScansTableBody').innerHTML =
-                    scansHTML;
-            }
-
-        })
-        .catch(err => {
-            console.error("Dashboard update failed:", err);
-        });
-
-
-}
-
-/* =========================
-   HELPERS
-========================= */
-
-function capitalize(text) {
-
-    if (!text) return '';
-
-    return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function formatDate(dateString) {
-
-    const date = new Date(dateString);
-
-    return date.toLocaleString('en-US', {
-        month: 'short',
-        day: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-/* =========================
-   AUTO REFRESH
-========================= */
-
-updateDashboard();
-
-
-
-
-setInterval(updateDashboard, 10000);
-</script>
-
-<script>
 function startAudit() {
 
     if (!confirm('Are you sure you want to start the audit?')) {
@@ -810,114 +615,3 @@ function startAudit() {
     });
 }
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
-const scanCtx = document.getElementById('scanChart').getContext('2d');
-
-const scanChart = new Chart(scanCtx, {
-    type: 'bar',
-    data: {
-        labels: ['Expected', 'Scanned'],
-        datasets: [{
-            label: 'Quantity',
-            data: [
-                <?php echo (float)($totals['total_expected'] ?? 0); ?>,
-                <?php echo (float)($totals['total_scanned'] ?? 0); ?>
-            ],
-            backgroundColor: [
-                '#0d6efd', // expected - blue
-                '#198754'  // scanned - green
-            ],
-            borderWidth: 1
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false }
-        },
-        scales: {
-            y: {
-                beginAtZero: true
-            }
-        }
-    }
-});
-</script>
-
-
-<script>
-const varianceCtx = document.getElementById('varianceChart').getContext('2d');
-
-const varianceChart = new Chart(varianceCtx, {
-    type: 'pie',
-    data: {
-        labels: ['Positive Variance', 'Negative Variance', 'No Variance'],
-        datasets: [{
-            data: [
-                <?php echo (float)($variance['positive_variance'] ?? 0); ?>,
-                <?php echo (float)($variance['negative_variance'] ?? 0); ?>,
-                <?php echo (float)($variance['zero_variance'] ?? 0); ?>
-            ],
-            backgroundColor: [
-                '#ffc107', // yellow
-                '#dc3545', // red
-                '#198754'  // green
-            ]
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        }
-    }
-});
-</script>
-
-
-<!-- below are the databases samples:
-audit_logs
-id,audit_num,warehouse,audit_status,schedule_date,created_by,updated_by,date_created,updated_at,deleted_at,
-1,1001,6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b3081...,active,2026-05-11 00:00:00,6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c0...,6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c0...,2026-05-11 00:42:52,2026-05-11 00:42:59,NULL
-
-audit_assignments
-id,audit_id,user_id,warehouse,item_location,statusdate_assigned,approved_by,approved_at,remarks
-1,1,6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c0...,6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b3081...,259,approved,2026-05-11 00:43:09,NULL,NULL,NULL,
-
-
-audit_assignment_logs
-id, user_id, audit_assignment_id, date_time, status, remarks
-1, hss, 1, 2026-05-11 00:43:28, start, null
-2, hss, 1, 2026-05-11 01:15:42, pause, null
-3, hss, 1, 2026-05-11 01:20:10, resume, null
-4, hss, 1, 2026-05-11 02:00:00, pause, null
-5, hss, 1, 2026-05-11 02:10:00, resume, null
-6, hss, 1, 2026-05-11 03:00:00, end, null
-
-audit_items
-id,audit_id,parent_barcode,expected_qty,scanned_qty,variance_qty,scanned_outbounded_qt,variance_value,unit_cost,scanned_value,item_location,last_scanned_at,
-1,1,6386029,3.00,3.00,0.00,0.00,0.00,55.00,165.00,NULL,NULL,
-
-items_to_audit
-id,audit_id,unique_barcode,audit_status,belong_to_other_location,belong_to_type,belong_to_value,scanned_date,
-1,1,6386029-3,scanned,yes,item_location,2026-05-11 00:50:56
-2,1,6386029-4,pending,yes,item_location,2026-05-11 00:51:09
-3,1,6386029-5,scanned,yes,item_location,2026-05-11 00:51:13
-4,1,6386029-2,scanned,NULL,NULL,NULL,2026-05-11 00:43:51
-
-
-audit_logs_timestamps
-id,audit_id,date_time,status
-1,1,2026-05-11 00:42:52,start
-2,1,2026-05-11 01:15:42,pause
-3,1,2026-05-11 01:20:10,resume
-4,1,2026-05-11 02:00:00,pause
-5,1,2026-05-11 02:10:00,resume
-6,1,2026-05-11 03:00:00,end -->

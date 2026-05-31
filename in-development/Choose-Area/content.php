@@ -2,7 +2,12 @@
 $audit_id = $_SESSION['audit_id'];
 
 // Fetch audit details
-$audit_query = "SELECT al.*, w.warehouse_name FROM audit_logs al LEFT JOIN warehouse w ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci WHERE al.id = ?";
+$audit_query = "SELECT 
+                    al.*, w.warehouse_name 
+                FROM audit_logs al 
+                LEFT JOIN warehouse w 
+                    ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci 
+                WHERE al.id = ?";
 $stmt = $conn->prepare($audit_query);
 $stmt->bind_param("i", $audit_id);
 $stmt->execute();
@@ -59,13 +64,16 @@ $warehouse_id_audit = $audit['warehouse'];
                     <option value="">Select Area</option>
 
                     <?php
-                    $assignment_query = "SELECT il.location_name, aa.item_location 
-                                         FROM audit_assignments aa 
-                                         LEFT JOIN item_location il 
-                                         ON aa.item_location = il.id 
-                                         WHERE aa.status = 'pending' 
-                                         AND aa.user_id = '$user_id' 
-                                         AND aa.audit_id = '$audit_id'";
+                    $assignment_query = "SELECT
+                                            il.location_name,
+                                            aa.item_location
+                                        FROM audit_assignment_staffs aas
+                                        LEFT JOIN audit_assignments aa
+                                        ON aas.audit_assignments_id = aa.id
+                                        LEFT JOIN item_location il
+                                        ON il.id = aa.item_location
+                                        WHERE aas.user_id = '$user_id'
+                                        AND (aas.status = 'idle' OR aas.status = 'rejected')";
 
                     $assignment_result = $conn->query($assignment_query);
 
