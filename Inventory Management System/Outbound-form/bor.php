@@ -28,7 +28,7 @@ if (isset($_GET['view'])) {
                         <td><input type="text" name="barcode[]" class="form-control m-0 py-0" value="<?php echo $product['barcode']; ?>" readonly></td>
                         <td><?php echo $product['product_description'];?></td>
                         <?php 
-                        if(strpos($access ?? '', "stock")!==false || $user_position_name === "Administrator"){
+                        if(strpos($access ?? '', "view_capital")!==false || $user_position_name === "Administrator"){
                         ?>
                         <td class="unit-cost" data-cost="<?php echo $product['capital']; ?>">
                             <?php echo number_format($product['capital'], 2); ?>

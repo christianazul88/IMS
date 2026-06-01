@@ -134,7 +134,7 @@ if(!isset($_SESSION['warehouse_outbound']) && strpos($warehouses, ',')!==false){
                                     <th>Barcode</th>
                                     <th>Description</th>
                                     <?php 
-                                    if($user_position_name === "Administrator" || strpos($access ?? '', "stock")!==false){
+                                    if($user_position_name === "Administrator" || strpos($access ?? '', "view_capital")!==false){
                                     ?>
                                     <th class="text-end">Unit Cost(₱)</th>
                                     <?php 
