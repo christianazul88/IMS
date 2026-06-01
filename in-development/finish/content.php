@@ -3,6 +3,10 @@ $audit_id = $_SESSION['audit_id'];
 $selected_area = $_GET['area'];
 $user_id = $_GET['user_id'] ?? $user_id;
 
+$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
+$audit_position_result = $conn->query($audit_position_query);
+$audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
+
 // =========================
 // AUDIT DETAILS
 // =========================
@@ -33,7 +37,7 @@ if ($audit['audit_status'] == 'pending') {
             startModal.show();
         });
     </script>";
-} elseif ($audit['audit_status'] != 'active') {
+} elseif ($audit['audit_status'] != 'active' && $audit['audit_status'] != 'partially_completed') {
     echo "<div class='alert alert-info'>Audit status: " . ucfirst($audit['audit_status']) . "</div>";
     exit;
 }
@@ -69,8 +73,24 @@ $stmt->execute();
 $res = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-$status = $res['status'] ?? 'idle';
-$staff_id = $res['user_id'];
+if (!$res) {
+    // No row found → insert default row
+    $insert_query = "
+        INSERT INTO audit_assignment_staffs (audit_assignments_id, user_id, status, date_assigned)
+        VALUES (?, ?, 'idle', NOW())
+    ";
+
+    $stmt = $conn->prepare($insert_query);
+    $stmt->bind_param("is", $audit_assignment_id, $user_id);
+    $stmt->execute();
+    $stmt->close();
+
+    $status = 'idle';
+    $staff_id = $user_id;
+} else {
+    $status = $res['status'];
+    $staff_id = $res['user_id'];
+}
 
 // =========================
 // FETCH SCANNED ITEMS
@@ -302,7 +322,9 @@ if($status === 'rejected' && $staff_id === $user_id){
             </div>
 
             <div class="text-end">
-
+                <?php 
+                if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+                ?>
                 <?php if ($status === 'for_approval'): ?>
 
                     <!-- APPROVE / REJECT -->
@@ -336,7 +358,9 @@ if($status === 'rejected' && $staff_id === $user_id){
                     <span class="text-muted">No action available</span>
 
                 <?php endif; ?>
-
+                <?php
+                }
+                ?>
             </div>
 
         </div>

@@ -1,6 +1,10 @@
 <?php
 $audit_id = $_SESSION['audit_id'];
 
+$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
+$audit_position_result = $conn->query($audit_position_query);
+$audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
+
 // Fetch audit details
 $audit_query = "SELECT al.*, w.warehouse_name FROM audit_logs al LEFT JOIN warehouse w ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci WHERE al.id = ?";
 $stmt = $conn->prepare($audit_query);
@@ -25,7 +29,7 @@ if ($audit['audit_status'] == 'pending') {
         const startModal = new bootstrap.Modal(document.getElementById('startAuditModal'));
         startModal.show();
     });</script>";
-} elseif ($audit['audit_status'] != 'active') {
+} elseif ($audit['audit_status'] != 'active' && $audit['audit_status'] != 'partially_completed') {
     echo "<div class='alert alert-info'>Audit status: " . ucfirst($audit['audit_status']) . "</div>";
     exit;
 }
@@ -129,101 +133,135 @@ $stmt->close();
 // variance
 $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty ;
 
+
+
+$recent_scans_query = "
+    SELECT  p.description,
+            b.brand_name,
+            c.category_name,
+            il.location_name,
+            w.warehouse_name,
+            ia.outbounded,
+            ia.warehouse_origin,
+            ia.warehouse_onscanned,
+            ia.item_location_origin,
+            ia.item_location_onscanned,
+            s.capital,
+            ia.audit_status
+    FROM items_to_audit ia
+    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+    LEFT JOIN product p ON p.hashed_id = s.product_id
+    LEFT JOIN brand b ON b.hashed_id = p.brand
+    LEFT JOIN category c ON c.hashed_id = p.category
+    LEFT JOIN item_location il ON il.hashed_id = s.item_location
+    LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
+    WHERE ia.audit_status = 'scanned'
+    AND ia.audit_id = '$audit_id'
+";
+
+$recent_scans_result = mysqli_query($conn, $recent_scans_query);
+
+$positive_variance_qty = 0;
+$positive_variance_amount = 0;
+
+$wrong_warehouse_qty = 0;
+$wrong_warehouse_amount = 0;
+
+$wrong_location_qty = 0;
+$wrong_location_amount = 0;
+
+$outbounded_variance_qty = 0;
+$outbounded_variance_amount = 0;
+
+while ($row = mysqli_fetch_assoc($recent_scans_result)) {
+
+    $capital = (float)$row['capital'];
+
+    $outbounded_yes_no = $row['outbounded'];
+
+    $warehouse_origin_id = $row['warehouse_origin'];
+    $warehouse_onscanned_id = $row['warehouse_onscanned'];
+
+    $item_location_origin_id = $row['item_location_origin'];
+    $item_location_onscanned_id = $row['item_location_onscanned'];
+
+    if($outbounded_yes_no === "yes"){
+
+        $outbounded_variance_qty++;
+        $outbounded_variance_amount += $capital;
+
+        $positive_variance_qty++;
+        $positive_variance_amount += $capital;
+    }
+
+    if($warehouse_origin_id !== $warehouse_onscanned_id){
+
+        $wrong_warehouse_qty++;
+        $wrong_warehouse_amount += $capital;
+
+        $positive_variance_qty++;
+        $positive_variance_amount += $capital;
+    }
+
+    if(
+        $warehouse_origin_id === $warehouse_onscanned_id &&
+        $item_location_origin_id !== $item_location_onscanned_id
+    ){
+
+        $wrong_location_qty++;
+        $wrong_location_amount += $capital;
+
+        // $positive_variance_qty++;
+        // $positive_variance_amount += $capital;
+    }
+}
+
+$negative_variance_qty = 0;
+$negative_variance_amount = 0;
+
+$missing_query = "
+SELECT s.capital
+FROM items_to_audit ia
+LEFT JOIN stocks s
+ON s.unique_barcode = ia.unique_barcode
+WHERE ia.audit_id = ?
+AND ia.audit_status='pending'
+";
+
+$stmt = $conn->prepare($missing_query);
+$stmt->bind_param("i",$audit_id);
+$stmt->execute();
+
+$missing_result = $stmt->get_result();
+
+while($row = $missing_result->fetch_assoc()){
+
+    $negative_variance_qty++;
+    $negative_variance_amount += (float)$row['capital'];
+}
+
+$stmt->close();
+
+$net_variance_qty =
+    $positive_variance_qty -
+    $negative_variance_qty;
+
+$net_variance_amount =
+    $positive_variance_amount -
+    $negative_variance_amount;
+
+$audit_progress =
+    $total_expected_qty > 0
+    ? ($total_qty_scanned / $total_expected_qty) * 100
+    : 0;
+
+
+$variance_amount =
+    $total_expected_amount -
+    $total_amount_scanned -
+    $total_amount_outbounded;
 ?>
-<style>
-:root {
-    --audit-primary: #4f46e5;
-    --audit-success: #16a34a;
-    --audit-warning: #f59e0b;
-    --audit-danger: #ef4444;
-    --audit-muted: #6b7280;
-    --audit-bg: #f8fafc;
-}
 
-body {
-    background: var(--audit-bg);
-}
-
-/* DASHBOARD HEADER */
-.audit-header {
-    background: linear-gradient(135deg, #4f46e5, #6366f1);
-    color: #fff;
-    border-radius: 12px;
-    padding: 20px;
-}
-
-/* KPI CARDS */
-.kpi-card {
-    background: #fff;
-    border: 1px solid rgba(0,0,0,0.05);
-    border-radius: 12px;
-    padding: 16px;
-    transition: 0.2s ease;
-    height: 100%;
-}
-
-.kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-}
-
-.kpi-title {
-    font-size: 12px;
-    color: var(--audit-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.kpi-value {
-    font-size: 22px;
-    font-weight: 700;
-    margin-top: 5px;
-}
-
-/* COLOR ACCENTS */
-.text-kpi-primary { color: var(--audit-primary); }
-.text-kpi-success { color: var(--audit-success); }
-.text-kpi-warning { color: var(--audit-warning); }
-.text-kpi-danger { color: var(--audit-danger); }
-
-/* TABLES */
-.table-modern {
-    background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.table-modern thead {
-    background: #111827;
-    color: #fff;
-}
-
-.table-modern tbody tr:hover {
-    background: #f1f5f9;
-}
-
-/* SECTION CARDS */
-.section-card {
-    background: #fff;
-    border-radius: 12px;
-    border: 1px solid rgba(0,0,0,0.05);
-    margin-top: 20px;
-}
-
-/* ACTION BUTTON BAR */
-.action-bar {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-}
-
-.badge-soft {
-    padding: 6px 10px;
-    border-radius: 20px;
-    font-weight: 500;
-}
-</style>
 
 <div class="audit-header mb-3">
     <div class="row align-items-center">
@@ -241,7 +279,9 @@ body {
                    class="btn btn-light btn-sm <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
                     Start Scanning
                 </a>
-
+                <?php 
+                if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+                ?>
                 <?php if ($last_status === 'start' || $last_status === 'resume'): ?>
 
                     <a href="pause_audit.php" class="btn btn-warning btn-sm">Pause</a>
@@ -254,7 +294,10 @@ body {
 
                 <?php elseif ($last_status === 'end'): ?>
 
-                    <span class="badge bg-dark badge-soft">Audit Ended</span>
+                    <a href="../Variance-look/?audit_id=<?php echo $audit_id; ?>"
+                        class="btn btn-info btn-sm">
+                        Find Variance
+                    </a>
 
                     <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
                        class="btn btn-success btn-sm">
@@ -266,93 +309,489 @@ body {
                         CSV Summary
                     </a>
 
-                <?php endif; ?>
+
+
+                <?php endif; 
+                }
+                ?>
 
             </div>
         </div>
     </div>
 </div>
 
-<div class="section-card p-3">
+<div class="row">
+    <div class="col-12">
+        <!-- //executive dashboard -->
+        <div class="row g-3 mb-4">
 
-    <h5 class="mb-3 fw-semibold">Audit Summary</h5>
-
-    <div class="row g-3">
-
-        <div class="col-md-3">
-            <div class="kpi-card">
-                <div class="kpi-title">Expected Qty</div>
-                <div class="kpi-value"><?= number_format($total_expected_qty); ?></div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="kpi-card">
-                <div class="kpi-title">Scanned Qty</div>
-                <div class="kpi-value text-kpi-primary"><?= number_format($total_qty_scanned); ?></div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="kpi-card">
-                <div class="kpi-title">Outbounded Qty</div>
-                <div class="kpi-value text-kpi-warning"><?= number_format($total_outbounded_qty); ?></div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="kpi-card">
-                <div class="kpi-title">Variance Qty</div>
-                <div class="kpi-value <?= ($variance_qty < 0) ? 'text-kpi-danger' : 'text-kpi-success'; ?>">
-                    <?= number_format($variance_qty); ?>
+            <div class="col-md-3">
+                <div class="card border-primary shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Expected Qty</small>
+                        <h3><?= number_format($total_expected_qty) ?></h3>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-md-6">
-            <div class="kpi-card">
-                <div class="kpi-title">Expected Amount</div>
-                <div class="kpi-value">₱ <?= number_format($total_expected_amount, 2); ?></div>
+            <div class="col-md-3">
+                <div class="card border-success shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Scanned Qty</small>
+                        <h3><?= number_format($total_qty_scanned) ?></h3>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="col-md-3">
-            <div class="kpi-card">
-                <div class="kpi-title">Scanned Amount</div>
-                <div class="kpi-value text-kpi-primary">₱ <?= number_format($total_amount_scanned, 2); ?></div>
+            <div class="col-md-3">
+                <div class="card border-warning shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Missing Qty</small>
+                        <h3><?= number_format($negative_variance_qty) ?></h3>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="col-md-3">
-            <div class="kpi-card">
-                <div class="kpi-title">Outbounded Amount</div>
-                <div class="kpi-value text-kpi-warning">₱ <?= number_format($total_amount_outbounded, 2); ?></div>
+            <div class="col-md-3">
+                <div class="card border-info shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Audit Progress</small>
+                        <h3><?= number_format($audit_progress,2) ?>%</h3>
+                    </div>
+                </div>
             </div>
-        </div>
 
+        </div>
     </div>
-</div>
+
+    <div class="col-4">
+        <!-- //progress bar  -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+
+                <div class="d-flex justify-content-between mb-2">
+
+                    <span>Audit Progress</span>
+
+                    <strong>
+                        <?= number_format($audit_progress,2) ?>%
+                    </strong>
+
+                </div>
+
+                <div class="progress" style="height:25px">
+
+                    <div class="progress-bar bg-success"
+                        style="width:<?= $audit_progress ?>%">
+
+                        <?= number_format($audit_progress,2) ?>%
+
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- charts -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                Audit Exception Analysis
+            </div>
+
+            <div class="card-body">
+                <canvas id="auditChart"></canvas>
+            </div>
+        </div>
+
+        <script>
+
+        new Chart(
+        document.getElementById('auditChart'),
+        {
+            type:'bar',
+
+            data:{
+                labels:[
+                    'Wrong Warehouse',
+                    'Wrong Location',
+                    'Outbounded',
+                    'Missing'
+                ],
+
+                datasets:[{
+                    data:[
+                        <?= $wrong_warehouse_qty ?>,
+                        <?= $wrong_location_qty ?>,
+                        <?= $outbounded_variance_qty ?>,
+                        <?= $negative_variance_qty ?>
+                    ]
+                }]
+            },
+
+            options:{
+                responsive:true,
+                plugins:{
+                    legend:{
+                        display:false
+                    }
+                }
+            }
+        });
+
+        </script>
+    </div>
+
+    <div class="col-8">
+        <!-- problems requiring investigation -->
+        <div class="row g-3 mb-4">
+
+            <div class="col-md-6">
+                <div class="card border-primary shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Expected Amount</small>
+                        <h5>₱<?= number_format($total_expected_amount,2) ?></h5>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-success shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Scanned Amount</small>
+                        <h5>₱<?= number_format($total_amount_scanned,2) ?></h5>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-warning shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Outbounded Amount</small>
+                        <h5>₱<?= number_format($total_amount_outbounded,2) ?></h5>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-danger shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Variance Amount</small>
+                        <h5>₱<?= number_format($variance_amount,2) ?></h5>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <small>Positive Variance</small>
+                        <h4><?= $positive_variance_qty ?></h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <small>Negative Variance</small>
+                        <h4><?= $negative_variance_qty ?></h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <small>Wrong Warehouse</small>
+                        <h4><?= $wrong_warehouse_qty ?></h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <small>Wrong Location</small>
+                        <h4><?= $wrong_location_qty ?></h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <small>Outbounded</small>
+                        <h4><?= $outbounded_variance_qty ?></h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-dark">
+                    <div class="card-body">
+                        <small>Net Variance</small>
+                        <h4><?= $net_variance_qty ?></h4>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <style>
+        .card {
+            border: 0;
+            border-radius: 14px;
+        }
+
+        .card-title {
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+
+        .table-modern {
+            font-size: 0.85rem;
+        }
+
+        .table-modern thead th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #6c757d;
+            border-bottom: 2px solid #e9ecef;
+            white-space: nowrap;
+        }
+
+        .table-modern tbody tr {
+            transition: all 0.15s ease-in-out;
+        }
+
+        .table-modern tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            font-weight: 500;
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+        }
+
+        .fs-11 {
+            font-size: 0.82rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: .75rem;
+        }
+
+        .soft-muted {
+            color: #8a8f98;
+            font-size: 0.8rem;
+        }
+
+        .btn-sm {
+            border-radius: 10px;
+        }
+
+        .table-responsive {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table-scroll {
+            max-height: 420px;
+            overflow-y: auto;
+        }
+    </style>
+
+    <div class="col-9 d-flex mb-3">
+        <div class="card mb-3 h-100 w-100 shadow-sm">
+            <div class="card-body">
+
+                <div class="section-header">
+                    <div>
+                        <h5 class="card-title mb-0">Missing / Not Yet Scanned Items</h5>
+                        <div class="soft-muted">Pending audit items that are not yet scanned</div>
+                    </div>
+                </div>
+
+                <?php
+                $recent_scans_query = "
+                    SELECT  p.description,
+                            b.brand_name,
+                            c.category_name,
+                            il.location_name,
+                            w.warehouse_name,
+                            ia.outbounded,
+                            ia.warehouse_origin,
+                            ia.warehouse_onscanned,
+                            ia.item_location_origin,
+                            ia.item_location_onscanned,
+                            s.capital,
+                            ia.audit_status
+                    FROM items_to_audit ia
+                    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+                    LEFT JOIN product p ON p.hashed_id = s.product_id
+                    LEFT JOIN brand b ON b.hashed_id = p.brand
+                    LEFT JOIN category c ON c.hashed_id = p.category
+                    LEFT JOIN item_location il ON il.id = s.item_location
+                    LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
+                    WHERE ia.audit_status = 'pending'
+                    AND ia.audit_id = '$audit_id'
+                    ORDER BY s.capital DESC
+                ";
+
+                $recent_scans_result = mysqli_query($conn, $recent_scans_query);
+                ?>
+                <div class="table-scroll">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Brand</th>
+                                    <th>Category</th>
+                                    <th>Location</th>
+                                    <th>Outbounded?</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+
+                                <?php while ($row = mysqli_fetch_assoc($recent_scans_result)) {
+
+                                    $product_description = htmlspecialchars($row['description']);
+                                    $brand_name = htmlspecialchars($row['brand_name']);
+                                    $category_name = htmlspecialchars($row['category_name']);
+                                    $location_name = htmlspecialchars($row['location_name']);
+                                    $outbounded_yes_no = $row['outbounded'];
+                                ?>
+                                <tr>
+                                    <td class="fw-medium"><?= $product_description ?></td>
+                                    <td><?= $brand_name ?></td>
+                                    <td><?= $category_name ?></td>
+                                    <td class="text-muted"><?= $location_name ?? "For SKU" ?></td>
+                                    <td>
+                                        <?php if ($outbounded_yes_no === "yes") { ?>
+                                            <span class="badge bg-primary">Yes</span>
+                                        <?php } else { ?>
+                                            <span class="badge bg-secondary">No</span>
+                                        <?php } ?>
+                                    </td>
+                                </tr>
+                                <?php } ?>
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
 
 
+    <div class="col-3 d-flex mb-3">
+        <div class="card mb-3 h-100 w-100 shadow-sm">
+            <div class="card-body">
+
+                <div class="section-header">
+                    <div>
+                        <h5 class="card-title mb-0">Recent Scans</h5>
+                        <div class="soft-muted">Latest scanned items</div>
+                    </div>
+                </div>
+
+                <?php
+                $recent_scans_query = "
+                    SELECT  p.description,
+                            b.brand_name,
+                            c.category_name,
+                            il.location_name,
+                            w.warehouse_name,
+                            ia.outbounded,
+                            ia.warehouse_origin,
+                            ia.warehouse_onscanned,
+                            ia.item_location_origin,
+                            ia.item_location_onscanned,
+                            s.capital,
+                            ia.audit_status,
+                            s.unique_barcode
+                    FROM items_to_audit ia
+                    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+                    LEFT JOIN product p ON p.hashed_id = s.product_id
+                    LEFT JOIN brand b ON b.hashed_id = p.brand
+                    LEFT JOIN category c ON c.hashed_id = p.category
+                    LEFT JOIN item_location il ON il.id = s.item_location
+                    LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
+                    WHERE ia.audit_status = 'scanned'
+                    AND ia.audit_id = '$audit_id'
+                    ORDER BY ia.scanned_date DESC
+                    LIMIT 10
+                ";
+
+                $recent_scans_result = mysqli_query($conn, $recent_scans_query);
+                ?>
+                <div class="table-scroll">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Barcode</th>
+                                    <th>Outbounded?</th>
+                                    <th>Location</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <?php while ($row = mysqli_fetch_assoc($recent_scans_result)) {
+
+                                    $barcode = htmlspecialchars($row['unique_barcode']);
+                                    $outbounded_yes_no = $row['outbounded'];
+                                    $location_name = htmlspecialchars($row['location_name']);
+                                ?>
+                                <tr>
+                                    <td class="fw-medium"><?= $barcode ?></td>
+                                    <td>
+                                        <?php if ($outbounded_yes_no === "yes") { ?>
+                                            <span class="badge bg-primary">Yes</span>
+                                        <?php } else { ?>
+                                            <span class="badge bg-secondary">No</span>
+                                        <?php } ?>
+                                    </td>
+                                    <td class="text-muted"><?= $location_name ?? "For SKU" ?></td>
+                                </tr>
+                                <?php } ?>
+                            </tbody>
+
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
 
 
-<!-- for a position that can manage assignments on rackins -->
-<div class="card mt-3 mb-3">
-    <div class="card-body">
-        <h5 class="card-title">Audit Assignments</h5>
-        <div class="table-responsive">
-            <table class="table table-hover table-modern align-middle">
-                <thead>
-                    <tr>
-                        <th>Warehouse</th>
-                        <th>Item Location</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    $assignments_query = "
+    <div class="col-7">
+        <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+
+                <div class="section-header">
+                    <div>
+                        <h5 class="card-title mb-0">Audit Assignments</h5>
+                        <div class="soft-muted">Warehouse and location assignments for this audit</div>
+                    </div>
+                </div>
+
+                <?php
+                $assignments_query = "
                     SELECT
                         w.warehouse_name,
                         il.location_name,
@@ -364,97 +803,158 @@ body {
                     FROM audit_assignments aa
                     LEFT JOIN warehouse w ON aa.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci
                     LEFT JOIN item_location il ON aa.item_location = il.id
-                    WHERE aa.audit_id = ?";
-                    $stmt = $conn->prepare($assignments_query);
-                    $stmt->bind_param("i", $audit_id);
-                    $stmt->execute();
-                    $assignments_result = $stmt->get_result();
-                    if ($assignments_result->num_rows === 0) {
-                        ?>
-                        <tr><td colspan="3" class="text-center"><a href="syncnow.php" class="btn btn-secondary">Sync Now</a></td></tr>
-                        <?php
-                    } else {
-                        while ($row = $assignments_result->fetch_assoc()) {
-                            $random = chr(rand(65, 90)); // First character: A-Z
+                    WHERE aa.audit_id = ?
+                ";
 
-                            for ($i = 1; $i < 95; $i++) {
-                                $random .= substr('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(0, 61), 1);
-                            }
+                $stmt = $conn->prepare($assignments_query);
+                $stmt->bind_param("i", $audit_id);
+                $stmt->execute();
+                $assignments_result = $stmt->get_result();
+                ?>
 
+                <div class="table-responsive">
+                    <table class="table table-hover table-modern align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Warehouse</th>
+                                <th>Item Location</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <?php if ($assignments_result->num_rows === 0) { ?>
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">
+                                        No audit assignments found
+                                        <div class="mt-2">
+                                            <a href="syncnow.php" class="btn btn-outline-secondary btn-sm">
+                                                Sync Now
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php } else {
+
+                                while ($row = $assignments_result->fetch_assoc()) {
+
+                                    $random = chr(rand(65, 90));
+                                    for ($i = 1; $i < 95; $i++) {
+                                        $random .= substr('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(0, 61), 1);
+                                    }
                             ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($row['warehouse_name']); ?></td>
-                                <td><?php echo htmlspecialchars($row['location_name']); ?></td>
-                                <td><?php echo htmlspecialchars($row['status']); ?></td>
+                                <td class="fw-medium">
+                                    <?= htmlspecialchars($row['warehouse_name']) ?>
+                                </td>
+
                                 <td>
-                                    <a class="btn btn-primary fs-11" href="../audit-data/?hash=<?php echo $row['id'] . $random; ?>">View audit data</a>
-                                    <button class="btn btn-info btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#assign-modal" data-target-id="<?php echo $row['id']; ?>">Assign Staffs</button>
+                                    <?= htmlspecialchars($row['location_name']) ?>
+                                </td>
+
+                                <td>
+                                    <span class="badge bg-info text-dark">
+                                        <?= htmlspecialchars($row['status']) ?>
+                                    </span>
+                                </td>
+
+                                <td class="text-end">
+                                    <a class="btn btn-primary btn-sm fs-11"
+                                    href="../audit-data/?hash=<?= $row['id'] . $random ?>">
+                                        View
+                                    </a>
+                                    <?php 
+                                    if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+                                    ?>
+                                    <button class="btn btn-outline-info btn-sm"
+                                            type="button"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#assign-modal"
+                                            data-target-id="<?= $row['id']; ?>">
+                                        Assign Staffs
+                                    </button>
+                                    <?php } ?>
                                 </td>
                             </tr>
                             <?php
-                        }
-                    }
-                    
-                    $stmt->close();
-                    ?>
-                </tbody>
-            </table>
+                                }
+                            } ?>
+
+                        </tbody>
+                    </table>
+                </div>
+
+                <?php $stmt->close(); ?>
+
+            </div>
         </div>
     </div>
-</div>
 
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title">Assignments</h5>
-        <div class="table-responsive">
-            <table class="table table-hover table-modern align-middle">
-                <thead>
-                    <tr>
-                        <th>Staff</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php 
-                    $audit_assignment_staffs_query = "
-                        SELECT 
-                            u.user_fname,
-                            u.user_lname,
-                            aas.user_id,
-                            aas.status,
-                            aas.audit_assignments_id,
-                            il.id AS location_id,
-                            il.location_name
-                        FROM audit_assignment_staffs aas
-                        LEFT JOIN users u
-                            ON u.hashed_id = aas.user_id
-                        LEFT JOIN audit_assignments aa
-                            ON aa.id = aas.audit_assignments_id
-                        LEFT JOIN item_location il
-                            ON il.id = aa.item_location
-                        WHERE aa.audit_id = ?
-                        ORDER BY il.location_name, u.user_fname, u.user_lname
-                    ";
 
-                    $stmt = $conn->prepare($audit_assignment_staffs_query);
-                    $stmt->bind_param("i", $audit_id);
-                    $stmt->execute();
+    <div class="col-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
 
-                    $audit_assignment_staffs_result = $stmt->get_result();
+                <div class="section-header">
+                    <div>
+                        <h5 class="card-title mb-0">Assignments</h5>
+                        <div class="soft-muted">Staff assigned per location</div>
+                    </div>
+                </div>
 
-                    if ($audit_assignment_staffs_result->num_rows > 0) {
+                <?php
+                $audit_assignment_staffs_query = "
+                    SELECT 
+                        u.user_fname,
+                        u.user_lname,
+                        aas.user_id,
+                        aas.status,
+                        aas.audit_assignments_id,
+                        il.id AS location_id,
+                        il.location_name
+                    FROM audit_assignment_staffs aas
+                    LEFT JOIN users u
+                        ON u.hashed_id = aas.user_id
+                    LEFT JOIN audit_assignments aa
+                        ON aa.id = aas.audit_assignments_id
+                    LEFT JOIN item_location il
+                        ON il.id = aa.item_location
+                    WHERE aa.audit_id = ?
+                    ORDER BY il.location_name, u.user_fname, u.user_lname
+                ";
 
-                        while ($staff = $audit_assignment_staffs_result->fetch_assoc()) {
+                $stmt = $conn->prepare($audit_assignment_staffs_query);
+                $stmt->bind_param("i", $audit_id);
+                $stmt->execute();
+                $audit_assignment_staffs_result = $stmt->get_result();
+                ?>
 
-                            $full_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
+                <div class="table-responsive">
+                    <table class="table table-hover table-modern align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Staff</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            <?php if ($audit_assignment_staffs_result->num_rows > 0) {
+
+                                while ($staff = $audit_assignment_staffs_result->fetch_assoc()) {
+
+                                    $full_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
                             ?>
                             <tr>
                                 <td>
-                                    <?php echo htmlspecialchars($full_name); ?>
-                                    <br>
+                                    <div class="fw-medium">
+                                        <?= htmlspecialchars($full_name) ?>
+                                    </div>
                                     <small class="text-muted">
-                                        <?php echo htmlspecialchars($staff['location_name']); ?>
+                                        <?= htmlspecialchars($staff['location_name']) ?>
                                     </small>
                                 </td>
 
@@ -463,7 +963,7 @@ body {
                                     switch ($staff['status']) {
 
                                         case 'for_approval':
-                                            echo '<span class="badge bg-warning text-dark badge-soft">For Approval</span>';
+                                            echo '<span class="badge bg-warning text-dark">For Approval</span>';
                                             break;
 
                                         case 'approved':
@@ -475,165 +975,70 @@ body {
                                             break;
 
                                         default:
-                                            echo '<span class="badge bg-secondary">' .
-                                                htmlspecialchars($staff['status']) .
-                                                '</span>';
+                                            echo '<span class="badge bg-secondary">'
+                                                . htmlspecialchars($staff['status']) .
+                                            '</span>';
                                     }
                                     ?>
                                 </td>
 
-                                <td>
-                                    <?php if ($staff['status'] !== 'idle' || $staff['status'] !== 'pending') : ?>
+                                <td class="text-end">
 
-                                        <a href="../finish/?area=<?php echo $staff['location_id'];?>&user_id=<?php echo $staff['user_id'];?>"
+                                    <?php if ($staff['status'] !== 'idle' && $staff['status'] !== 'pending') : ?>
+
+                                        <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>"
                                         class="btn btn-success btn-sm">
                                             View
                                         </a>
 
-
                                     <?php else : ?>
 
-                                        <span class="text-muted">No action required</span>
+                                        <span class="text-muted small">No action</span>
 
                                     <?php endif; ?>
+
                                 </td>
                             </tr>
                             <?php
-                        }
+                                }
+                            } else {
+                            ?>
 
-                    } else {
-                        ?>
-                        <tr>
-                            <td colspan="3" class="text-center text-muted">
-                                No staff assignments found.
-                            </td>
-                        </tr>
-                        <?php
-                    }
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">
+                                    No staff assignments found
+                                </td>
+                            </tr>
 
-                    $stmt->close();
-                    ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                            <?php } ?>
 
-<div class="card mb-3 mt-3">
-    <div class="card-body">
-        <h5 class="card-title">Recent Scans</h5>
-        <div class="table-responsive">
-            <table class="table table-hover table-modern align-middle">
-                <thead>
-                    <tr>
-                        <th>Description</th>
-                        <th>Brand</th>
-                        <th>Category</th>
-                        <th>Rack/Location</th>
-                        <th>Warehouse</th>
-                        <th>Outbounded?</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- RECENT SCANS -->
-                    <?php
-                    $recent_scans_query = "
-                        SELECT  p.description,
-                                b.brand_name,
-                                c.category_name,
-                                il.location_name,
-                                w.warehouse_name,
-                                ia.outbounded
-                        FROM items_to_audit ia
-                        LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
-                        LEFT JOIN product p ON p.hashed_id = s.product_id
-                        LEFT JOIN brand b ON b.hashed_id = p.brand
-                        LEFT JOIN category c ON c.hashed_id = p.category
-                        LEFT JOIN item_location il ON il.hashed_id = s.item_location
-                        LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
-                        WHERE ia.audit_status = 'scanned'
-                        AND ia.audit_id = '$audit_id'
-                        ORDER BY ia.scanned_date DESC
-                    ";
+                        </tbody>
+                    </table>
+                </div>
 
-                    $recent_scans_result = mysqli_query($conn, $recent_scans_query);
+                <?php $stmt->close(); ?>
 
-                    while ($row = mysqli_fetch_assoc($recent_scans_result)) {
-                    ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($row['description']); ?></td>
-                        <td><?php echo htmlspecialchars($row['brand_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['category_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['location_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['warehouse_name']); ?></td>
-                        <td><?php echo $row['outbounded']; ?></td>
-                    </tr>
-                    <?php
-                    }
-                    ?>
-                </tbody>
-            </table>
+            </div>
         </div>
     </div>
 </div>
 
 
-<div class="card mb-3">
-    <div class="card-body">
-        <h5 class="card-title">Currently Missing/ Not Scanned Yet</h5>
-        <div class="table-responsive">
-            <table class="table table-hover table-modern align-middle">
-                <thead>
-                    <tr>
-                        <th>Description</th>
-                        <th>Brand</th>
-                        <th>Category</th>
-                        <th>Rack/Location</th>
-                        <th>Warehouse</th>
-                        <th>Outbounded?</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    $missing_items_query = "
-                        SELECT  p.description,
-                                b.brand_name,
-                                c.category_name,
-                                il.location_name,
-                                w.warehouse_name,
-                                ia.outbounded
-                        FROM items_to_audit ia
-                        LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
-                        LEFT JOIN product p ON p.hashed_id = s.product_id
-                        LEFT JOIN brand b ON b.hashed_id = p.brand
-                        LEFT JOIN category c ON c.hashed_id = p.category
-                        LEFT JOIN item_location il ON il.hashed_id = s.item_location
-                        LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
-                        WHERE ia.audit_status = 'pending'
-                        AND ia.audit_id = '$audit_id'
-                        ORDER BY s.capital DESC
-                    ";
 
-                    $missing_items_result = mysqli_query($conn, $missing_items_query);
 
-                    while ($row = mysqli_fetch_assoc($missing_items_result)) {
-                    ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($row['description']); ?></td>
-                        <td><?php echo htmlspecialchars($row['brand_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['category_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['location_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['warehouse_name']); ?></td>
-                        <td><?php echo $row['outbounded']; ?></td>
-                    </tr>
-                    <?php
-                    }
-                    ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 <!-- ASSIGNING STAFFS -->

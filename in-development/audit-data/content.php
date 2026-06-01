@@ -1,6 +1,12 @@
 <?php
 $audit_id = $_SESSION['audit_id'];
 
+
+$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
+$audit_position_result = $conn->query($audit_position_query);
+$audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
+
+
 $unfiltered_audit_assignment_id = $_GET['hash'];
 preg_match('/^\d+/', $unfiltered_audit_assignment_id, $matches);
 $audit_assignment_id = $matches[0] ?? '';
@@ -240,10 +246,11 @@ $variance_amount = $total_scanned_amount - $expected_amount;
     
     <input type="text" id="barcodeInput" class="form-control form-control-lg me-3"
         placeholder="Scan barcode..." autofocus hidden>
-
+    <?php if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") { ?>
     <button id="closeAuditBtn" class="btn btn-danger px-4">
         Close Audit
     </button>
+    <?php } ?>
 
 </div>
 

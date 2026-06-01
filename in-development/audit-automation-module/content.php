@@ -1,3 +1,8 @@
+<?php
+$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
+$audit_position_result = $conn->query($audit_position_query);
+$audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
+?>
 <div class="card bg-danger text-white mb-3">
     <div class="card-body">
         <h5 class="card-title">Audit Automation Module</h5>
@@ -10,9 +15,16 @@
     <div class="card-body">
         <h5 class="card-title">Audit Automation Module</h5>
         <div class="text-end">
-            <button class="btn btn-primary">Get Started</button>
+            <!-- 1 is for manager and 2 is for scanner -->
+            <?php 
+            if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+                echo '<a href="../assign-positions/" class="btn btn-primary">Assign Staff</a>';
+            ?>
             <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#schedaudit">Schedule Audit</button>
-            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#staticBackdrop">Audit Now</button>
+            <?php
+            }
+            ?>
+            <!-- <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#staticBackdrop">Audit Now</button> -->
         </div>
     </div>
 </div>
