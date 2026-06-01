@@ -135,6 +135,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     //     $additional_query .= ", item_location_origin = '$stock_item_location', item_location_onscanned = '$selected_area'";
     // } 
 
+    // Check if barcode is already scanned in items_to_audit
+    $already_scanned = false;
+
+    $check_scanned_query = "
+        SELECT id
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND unique_barcode = ?
+        AND audit_status = 'scanned'
+        LIMIT 1
+    ";
+
+    $stmt_check = $conn->prepare($check_scanned_query);
+    $stmt_check->bind_param("is", $audit_id, $barcode);
+    $stmt_check->execute();
+    $stmt_check->store_result();
+
+    if ($stmt_check->num_rows > 0) {
+        $already_scanned = true;
+    }
+
+    $stmt_check->close();
+
+    if ($already_scanned) {
+        die("Barcode already scanned.");
+    }
+
     $needsInsert = false;
 
     if ($stock_item_status != 0) {
@@ -146,7 +173,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $needsInsert = true;
     }
 
-    if ($needsInsert) {
+    // If barcode doesn't exist in items_to_audit yet, create it
+    $check_existing_query = "
+        SELECT id
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND unique_barcode = ?
+        LIMIT 1
+    ";
+
+    $stmt_existing = $conn->prepare($check_existing_query);
+    $stmt_existing->bind_param("is", $audit_id, $barcode);
+    $stmt_existing->execute();
+    $stmt_existing->store_result();
+
+    $exists = $stmt_existing->num_rows > 0;
+
+    $stmt_existing->close();
+
+    if (!$exists) {
         $insert_items_to_audit = "
             INSERT INTO items_to_audit (
                 audit_id,
@@ -183,7 +228,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             warehouse_origin = '$stock_warehouse', 
             warehouse_onscanned = '$warehouse_id_audit'
 
-        WHERE unique_barcode = '$barcode'
+        WHERE audit_id = '$audit_id'
+        AND unique_barcode = '$barcode'
     ";
 
     $stmt_update = $conn->prepare($update_items_to_audit);

@@ -56,7 +56,7 @@ $audit_assignment_id = $assignment_data['id'] ?? null;
 $status = 'idle';
 
 $status_query = "
-    SELECT `status`
+    SELECT `status`, user_id
     FROM audit_assignment_staffs
     WHERE audit_assignments_id = ?
       AND user_id = ?
@@ -70,6 +70,7 @@ $res = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 $status = $res['status'] ?? 'idle';
+$staff_id = $res['user_id'];
 
 // =========================
 // FETCH SCANNED ITEMS
@@ -191,6 +192,35 @@ $total_outbounded_filtered = $stmt->get_result()->fetch_assoc()['total_outbounde
 $stmt->close();
 
 if($status === 'idle' || $status === 'in_progress' || $status === 'pending'){
+    // =========================
+    // UPDATE STATUS TO FOR APPROVAL
+    // =========================
+    $update_query = "
+        UPDATE audit_assignment_staffs
+        SET `status` = 'for_approval'
+        WHERE audit_assignments_id = ?
+        AND user_id = ?
+    ";
+
+    $stmt = $conn->prepare($update_query);
+
+    if (!$stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
+
+    $stmt->bind_param("is", $audit_assignment_id, $user_id);
+
+    if ($stmt->execute()) {
+        $stmt->close();
+        // header("Location: ../finish/?area=success=true");
+        // exit;
+    } else {
+        $stmt->close();
+        die("Update failed: " . $conn->error);
+    }
+}
+
+if($status === 'rejected' && $staff_id === $user_id){
     // =========================
     // UPDATE STATUS TO FOR APPROVAL
     // =========================

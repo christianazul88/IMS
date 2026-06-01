@@ -130,107 +130,206 @@ $stmt->close();
 $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty ;
 
 ?>
-<div class="card bg-warning text-white mb-3">
-    <div class="card-body">
-        <div class="row">
-            <div class="col-4">
-                <h5 class="card-title">Audit Dashboard</h5>
-                <p class="card-text">Real-time monitoring for Audit #<?php echo $audit['audit_num']; ?> - <?php echo $audit['warehouse_name']; ?></p>
+<style>
+:root {
+    --audit-primary: #4f46e5;
+    --audit-success: #16a34a;
+    --audit-warning: #f59e0b;
+    --audit-danger: #ef4444;
+    --audit-muted: #6b7280;
+    --audit-bg: #f8fafc;
+}
+
+body {
+    background: var(--audit-bg);
+}
+
+/* DASHBOARD HEADER */
+.audit-header {
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: #fff;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+/* KPI CARDS */
+.kpi-card {
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 12px;
+    padding: 16px;
+    transition: 0.2s ease;
+    height: 100%;
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+
+.kpi-title {
+    font-size: 12px;
+    color: var(--audit-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kpi-value {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 5px;
+}
+
+/* COLOR ACCENTS */
+.text-kpi-primary { color: var(--audit-primary); }
+.text-kpi-success { color: var(--audit-success); }
+.text-kpi-warning { color: var(--audit-warning); }
+.text-kpi-danger { color: var(--audit-danger); }
+
+/* TABLES */
+.table-modern {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.table-modern thead {
+    background: #111827;
+    color: #fff;
+}
+
+.table-modern tbody tr:hover {
+    background: #f1f5f9;
+}
+
+/* SECTION CARDS */
+.section-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.05);
+    margin-top: 20px;
+}
+
+/* ACTION BUTTON BAR */
+.action-bar {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.badge-soft {
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+</style>
+
+<div class="audit-header mb-3">
+    <div class="row align-items-center">
+        <div class="col-lg-6">
+            <h4 class="mb-1 fw-bold">Audit Dashboard</h4>
+            <div class="small opacity-75">
+                Audit #<?= $audit['audit_num']; ?> • <?= $audit['warehouse_name']; ?>
             </div>
-            <div class="col-8 text-end">
-                <a href="../Choose-Area/" class="btn btn-light <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
+        </div>
+
+        <div class="col-lg-6">
+            <div class="action-bar">
+
+                <a href="../Choose-Area/"
+                   class="btn btn-light btn-sm <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
                     Start Scanning
                 </a>
 
                 <?php if ($last_status === 'start' || $last_status === 'resume'): ?>
 
-                    <a href="pause_audit.php" class="btn btn-warning">Pause</a>
-                    <a href="end.php" class="btn btn-danger">End Audit</a>
+                    <a href="pause_audit.php" class="btn btn-warning btn-sm">Pause</a>
+                    <a href="end.php" class="btn btn-danger btn-sm">End Audit</a>
 
                 <?php elseif ($last_status === 'pause'): ?>
 
-                    <a href="resume_audit.php" class="btn btn-success">Resume</a>
-                    <a href="end.php" class="btn btn-danger">End Audit</a>
+                    <a href="resume_audit.php" class="btn btn-success btn-sm">Resume</a>
+                    <a href="end.php" class="btn btn-danger btn-sm">End Audit</a>
 
                 <?php elseif ($last_status === 'end'): ?>
 
-                    <span class="badge bg-secondary">Audit Ended</span>
+                    <span class="badge bg-dark badge-soft">Audit Ended</span>
 
                     <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
-                    class="btn btn-success">
-                    Download Detailed CSV
+                       class="btn btn-success btn-sm">
+                        CSV Detail
                     </a>
 
                     <a href="generate_summary_report.php?audit_id=<?php echo $audit_id; ?>"
-                    class="btn btn-primary">
-                    Download Summary CSV
+                       class="btn btn-primary btn-sm">
+                        CSV Summary
                     </a>
 
                 <?php endif; ?>
+
             </div>
         </div>
-        
     </div>
 </div>
 
-<div class="card mt-3 border-0 shadow-sm">
-    <div class="card-body">
-        <h5 class="card-title mb-3">Audit Summary</h5>
+<div class="section-card p-3">
 
-        <div class="row g-3">
+    <h5 class="mb-3 fw-semibold">Audit Summary</h5>
 
-            <div class="col-md-3">
-                <div class="p-3 bg-light rounded">
-                    <small class="text-muted">Expected Qty</small>
-                    <h4 class="mb-0"><?php echo number_format($total_expected_qty); ?></h4>
-                </div>
+    <div class="row g-3">
+
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Expected Qty</div>
+                <div class="kpi-value"><?= number_format($total_expected_qty); ?></div>
             </div>
-
-            <div class="col-md-3">
-                <div class="p-3 bg-light rounded">
-                    <small class="text-muted">Scanned Qty</small>
-                    <h4 class="mb-0 text-primary"><?php echo number_format($total_qty_scanned); ?></h4>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="p-3 bg-light rounded">
-                    <small class="text-muted">Outbounded Qty</small>
-                    <h4 class="mb-0 text-warning"><?php echo number_format($total_outbounded_qty); ?></h4>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="p-3 bg-light rounded">
-                    <small class="text-muted">Variance Qty</small>
-                    <h4 class="mb-0 <?php echo ($variance_qty < 0) ? 'text-danger' : 'text-success'; ?>">
-                        <?php echo number_format($variance_qty); ?>
-                    </h4>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="p-3 bg-light rounded">
-                    <small class="text-muted">Total Expected Amount</small>
-                    <h4 class="mb-0">₱ <?php echo number_format($total_expected_amount, 2); ?></h4>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="p-3 bg-light rounded">
-                    <small class="text-muted">Scanned Amount</small>
-                    <h4 class="mb-0 text-primary">₱ <?php echo number_format($total_amount_scanned, 2); ?></h4>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="p-3 bg-light rounded">
-                    <small class="text-muted">Outbounded Amount</small>
-                    <h4 class="mb-0 text-warning">₱ <?php echo number_format($total_amount_outbounded, 2); ?></h4>
-                </div>
-            </div>
-
         </div>
+
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Scanned Qty</div>
+                <div class="kpi-value text-kpi-primary"><?= number_format($total_qty_scanned); ?></div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Outbounded Qty</div>
+                <div class="kpi-value text-kpi-warning"><?= number_format($total_outbounded_qty); ?></div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Variance Qty</div>
+                <div class="kpi-value <?= ($variance_qty < 0) ? 'text-kpi-danger' : 'text-kpi-success'; ?>">
+                    <?= number_format($variance_qty); ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="kpi-card">
+                <div class="kpi-title">Expected Amount</div>
+                <div class="kpi-value">₱ <?= number_format($total_expected_amount, 2); ?></div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Scanned Amount</div>
+                <div class="kpi-value text-kpi-primary">₱ <?= number_format($total_amount_scanned, 2); ?></div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Outbounded Amount</div>
+                <div class="kpi-value text-kpi-warning">₱ <?= number_format($total_amount_outbounded, 2); ?></div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -242,7 +341,7 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
     <div class="card-body">
         <h5 class="card-title">Audit Assignments</h5>
         <div class="table-responsive">
-            <table class="table bordered-table">
+            <table class="table table-hover table-modern align-middle">
                 <thead>
                     <tr>
                         <th>Warehouse</th>
@@ -288,7 +387,7 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
                                 <td><?php echo htmlspecialchars($row['location_name']); ?></td>
                                 <td><?php echo htmlspecialchars($row['status']); ?></td>
                                 <td>
-                                    <a class="btn btn-primary fs-11" href="../view-staffs/?hash=<?php echo $row['id'] . $random; ?>">View assigned staffs</a>
+                                    <a class="btn btn-primary fs-11" href="../audit-data/?hash=<?php echo $row['id'] . $random; ?>">View audit data</a>
                                     <button class="btn btn-info btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#assign-modal" data-target-id="<?php echo $row['id']; ?>">Assign Staffs</button>
                                 </td>
                             </tr>
@@ -308,7 +407,7 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
     <div class="card-body">
         <h5 class="card-title">Assignments</h5>
         <div class="table-responsive">
-            <table>
+            <table class="table table-hover table-modern align-middle">
                 <thead>
                     <tr>
                         <th>Staff</th>
@@ -364,7 +463,7 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
                                     switch ($staff['status']) {
 
                                         case 'for_approval':
-                                            echo '<span class="badge bg-warning">For Approval</span>';
+                                            echo '<span class="badge bg-warning text-dark badge-soft">For Approval</span>';
                                             break;
 
                                         case 'approved':
@@ -424,7 +523,7 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
     <div class="card-body">
         <h5 class="card-title">Recent Scans</h5>
         <div class="table-responsive">
-            <table>
+            <table class="table table-hover table-modern align-middle">
                 <thead>
                     <tr>
                         <th>Description</th>
@@ -435,6 +534,44 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
                         <th>Outbounded?</th>
                     </tr>
                 </thead>
+                <tbody>
+                    <!-- RECENT SCANS -->
+                    <?php
+                    $recent_scans_query = "
+                        SELECT  p.description,
+                                b.brand_name,
+                                c.category_name,
+                                il.location_name,
+                                w.warehouse_name,
+                                ia.outbounded
+                        FROM items_to_audit ia
+                        LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+                        LEFT JOIN product p ON p.hashed_id = s.product_id
+                        LEFT JOIN brand b ON b.hashed_id = p.brand
+                        LEFT JOIN category c ON c.hashed_id = p.category
+                        LEFT JOIN item_location il ON il.hashed_id = s.item_location
+                        LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
+                        WHERE ia.audit_status = 'scanned'
+                        AND ia.audit_id = '$audit_id'
+                        ORDER BY ia.scanned_date DESC
+                    ";
+
+                    $recent_scans_result = mysqli_query($conn, $recent_scans_query);
+
+                    while ($row = mysqli_fetch_assoc($recent_scans_result)) {
+                    ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($row['description']); ?></td>
+                        <td><?php echo htmlspecialchars($row['brand_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['category_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['location_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['warehouse_name']); ?></td>
+                        <td><?php echo $row['outbounded']; ?></td>
+                    </tr>
+                    <?php
+                    }
+                    ?>
+                </tbody>
             </table>
         </div>
     </div>
@@ -445,7 +582,7 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
     <div class="card-body">
         <h5 class="card-title">Currently Missing/ Not Scanned Yet</h5>
         <div class="table-responsive">
-            <table>
+            <table class="table table-hover table-modern align-middle">
                 <thead>
                     <tr>
                         <th>Description</th>
@@ -456,6 +593,43 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
                         <th>Outbounded?</th>
                     </tr>
                 </thead>
+                <tbody>
+                    <?php
+                    $missing_items_query = "
+                        SELECT  p.description,
+                                b.brand_name,
+                                c.category_name,
+                                il.location_name,
+                                w.warehouse_name,
+                                ia.outbounded
+                        FROM items_to_audit ia
+                        LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+                        LEFT JOIN product p ON p.hashed_id = s.product_id
+                        LEFT JOIN brand b ON b.hashed_id = p.brand
+                        LEFT JOIN category c ON c.hashed_id = p.category
+                        LEFT JOIN item_location il ON il.hashed_id = s.item_location
+                        LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
+                        WHERE ia.audit_status = 'pending'
+                        AND ia.audit_id = '$audit_id'
+                        ORDER BY s.capital DESC
+                    ";
+
+                    $missing_items_result = mysqli_query($conn, $missing_items_query);
+
+                    while ($row = mysqli_fetch_assoc($missing_items_result)) {
+                    ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($row['description']); ?></td>
+                        <td><?php echo htmlspecialchars($row['brand_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['category_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['location_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['warehouse_name']); ?></td>
+                        <td><?php echo $row['outbounded']; ?></td>
+                    </tr>
+                    <?php
+                    }
+                    ?>
+                </tbody>
             </table>
         </div>
     </div>
@@ -466,6 +640,9 @@ $variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty
  <div class="modal fade" id="assign-modal" tabindex="-1" role="dialog" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 500px">
     <div class="modal-content position-relative">
+    <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title">Assign Staff</h5>
+    </div>
     <form id="assign-staff-form" method="POST" action="assign_staff.php">
       <div class="position-absolute top-0 end-0 mt-2 me-2 z-1">
         <button class="btn-close btn btn-sm btn-circle d-flex flex-center transition-base" data-bs-dismiss="modal" aria-label="Close"></button>
