@@ -646,7 +646,7 @@
           </a>
         </li>
         <?php
-        if(strpos($access, "amountupdate")!==false){
+        if(strpos($access, "amountupdate")!==false  || $user_position_name === "Administrator"){
         ?>
         <!-- Amount Update Link -->
         <li class="nav-item">
@@ -660,6 +660,15 @@
         <?php
         }
         ?>
+
+        <li class="nav-item">
+          <a class="nav-link" href="../audit-automation-module" aria-controls="dashboard">
+            <div class="d-flex align-items-center">
+              <span class="nav-link-icon"><span class="fas fa-chart-pie"></span></span>
+              <span class="nav-link-text ps-1">Audit Logs</span>
+            </div>
+          </a>
+        </li>
 
 
         <?php 
