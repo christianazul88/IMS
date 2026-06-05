@@ -74,6 +74,10 @@ $warehouse_id_audit = $audit['warehouse'];
 $total_expected_qty = (float)$audit['total_expected_qty'];
 $total_expected_amount = (float)$audit['total_expected_amount'];
 
+if($audit_position != 1){
+    $total_expected_amount = 0;
+}
+
 // total scanned qty
 $scanned_qty_query = "
     SELECT COUNT(*) AS total_scanned
@@ -113,6 +117,9 @@ $stmt->execute();
 $total_amount_scanned = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 $stmt->close();
 
+if($audit_position != 1){
+    $total_amount_scanned = 0;
+}
 
 // total outbounded amount
 $outbounded_amount_query = "
@@ -128,6 +135,10 @@ $stmt->bind_param("i", $audit_id);
 $stmt->execute();
 $total_amount_outbounded = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 $stmt->close();
+
+if($audit_position != 1){
+    $total_amount_outbounded = 0;
+}
 
 
 // variance
@@ -260,6 +271,11 @@ $variance_amount =
     $total_expected_amount -
     $total_amount_scanned -
     $total_amount_outbounded;
+
+    if($audit_position != 1){
+        $variance_amount = 0;
+        $net_variance_amount = 0;   
+    }
 ?>
 
 
@@ -909,7 +925,7 @@ $variance_amount =
                         u.user_fname,
                         u.user_lname,
                         aas.user_id,
-                        aas.status,
+                        aas.status AS staff_status,
                         aas.audit_assignments_id,
                         il.id AS location_id,
                         il.location_name
@@ -960,31 +976,37 @@ $variance_amount =
 
                                 <td>
                                     <?php
-                                    switch ($staff['status']) {
+                                    if ($staff['staff_status'] === 'for_approval') {
 
-                                        case 'for_approval':
-                                            echo '<span class="badge bg-warning text-dark">For Approval</span>';
-                                            break;
+                                        echo '<span class="badge bg-warning text-dark">For Approval</span>';
 
-                                        case 'approved':
-                                            echo '<span class="badge bg-success">Approved</span>';
-                                            break;
+                                    } elseif ($staff['staff_status'] === 'approved') {
 
-                                        case 'declined':
-                                            echo '<span class="badge bg-danger">Declined</span>';
-                                            break;
+                                        echo '<span class="badge bg-success">Approved</span>';
 
-                                        default:
-                                            echo '<span class="badge bg-secondary">'
-                                                . htmlspecialchars($staff['status']) .
-                                            '</span>';
+                                    } elseif ($staff['staff_status'] === 'declined') {
+
+                                        echo '<span class="badge bg-danger">Declined</span>';
+
+                                    } elseif ($staff['staff_status'] === 'rejected') {
+
+                                        echo '<span class="badge bg-danger">Rejected</span>';
+                                    } elseif ($staff['staff_status'] === 'idle') {
+    
+                                            echo '<span class="badge bg-secondary">Idle</span>';
+                                    } else {
+
+                                        echo '<span class="badge bg-secondary">'
+                                            . htmlspecialchars($staff['staff_status'])
+                                            . '</span>';
+
                                     }
                                     ?>
                                 </td>
 
                                 <td class="text-end">
 
-                                    <?php if ($staff['status'] !== 'idle' && $staff['status'] !== 'pending') : ?>
+                                    <?php if (($staff['staff_status'] === 'for_approval' || $staff['staff_status'] !== 'approved') || $staff['staff_status'] === 'rejected') : ?>
 
                                         <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>"
                                         class="btn btn-success btn-sm">

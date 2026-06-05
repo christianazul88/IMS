@@ -66,7 +66,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("No area selected.");
     }
 
-    $selected_area = $_POST['area'];
+    if ($_POST['area'] === 'others') {
+
+        $location_name = trim($_POST['other_location']);
+
+        if ($location_name == '') {
+            die('Location name is required.');
+        }
+
+        // Insert into item_location
+        $stmt = $conn->prepare("
+            INSERT INTO item_location (location_name, warehouse)
+            VALUES (?, ?)
+        ");
+        $stmt->bind_param("ss", $location_name, $warehouse_id_audit);
+        $stmt->execute();
+
+        $item_location_id = $stmt->insert_id;
+        $stmt->close();
+
+        // Insert into audit_assignments
+        $stmt = $conn->prepare("
+            INSERT INTO audit_assignments (
+                audit_id,
+                item_location,
+                warehouse
+            )
+            VALUES (?, ?)
+        ");
+        $stmt->bind_param("iis", $audit_id, $item_location_id, $warehouse_id_audit);
+        $stmt->execute();
+
+        $audit_assignment_id = $stmt->insert_id;
+        $stmt->close();
+
+        // Insert into audit_assignment_staffs
+        $stmt = $conn->prepare("
+            INSERT INTO audit_assignment_staffs (
+                audit_assignments_id,
+                user_id,
+                status
+            )
+            VALUES (?, ?, 'idle')
+        ");
+        $stmt->bind_param("is", $audit_assignment_id, $user_id);
+        $stmt->execute();
+        $stmt->close();
+
+        $selected_area = $item_location_id;
+
+    } else {
+        $selected_area = $_POST['area'];
+
+    }
+
+    
+
+    
     $_SESSION['selected_area'] = $selected_area;
 
 

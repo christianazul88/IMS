@@ -78,12 +78,25 @@ $warehouse_id_audit = $audit['warehouse'];
                     $assignment_result = $conn->query($assignment_query);
 
                     while ($row = $assignment_result->fetch_assoc()) {
-                        echo "<option value='" . $row['item_location'] . "'>" 
-                            . $row['location_name'] . 
+                        echo "<option value='" . $row['item_location'] . "'>"
+                            . htmlspecialchars($row['location_name']) .
                             "</option>";
                     }
                     ?>
+
+                    <option value="others">Others</option>
                 </select>
+
+                <div class="mt-3">
+                    <input
+                        type="text"
+                        name="other_location"
+                        id="other_location"
+                        class="form-control"
+                        placeholder="Enter new area/location"
+                        disabled
+                    >
+                </div>
 
                 <small class="text-muted">
                     Only pending assigned locations are shown.
@@ -101,3 +114,18 @@ $warehouse_id_audit = $audit['warehouse'];
 
     </div>
 </div>
+
+<script>
+document.getElementById('area').addEventListener('change', function () {
+    const otherField = document.getElementById('other_location');
+
+    if (this.value === 'others') {
+        otherField.disabled = false;
+        otherField.required = true;
+    } else {
+        otherField.disabled = true;
+        otherField.required = false;
+        otherField.value = '';
+    }
+});
+</script>

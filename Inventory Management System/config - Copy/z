@@ -1,0 +1,55 @@
+if($type === "location"){
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $location_name = trim($_POST['location_name']);
+            $location_id = trim($_POST['id']);
+
+            // Validate input
+            if (empty($location_name) || empty($location_id)) {
+                echo json_encode(["status" => "error", "message" => "All fields are required."]);
+                exit;
+            }
+
+            // Fetch the current location name
+            $query = "SELECT location_name FROM item_location WHERE hashed_id = ?";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("s", $location_id);
+            $stmt->execute();
+            $stmt->store_result();
+            $stmt->bind_result($current_name);
+            $stmt->fetch();
+
+            if ($stmt->num_rows == 0) {
+                echo json_encode(["status" => "error", "message" => "location not found."]);
+                exit;
+            }
+            $stmt->close();
+
+            // If the new name is the same as the current name, return "No changes"
+            if ($current_name === $location_name) {
+                echo json_encode(["status" => "no_change", "message" => "No changes detected."]);
+                exit;
+            }
+
+            // Update the location
+            $update_query = "UPDATE item_location SET location_name = ?, date = NOW() WHERE hashed_id = ?";
+            $stmt_update = $conn->prepare($update_query);
+            $stmt_update->bind_param("ss", $location_name, $location_id);
+
+            if ($stmt_update->execute()) {
+                // Log the update
+                $log_query = "INSERT INTO logs (`title`, `action`, user_id, `date`) VALUES (?, ?, ?, ?)";
+                $stmt_log = $conn->prepare($log_query);
+                $log_title = "UPDATE location";
+                $log_action = "Updated location name from '$current_name' to '$location_name'";
+                $stmt_log->bind_param("ssss", $log_title, $log_action, $user_id, $currentDateTime);
+                $stmt_log->execute();
+                $stmt_log->close();
+
+                echo json_encode(["status" => "success", "message" => "location updated successfully."]);
+            } else {
+                echo json_encode(["status" => "error", "message" => "Failed to update location."]);
+            }
+
+            $stmt_update->close();
+        }
+    }
