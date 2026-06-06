@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 item_location,
                 warehouse
             )
-            VALUES (?, ?)
+            VALUES (?, ?, ?)
         ");
         $stmt->bind_param("iis", $audit_id, $item_location_id, $warehouse_id_audit);
         $stmt->execute();
