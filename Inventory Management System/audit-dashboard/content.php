@@ -798,7 +798,7 @@ $variance_amount =
 
     <div class="col-7">
         <div class="card mb-3 shadow-sm">
-            <div class="card-body">
+            <div class="card-body" style="height: 500px;">
 
                 <div class="section-header">
                     <div>
@@ -829,7 +829,7 @@ $variance_amount =
                 $assignments_result = $stmt->get_result();
                 ?>
 
-                <div class="table-responsive">
+                <div class="table-responsive flex-grow-1 overflow-auto">
                     <table class="table table-hover table-modern align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -911,7 +911,7 @@ $variance_amount =
 
     <div class="col-5">
         <div class="card shadow-sm">
-            <div class="card-body">
+            <div class="card-body" style="height: 500px;">
 
                 <div class="section-header">
                     <div>
@@ -947,7 +947,7 @@ $variance_amount =
                 $audit_assignment_staffs_result = $stmt->get_result();
                 ?>
 
-                <div class="table-responsive">
+                <div class="table-responsive flex-grow-1 overflow-auto">
                     <table class="table table-hover table-modern align-middle mb-0">
                         <thead class="table-light">
                             <tr>
