@@ -661,6 +661,7 @@ $variance_amount =
                     LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
                     WHERE ia.audit_status = 'pending'
                     AND ia.audit_id = '$audit_id'
+                    GROUP BY s.parent_barcode
                     ORDER BY s.capital DESC
                 ";
 
