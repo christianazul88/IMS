@@ -269,6 +269,19 @@ if($status === 'rejected' && $staff_id === $user_id){
     }
 }
 
+
+$missing_query = "SELECT p.description, b.brand_name, c.category_name, s.unique_barcode
+                    FROM items_to_audit ia
+                    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+                    LEFT JOIN product p ON p.hashed_id = s.product_id
+                    LEFT JOIN brand b ON b.hashed_id = p.brand
+                    LEFT JOIN category c ON c.hashed_id = p.category
+                    WHERE ia.audit_status = 'pending'
+                    AND s.item_location = '$selected_area' 
+                    AND ia.audit_id = '$audit_id'";
+$missing_result = $conn->query($missing_query);
+$missing_items = [];
+
 ?>
 <div class="container-fluid">
 
@@ -338,6 +351,11 @@ if($status === 'rejected' && $staff_id === $user_id){
                         Decline
                     </a>
 
+                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>"
+                    class="btn btn-primary btn-sm">
+                        <i class="bi bi-qr-code"></i> Download QR Code
+                    </a>
+
                 <?php elseif ($status === 'approved'): ?>
 
                     <!-- APPROVED (LOCKED) -->
@@ -355,7 +373,10 @@ if($status === 'rejected' && $staff_id === $user_id){
 
                 <?php else: ?>
 
-                    <span class="text-muted">No action available</span>
+                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>"
+                    class="btn btn-primary btn-sm">
+                        <i class="bi bi-qr-code"></i> Download QR Code
+                    </a>
 
                 <?php endif; ?>
                 <?php
@@ -526,5 +547,48 @@ if($status === 'rejected' && $staff_id === $user_id){
 
         </div>
     </div>
+
+
+    <!-- MISSING ITEMS CAN ONLY BE SEEN BY MANAGERS AND ABOVE -->
+    <?php if ($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin"): ?>
+        <div class="card shadow-sm border-0 mt-3">
+            <div class="card-header bg-white">
+                <span class="fw-semibold">MISSING ITEMS</span>
+                <span class="badge bg-danger"><?= $missing_result->num_rows ?> ITEMS</span>
+            </div>
+
+            <div class="card-body">
+
+                <?php if ($missing_result->num_rows > 0): ?>
+
+                    <?php while ($row = $missing_result->fetch_assoc()): ?>
+                        <div class="border-bottom py-2">
+                            <div class="fw-bold">
+                                <?= htmlspecialchars($row['description'] ?? 'N/A') ?>
+                            </div>
+
+                            <div class="text-muted">
+                                <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
+                                /
+                                <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
+                            </div>
+
+                            <div class="text-muted small">
+                                Barcode: <?= htmlspecialchars($row['unique_barcode'] ?? 'N/A') ?>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+
+                <?php else: ?>
+
+                    <div class="text-center text-success py-3">
+                        ✔ No missing items found. if the item location has just been added, this may be because the system has not yet generated the expected items for that location. 
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+        </div>
+    <?php endif; ?>
 
 </div>

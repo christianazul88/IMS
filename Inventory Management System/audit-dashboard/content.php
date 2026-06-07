@@ -798,7 +798,7 @@ $variance_amount =
 
     <div class="col-7">
         <div class="card mb-3 shadow-sm">
-            <div class="card-body" style="height: 500px;">
+            <div class="card-body" >
 
                 <div class="section-header">
                     <div>
@@ -821,6 +821,7 @@ $variance_amount =
                     LEFT JOIN warehouse w ON aa.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci
                     LEFT JOIN item_location il ON aa.item_location = il.id
                     WHERE aa.audit_id = ?
+                    LIMIT 10
                 ";
 
                 $stmt = $conn->prepare($assignments_query);
@@ -841,18 +842,8 @@ $variance_amount =
                         </thead>
 
                         <tbody>
-                            <?php if ($assignments_result->num_rows === 0) { ?>
-                                <tr>
-                                    <td colspan="4" class="text-center py-4 text-muted">
-                                        No audit assignments found
-                                        <div class="mt-2">
-                                            <a href="syncnow.php" class="btn btn-outline-secondary btn-sm">
-                                                Sync Now
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php } else {
+                                
+                            <?php 
 
                                 while ($row = $assignments_result->fetch_assoc()) {
 
@@ -896,7 +887,7 @@ $variance_amount =
                             </tr>
                             <?php
                                 }
-                            } ?>
+                            ?>
 
                         </tbody>
                     </table>
@@ -911,7 +902,7 @@ $variance_amount =
 
     <div class="col-5">
         <div class="card shadow-sm">
-            <div class="card-body" style="height: 500px;">
+            <div class="card-body">
 
                 <div class="section-header">
                     <div>
@@ -939,6 +930,7 @@ $variance_amount =
                         ON il.id = aa.item_location
                     WHERE aa.audit_id = ?
                     ORDER BY il.location_name, u.user_fname, u.user_lname
+                    LIMIT 100
                 ";
 
                 $stmt = $conn->prepare($audit_assignment_staffs_query);
@@ -947,7 +939,7 @@ $variance_amount =
                 $audit_assignment_staffs_result = $stmt->get_result();
                 ?>
 
-                <div class="table-responsive flex-grow-1 overflow-auto">
+                <div class="table-responsive">
                     <table class="table table-hover table-modern align-middle mb-0">
                         <thead class="table-light">
                             <tr>

@@ -76,12 +76,27 @@ $warehouse_id_audit = $audit['warehouse'];
                                         AND (aas.status = 'idle' OR aas.status = 'rejected')";
 
                     $assignment_result = $conn->query($assignment_query);
-
-                    while ($row = $assignment_result->fetch_assoc()) {
-                        echo "<option value='" . $row['item_location'] . "'>"
-                            . htmlspecialchars($row['location_name']) .
-                            "</option>";
+                    if ($assignment_result->num_rows === 0) {
+                        $item_location_query = "SELECT id, location_name FROM item_location WHERE warehouse = '$warehouse_id_audit' ORDER BY location_name";
+                        $item_location_result = $conn->query($item_location_query);
+                        if ($item_location_result->num_rows > 0) {
+                            while ($row = $item_location_result->fetch_assoc()) {
+                                echo "<option value='" . $row['id'] . "'>"
+                                    . htmlspecialchars($row['location_name']) .
+                                    "</option>";
+                            }
+                        } else {
+                            // echo "<option value='' disabled>No areas found in this warehouse</option>";
+                        }
+                    } else {
+                        while ($row = $assignment_result->fetch_assoc()) {
+                            echo "<option value='" . $row['item_location'] . "'>"
+                                . htmlspecialchars($row['location_name']) .
+                                "</option>";
+                        }
                     }
+
+                    
                     ?>
 
                     <option value="others">Others</option>

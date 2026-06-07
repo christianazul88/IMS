@@ -31,6 +31,245 @@ if ($audit['audit_status'] == 'pending') {
 }
 
 
+
+
+$warehouse_id_audit = $audit['warehouse'];
+
+if ($_POST['area'] === 'others') {
+
+    $location_name = trim($_POST['other_location']);
+
+    if ($location_name == '') {
+        die('Location name is required.');
+    }
+
+    // Check if item location already exists
+    $stmt = $conn->prepare("
+        SELECT id
+        FROM item_location
+        WHERE location_name = ? AND warehouse = ?
+        LIMIT 1
+    ");
+    $stmt->bind_param("ss", $location_name, $warehouse_id_audit);
+    $stmt->execute();
+    $existing_location = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($existing_location) {
+
+        $item_location_id = $existing_location['id'];
+
+    } else {
+
+        $stmt = $conn->prepare("
+            INSERT INTO item_location (
+                location_name,
+                warehouse
+            )
+            VALUES (?, ?)
+        ");
+        $stmt->bind_param("ss", $location_name, $warehouse_id_audit);
+        $stmt->execute();
+
+        $item_location_id = $stmt->insert_id;
+        $stmt->close();
+    }
+
+    // Check if audit assignment already exists
+    $stmt = $conn->prepare("
+        SELECT id
+        FROM audit_assignments
+        WHERE audit_id = ?
+        AND item_location = ?
+        AND warehouse = ?
+        LIMIT 1
+    ");
+    $stmt->bind_param(
+        "iis",
+        $audit_id,
+        $item_location_id,
+        $warehouse_id_audit
+    );
+    $stmt->execute();
+    $existing_assignment = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($existing_assignment) {
+
+        $audit_assignment_id = $existing_assignment['id'];
+
+    } else {
+
+        $stmt = $conn->prepare("
+            INSERT INTO audit_assignments (
+                audit_id,
+                item_location,
+                warehouse
+            )
+            VALUES (?, ?, ?)
+        ");
+        $stmt->bind_param(
+            "iis",
+            $audit_id,
+            $item_location_id,
+            $warehouse_id_audit
+        );
+        $stmt->execute();
+
+        $audit_assignment_id = $stmt->insert_id;
+        $stmt->close();
+    }
+
+    // Check if staff is already assigned
+    $stmt = $conn->prepare("
+        SELECT id
+        FROM audit_assignment_staffs
+        WHERE audit_assignments_id = ?
+        AND user_id = ?
+        LIMIT 1
+    ");
+    $stmt->bind_param(
+        "is",
+        $audit_assignment_id,
+        $user_id
+    );
+    $stmt->execute();
+    $existing_staff = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$existing_staff) {
+
+        $stmt = $conn->prepare("
+            INSERT INTO audit_assignment_staffs (
+                audit_assignments_id,
+                user_id,
+                status
+            )
+            VALUES (?, ?, 'idle')
+        ");
+        $stmt->bind_param(
+            "is",
+            $audit_assignment_id,
+            $user_id
+        );
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    $selected_area = $item_location_id;
+
+} else {
+
+    $selected_area = $_POST['area'];
+
+}
+    
+
+    
+    $_SESSION['selected_area'] = $selected_area;
+
+
+
+    $get_neccessary_info_query = "SELECT location_name FROM item_location WHERE id = ? LIMIT 1";
+    $stmt = $conn->prepare($get_neccessary_info_query);
+    $stmt->bind_param("i", $selected_area);
+    $stmt->execute();
+
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        
+    } else {
+        $area_info = $result->fetch_assoc();
+        $selected_area_name = $area_info['location_name'];
+        $item_location_id = $selected_area;
+
+
+        // Check if audit assignment already exists
+        $stmt = $conn->prepare("
+            SELECT id
+            FROM audit_assignments
+            WHERE audit_id = ?
+            AND item_location = ?
+            AND warehouse = ?
+            LIMIT 1
+        ");
+        $stmt->bind_param(
+            "iis",
+            $audit_id,
+            $item_location_id,
+            $warehouse_id_audit
+        );
+        $stmt->execute();
+        $existing_assignment = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ($existing_assignment) {
+
+            $audit_assignment_id = $existing_assignment['id'];
+
+        } else {
+
+            $stmt = $conn->prepare("
+                INSERT INTO audit_assignments (
+                    audit_id,
+                    item_location,
+                    warehouse
+                )
+                VALUES (?, ?, ?)
+            ");
+            $stmt->bind_param(
+                "iis",
+                $audit_id,
+                $item_location_id,
+                $warehouse_id_audit
+            );
+            $stmt->execute();
+
+            $audit_assignment_id = $stmt->insert_id;
+            $stmt->close();
+        }
+
+        // Check if staff is already assigned
+        $stmt = $conn->prepare("
+            SELECT id
+            FROM audit_assignment_staffs
+            WHERE audit_assignments_id = ?
+            AND user_id = ?
+            LIMIT 1
+        ");
+        $stmt->bind_param(
+            "is",
+            $audit_assignment_id,
+            $user_id
+        );
+        $stmt->execute();
+        $existing_staff = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$existing_staff) {
+
+            $stmt = $conn->prepare("
+                INSERT INTO audit_assignment_staffs (
+                    audit_assignments_id,
+                    user_id,
+                    status
+                )
+                VALUES (?, ?, 'idle')
+            ");
+            $stmt->bind_param(
+                "is",
+                $audit_assignment_id,
+                $user_id
+            );
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+    
+
+
+
 $check_query = "SELECT * FROM audit_logs_timestamps WHERE audit_id = ? AND `status` = 'start' LIMIT 1";
 $stmt = $conn->prepare($check_query);
 $stmt->bind_param("i", $audit_id);
@@ -59,82 +298,7 @@ if (!$audit_log_timestamp) {
     $last_status = $last_status['status'] ?? '';
 }
 
-$warehouse_id_audit = $audit['warehouse'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_POST['area'])) {
-        die("No area selected.");
-    }
-
-    if ($_POST['area'] === 'others') {
-
-        $location_name = trim($_POST['other_location']);
-
-        if ($location_name == '') {
-            die('Location name is required.');
-        }
-
-        // Insert into item_location
-        $stmt = $conn->prepare("
-            INSERT INTO item_location (location_name, warehouse)
-            VALUES (?, ?)
-        ");
-        $stmt->bind_param("ss", $location_name, $warehouse_id_audit);
-        $stmt->execute();
-
-        $item_location_id = $stmt->insert_id;
-        $stmt->close();
-
-        // Insert into audit_assignments
-        $stmt = $conn->prepare("
-            INSERT INTO audit_assignments (
-                audit_id,
-                item_location,
-                warehouse
-            )
-            VALUES (?, ?, ?)
-        ");
-        $stmt->bind_param("iis", $audit_id, $item_location_id, $warehouse_id_audit);
-        $stmt->execute();
-
-        $audit_assignment_id = $stmt->insert_id;
-        $stmt->close();
-
-        // Insert into audit_assignment_staffs
-        $stmt = $conn->prepare("
-            INSERT INTO audit_assignment_staffs (
-                audit_assignments_id,
-                user_id,
-                status
-            )
-            VALUES (?, ?, 'idle')
-        ");
-        $stmt->bind_param("is", $audit_assignment_id, $user_id);
-        $stmt->execute();
-        $stmt->close();
-
-        $selected_area = $item_location_id;
-
-    } else {
-        $selected_area = $_POST['area'];
-
-    }
-
-    
-
-    
-    $_SESSION['selected_area'] = $selected_area;
-
-
-
-    $get_neccessary_info_query = "SELECT location_name FROM item_location WHERE id = ? LIMIT 1";
-    $stmt = $conn->prepare($get_neccessary_info_query);
-    $stmt->bind_param("i", $selected_area); 
-    $stmt->execute();
-    $area_info = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-    $selected_area_name = $area_info['location_name'];
-}
 ?>
 
 <div class="card bg-primary text-white mb-3">
