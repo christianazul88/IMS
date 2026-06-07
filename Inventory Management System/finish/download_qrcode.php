@@ -15,8 +15,46 @@ use Picqer\Barcode\BarcodeGeneratorPNG;
 $audit_id = $_GET['audit_id'] ?? '';
 $area = $_GET['area'] ?? '';
 $audit_assignment_id = $_GET['audit_assignment_id'] ?? '';
+$staff_id = $_GET['user_id'] ?? '';
 
-echo $audit_id . " - " . $area . " - " . $audit_assignment_id;
+// ===============================
+// BUILD URL
+// ===============================
+$url = "http://lpoims.com/Inventory%20Management%20System/finish/?area={$area}&user_id={$staff_id}";
+
+// ===============================
+// 1. CREATE TABLE IF NOT EXISTS
+// ===============================
+$conn->query("
+    CREATE TABLE IF NOT EXISTS ims_urls (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        url VARCHAR(300) NOT NULL UNIQUE
+    ) AUTO_INCREMENT=888
+");
+
+// ===============================
+// 2. CHECK IF URL EXISTS
+// ===============================
+$stmt = $conn->prepare("SELECT id FROM ims_urls WHERE url = ? LIMIT 1");
+$stmt->bind_param("s", $url);
+$stmt->execute();
+$res = $stmt->get_result();
+
+if ($row = $res->fetch_assoc()) {
+    $barcode_id = $row['id']; // already exists
+} else {
+    // ===============================
+    // 3. INSERT NEW URL
+    // ===============================
+    $insert = $conn->prepare("INSERT INTO ims_urls (url) VALUES (?)");
+    $insert->bind_param("s", $url);
+    $insert->execute();
+
+    $barcode_id = $insert->insert_id; // new ID (starts at 888)
+    $insert->close();
+}
+
+$stmt->close();
 
 // ===============================
 // GET LOCATION NAME
@@ -32,6 +70,7 @@ $stmt = $conn->prepare("
     AND aa.item_location = ?
     LIMIT 1
 ");
+
 $stmt->bind_param("iii", $audit_id, $audit_assignment_id, $area);
 $stmt->execute();
 $res = $stmt->get_result();
@@ -42,13 +81,13 @@ if ($row = $res->fetch_assoc()) {
 
 $stmt->close();
 
-// Clean filename (remove special chars)
+// Clean filename
 $safe_location = preg_replace('/[^A-Za-z0-9_\-]/', '_', $location_name);
 
 // ===============================
-// BARCODE DATA
+// BARCODE DATA (NOW USING ID)
 // ===============================
-$barcodeData = "AUDIT-{$audit_id}-AREA-{$area}";
+$barcodeData = (string)$barcode_id;
 
 // Generate barcode
 $generator = new BarcodeGeneratorPNG();
@@ -64,7 +103,7 @@ $logoData = file_get_contents($logoPath);
 $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
 
 // ===============================
-// HTML (same UI as before)
+// HTML
 // ===============================
 $html = "
 <html>

@@ -351,7 +351,7 @@ $missing_items = [];
                         Decline
                     </a>
 
-                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>"
+                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>"
                     class="btn btn-primary btn-sm">
                         <i class="bi bi-qr-code"></i> Download QR Code
                     </a>
@@ -373,7 +373,7 @@ $missing_items = [];
 
                 <?php else: ?>
 
-                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>"
+                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>"
                     class="btn btn-primary btn-sm">
                         <i class="bi bi-qr-code"></i> Download QR Code
                     </a>

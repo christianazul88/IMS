@@ -293,7 +293,11 @@ $variance_amount =
 
                 <a href="../Choose-Area/"
                    class="btn btn-light btn-sm <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
-                    Start Scanning
+                    Start Scanning barcode
+                </a>
+                <a href="../Scan-Area/"
+                   class="btn btn-secondary btn-sm <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
+                    Scan Barcode Area
                 </a>
                 <?php 
                 if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
