@@ -16,11 +16,40 @@ $audit_id = $_GET['audit_id'] ?? '';
 $area = $_GET['area'] ?? '';
 $audit_assignment_id = $_GET['audit_assignment_id'] ?? '';
 $staff_id = $_GET['user_id'] ?? '';
+$staff_name = "";
 
 // ===============================
 // BUILD URL
 // ===============================
 $url = "http://lpoims.com/Inventory%20Management%20System/finish/?area={$area}&user_id={$staff_id}";
+
+
+if(!empty($staff_id)) {
+    $staff_details_query = "SELECT user_fname, user_lname FROM users WHERE hashed_id = '$staff_id' LIMIT 1";
+    $staff_details_result = $conn->query($staff_details_query);
+    if ($staff_details_result->num_rows > 0) {
+        $staff_row = $staff_details_result->fetch_assoc();
+        $staff_name = $staff_row['user_fname'] . ' ' . $staff_row['user_lname'];
+    }
+}
+
+
+$warehouse_info_query = "SELECT w.warehouse_name, il.location_name FROM audit_assignments aa
+LEFT JOIN item_location il ON aa.item_location = il.id
+LEFT JOIN audit_logs al ON al.id = aa.audit_id
+LEFT JOIN warehouse w ON al.warehouse = w.id
+WHERE aa.audit_id = ? AND aa.id = ? AND aa.item_location = ? LIMIT 1";
+$stmt = $conn->prepare($warehouse_info_query);
+$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $area);
+$stmt->execute();
+$warehouse_info_result = $stmt->get_result();
+$warehouse_name = "";
+if ($warehouse_info_result->num_rows > 0) {
+    $warehouse_row = $warehouse_info_result->fetch_assoc();
+    $warehouse_name = $warehouse_row['warehouse_name'];
+}   
+$stmt->close();
+
 
 // ===============================
 // 1. CREATE TABLE IF NOT EXISTS
@@ -102,66 +131,108 @@ $logoPath = '../../assets/img/logo/LPO Emblem.png';
 $logoData = file_get_contents($logoPath);
 $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
 
-// ===============================
-// HTML
-// ===============================
+
+$currentDate = date('F d, Y');
+
 $html = "
 <html>
 <head>
 <style>
-
-body {
-    margin: 0;
-    padding: 0;
+body{
     font-family: Arial, sans-serif;
+    font-size:12px;
+    height:100vh;
 }
 
-.card {
-    width: 100%;
-    height: 100%;
-    padding: 6px 10px;
-    box-sizing: border-box;
-    text-align: center;
-    border: 1px solid #ddd;
+.card{
+    border:2px solid #000;
+    padding:15px;
+    min-height:100%;
 }
 
-.logo {
-    width: 45px;
-    margin-bottom: 4px;
+.logo{
+    width:80px;
 }
 
-.title {
-    font-size: 10px;
-    font-weight: bold;
-    letter-spacing: 1px;
-    margin-bottom: 4px;
+.ticket-title{
+    text-align:center;
+    font-size:24px;
+    font-weight:bold;
+    margin-top:10px;
+    margin-bottom:15px;
+    letter-spacing:1px;
 }
 
-.barcode {
-    width: 240px;
-    margin: 2px 0;
+.details{
+    font-size:12px;
+    line-height:1.8;
+    margin-bottom:15px;
 }
 
-.code {
-    font-size: 10px;
-    letter-spacing: 0.5px;
-    margin-top: 2px;
+.location-box{
+    border:3px solid #000;
+    padding:15px;
+    text-align:center;
+    margin-bottom:20px;
 }
 
-.footer {
-    margin-top: 10px;
-    font-size: 9px;
-    text-align: left;
-    width: 100%;
+.location-label{
+    font-size:12px;
+    text-align:left;
+    font-weight:bold;
+    margin-bottom:20px;
 }
 
-.line {
-    display: inline-block;
-    border-bottom: 1px solid #000;
-    width: 120px;
-    margin-left: 5px;
+.location-title{
+    font-size:42px;
+    font-weight:bold;
+    text-transform:uppercase;
+    letter-spacing:2px;
 }
 
+.barcode-wrapper{
+    text-align:center;
+    margin:20px 0;
+}
+
+.barcode{
+    width:100px;
+}
+
+.barcode-number{
+    font-size:16px;
+    font-weight:bold;
+    margin-top:10px;
+    letter-spacing:2px;
+}
+
+.quantity{
+    font-size:14px;
+    margin-top:20px;
+}
+
+.line{
+    display:inline-block;
+    border-bottom:1px solid #000;
+    width:250px;
+    height:14px;
+}
+
+.remarks{
+    margin-top:20px;
+    font-size:12px;
+}
+
+.remark-line{
+    border-bottom:1px solid #000;
+    height:24px;
+    margin-bottom:8px;
+}
+
+.approval{
+    margin-top:30px;
+    font-size:14px;
+}
 </style>
 </head>
 
@@ -169,16 +240,59 @@ body {
 
 <div class='card'>
 
-    <img class='logo' src='{$logoBase64}' />
+    <div class='header'>
 
-    <div class='title'>INVENTORY AUDIT BARCODE</div>
+        <img class='logo' src='{$logoBase64}'>
 
-    <img class='barcode' src='{$barcodeBase64}' />
+        <div class='header-text'>
+            <div class='ticket-title'>
+                INVENTORY CONTROL TICKET
+            </div>
 
-    <div class='code'>{$barcodeData}</div>
+            <div class='details'>
+                <strong>WAREHOUSE:</strong> {$warehouse_name}<br>
+                <strong>DATE:</strong> {$currentDate}<br>
+                <strong>AUDITOR:</strong> {$staff_name}
+            </div>
+        </div>
+
+        <div class='clear'></div>
+
+    </div>
+
+    <div class='content'>
+
+        <div class='location-box'>
+
+            <div class='location-label'>
+                Box No. / Area Location
+            </div>
+
+            <div class='location-title'>
+                {$location_name}
+            </div>
+
+        </div>
+
+        <div class='barcode-wrapper'>
+
+            <img class='barcode' src='{$barcodeBase64}' />
+
+            <div class='barcode-number'>
+                {$barcodeData}
+            </div>
+
+        </div>
+
+    </div>
 
     <div class='footer'>
-        Approved by: <span class='line'></span>
+        <strong>Quantity:</strong>
+        <span class='qty-line'></span>
+        <br><br>
+
+        Approved by:
+        <span class='approval-line'></span>
     </div>
 
 </div>
@@ -191,11 +305,11 @@ body {
 // PDF GENERATION
 // ===============================
 $mpdf = new \Mpdf\Mpdf([
-    'format' => [60, 40],
-    'margin_left' => 3,
-    'margin_right' => 3,
-    'margin_top' => 3,
-    'margin_bottom' => 3,
+    'format' => [140, 216],
+    'margin_left' => 8,
+    'margin_right' => 8,
+    'margin_top' => 8,
+    'margin_bottom' => 8,
 ]);
 
 $mpdf->WriteHTML($html);
