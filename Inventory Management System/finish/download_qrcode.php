@@ -140,13 +140,13 @@ $html = "
 <style>
 body{
     font-family: Arial, sans-serif;
-    font-size:12px;
+    font-size:10px;
     height:100vh;
 }
 
 .card{
     border:2px solid #000;
-    padding:15px;
+    padding:8px;
     min-height:100%;
 }
 
@@ -156,7 +156,7 @@ body{
 
 .ticket-title{
     text-align:center;
-    font-size:24px;
+    font-size:18px;
     font-weight:bold;
     margin-top:10px;
     margin-bottom:15px;
@@ -184,7 +184,7 @@ body{
 }
 
 .location-title{
-    font-size:42px;
+    font-size:28px;
     font-weight:bold;
     text-transform:uppercase;
     letter-spacing:2px;
@@ -196,11 +196,11 @@ body{
 }
 
 .barcode{
-    width:100px;
+    width:80px;
 }
 
 .barcode-number{
-    font-size:16px;
+    font-size:12px;
     font-weight:bold;
     margin-top:10px;
     letter-spacing:2px;
@@ -305,11 +305,11 @@ body{
 // PDF GENERATION
 // ===============================
 $mpdf = new \Mpdf\Mpdf([
-    'format' => [140, 216],
-    'margin_left' => 8,
-    'margin_right' => 8,
-    'margin_top' => 8,
-    'margin_bottom' => 8,
+    'format' => [101.6, 152.4], // 4x6 inches (portrait waybill)
+    'margin_left' => 5,
+    'margin_right' => 5,
+    'margin_top' => 5,
+    'margin_bottom' => 5,
 ]);
 
 $mpdf->WriteHTML($html);
