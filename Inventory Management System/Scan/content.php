@@ -308,6 +308,9 @@ if (!$audit_log_timestamp) {
                 <h5 class="card-title">Audit Dashboard</h5>
                 <p class="card-text">Audit #<?php echo $audit['audit_num']; ?> - for area <?php echo $selected_area_name; ?></p>
             </div>
+            <div class="col-2 text-end">
+                <button class="btn btn-light fs-11" type="button" data-bs-toggle="modal" data-bs-target="#error-modal">Update Location</button>
+            </div>
         </div>
         
     </div>
@@ -347,6 +350,41 @@ if (!$audit_log_timestamp) {
             Area Complete
         </button>
     </div>
+</div>
+
+
+
+<div class="modal fade" id="error-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 500px">
+    <div class="modal-content position-relative">
+        <div class="position-absolute top-0 end-0 mt-2 me-2 z-1">
+            <button class="btn-close btn btn-sm btn-circle d-flex flex-center transition-base" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="update-location-form" method="POST" action="update_location.php">
+        <div class="modal-body p-0">
+            <div class="rounded-top-3 py-3 ps-4 pe-6 bg-body-tertiary">
+            <h4 class="mb-1" id="modalExampleDemoLabel">Update Location/Area Name of <?php echo htmlspecialchars($selected_area_name); ?></h4>
+            </div>
+            <div class="p-4 pb-0">
+                <div class="mb-3">
+                    <label class="col-form-label" for="recipient-name">Location/ Area Name:</label>
+                    <input class="form-control"
+                    id="location-name"
+                    name="location_name"
+                    type="text"
+                    value="<?php echo htmlspecialchars($selected_area_name); ?>" />
+                    <input type="hidden" name="location_id" value="<?= $selected_area ?>">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Close</button>
+            <button class="btn btn-primary" type="submit">Update Location</button>
+        </div>
+        
+        </form>
+    </div>
+  </div>
 </div>
 
 
@@ -492,4 +530,108 @@ $(document).ready(function(){
 
 });
 
+</script>
+
+
+<script>
+document.getElementById('update-location-form').addEventListener('submit', async function(e) {
+
+    e.preventDefault();
+
+    const form = this;
+    const formData = new FormData(form);
+
+    const oldLocation = <?php echo json_encode($selected_area_name); ?>;
+    const newLocation = document.getElementById('location-name').value.trim();
+
+    if (!newLocation) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Location name required',
+            text: 'Please enter a location name.'
+        });
+        return;
+    }
+
+    // First confirmation
+    const firstConfirm = await Swal.fire({
+        title: 'Update Location?',
+        html: `
+            You are about to rename:<br><br>
+            <b>${oldLocation}</b><br>
+            to<br>
+            <b>${newLocation}</b>
+            <br><br>
+            This may affect audit records and staff assignments that reference this location.
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Update Location',
+        cancelButtonText: 'Cancel',
+        allowOutsideClick: false
+    });
+
+    if (!firstConfirm.isConfirmed) {
+        return;
+    }
+
+    // Second confirmation
+    const secondConfirm = await Swal.fire({
+        title: 'Are you absolutely sure?',
+        html: `
+            The location name <b>${oldLocation}</b> will be changed to
+            <b>${newLocation}</b>.
+            <br><br>
+            Please confirm this is the correct location name.
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Save Changes',
+        cancelButtonText: 'No'
+    });
+
+    if (!secondConfirm.isConfirmed) {
+        return;
+    }
+
+    Swal.fire({
+        title: 'Updating Location...',
+        text: 'Please wait.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.text();
+
+        Swal.fire({
+            icon: response.ok ? 'success' : 'error',
+            title: response.ok ? 'Location Updated' : 'Update Failed',
+            html: result
+        });
+
+        // Optional: update title in modal
+        document.querySelector('#modalExampleDemoLabel').innerHTML =
+            `Update Location/Area Name of ${newLocation}`;
+
+    } catch (error) {
+
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Unable to communicate with the server.'
+        });
+
+        console.error(error);
+    }
+
+});
 </script>

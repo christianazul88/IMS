@@ -19,7 +19,7 @@ $audit_query = "
     SELECT al.*, w.warehouse_name
     FROM audit_logs al
     LEFT JOIN warehouse w
-        ON CAST(al.warehouse AS CHAR) = CAST(w.hashed_id AS CHAR)
+        ON al.warehouse = w.hashed_id
     WHERE al.id = ?
 ";
 
@@ -65,7 +65,7 @@ fputcsv($output, []);
 
 /*
 |--------------------------------------------------------------------------
-| COLUMN HEADERS (FIXED)
+| COLUMN HEADERS
 |--------------------------------------------------------------------------
 */
 
@@ -86,91 +86,118 @@ fputcsv($output, [
 
 /*
 |--------------------------------------------------------------------------
-| MAIN QUERY (FIXED COLLATION SAFE)
+| MAIN QUERY (STREAM SAFE VERSION)
 |--------------------------------------------------------------------------
 */
 
 $query = "
     SELECT
         ita.unique_barcode,
-
         p.description,
         c.category_name,
         b.brand_name,
 
-        w1.warehouse_name AS system_warehouse,
-        w2.warehouse_name AS scanned_warehouse,
+        w_system.warehouse_name AS system_warehouse,
+        w_scan.warehouse_name AS scanned_warehouse,
 
-        il1.location_name AS system_location,
-        il2.location_name AS scanned_location,
+        il_system.location_name AS system_location,
+        il_scan.location_name AS scanned_location,
 
         ita.audit_status,
         ita.outbounded,
-        ita.belong_to_system_stocks,
+        s.capital,
         ita.scanned_date
 
     FROM items_to_audit ita
 
-    LEFT JOIN stocks s
-        ON CAST(ita.unique_barcode AS CHAR) = CAST(s.unique_barcode AS CHAR)
+    /* ✅ PRIMARY FILTER FIRST (very important for speed) */
+    INNER JOIN stocks s
+        ON s.unique_barcode = ita.unique_barcode
 
+    /* PRODUCT TREE (kept linear, but index-driven) */
     LEFT JOIN product p
-        ON CAST(s.product_id AS CHAR) = CAST(p.hashed_id AS CHAR)
+        ON p.hashed_id = s.product_id
 
     LEFT JOIN category c
-        ON CAST(p.category AS CHAR) = CAST(c.hashed_id AS CHAR)
+        ON c.hashed_id = p.category
 
     LEFT JOIN brand b
-        ON CAST(p.brand AS CHAR) = CAST(b.hashed_id AS CHAR)
+        ON b.hashed_id = p.brand
 
-    LEFT JOIN warehouse w1
-        ON CAST(s.warehouse AS CHAR) = CAST(w1.hashed_id AS CHAR)
+    /* SYSTEM WAREHOUSE (avoid double warehouse table scan patterns) */
+    LEFT JOIN warehouse w_system
+        ON w_system.hashed_id = s.warehouse
 
-    LEFT JOIN warehouse w2
-        ON CAST(ita.scanned_wh AS CHAR) = CAST(w2.hashed_id AS CHAR)
+    LEFT JOIN warehouse w_scan
+        ON w_scan.hashed_id = ita.warehouse_onscanned
 
-    LEFT JOIN item_location il1
-        ON CAST(s.item_location AS CHAR) = CAST(il1.id AS CHAR)
+    /* SYSTEM LOCATION */
+    LEFT JOIN item_location il_system
+        ON il_system.id = s.item_location
 
-    LEFT JOIN item_location il2
-        ON CAST(ita.scanned_location AS CHAR) = CAST(il2.id AS CHAR)
+    LEFT JOIN item_location il_scan
+        ON il_scan.id = ita.item_location_onscanned
 
     WHERE ita.audit_id = ?
 
-    ORDER BY ita.scanned_date ASC
+    ORDER BY ita.audit_status;
 ";
 
 $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $audit_id);
 $stmt->execute();
 
-$result = $stmt->get_result();
-
 /*
 |--------------------------------------------------------------------------
-| ROW OUTPUT
+| ❗ STREAM BIND RESULT (NO get_result)
 |--------------------------------------------------------------------------
 */
 
-while ($row = $result->fetch_assoc()) {
+$stmt->bind_result(
+    $unique_barcode,
+    $description,
+    $category_name,
+    $brand_name,
+    $system_warehouse,
+    $scanned_warehouse,
+    $system_location,
+    $scanned_location,
+    $audit_status,
+    $outbounded,
+    $capital,
+    $scanned_date
+);
+
+/*
+|--------------------------------------------------------------------------
+| ROW OUTPUT (STREAMING)
+|--------------------------------------------------------------------------
+*/
+
+while ($stmt->fetch()) {
+
+    // 🔥 MODIFY VALUES HERE (best place)
+    if ($audit_status === "pending") {
+        $audit_status = "MISSING";
+    }
+
+    if($system_location === "" || $system_location == 0){
+        $system_location = "FOR SKU";
+    }
 
     fputcsv($output, [
-        $row['unique_barcode'],
-        $row['description'] ?? '',
-        $row['category_name'] ?? '',
-        $row['brand_name'] ?? '',
-
-        $row['system_warehouse'] ?? '',
-        $row['scanned_warehouse'] ?? '',
-
-        $row['system_location'] ?? '',
-        $row['scanned_location'] ?? '',
-
-        $row['audit_status'] ?? '',
-        $row['outbounded'] ?? '',
-        $row['belong_to_system_stocks'] ?? '',
-
-        $row['scanned_date'] ?? ''
+        $unique_barcode,
+        $description,
+        $category_name,
+        $brand_name,
+        $system_warehouse,
+        $scanned_warehouse,
+        $system_location,
+        $scanned_location,
+        $audit_status,
+        $outbounded,
+        $capital,
+        $scanned_date
     ]);
 }
 

@@ -45,7 +45,7 @@ if ($audit['audit_status'] == 'pending') {
 // =========================
 // ASSIGNMENT
 // =========================
-$audit_assignment_query = "SELECT id FROM audit_assignments WHERE item_location = ? LIMIT 1";
+$audit_assignment_query = "SELECT id, warehouse FROM audit_assignments WHERE item_location = ? LIMIT 1";
 $stmt = $conn->prepare($audit_assignment_query);
 $stmt->bind_param("i", $selected_area);
 $stmt->execute();
@@ -53,6 +53,7 @@ $assignment_data = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 $audit_assignment_id = $assignment_data['id'] ?? null;
+$warehouse_audit_id = $assignment_data['warehouse'] ?? null;
 
 // ==========================
 // FETCH audit staff status
@@ -364,12 +365,19 @@ $missing_items = [];
                     </button>
 
                 <?php elseif ($status === 'rejected'): ?>
-
+                    <?php
+                    if($staff_id === $user_id) {
+                    ?>
                     <!-- RESTART SCANNING -->
                     <a href="/Choose-Area/"
                     class="btn btn-warning btn-sm">
                         Restart Scanning
                     </a>
+                    <?php
+                    } else {
+                        echo "<div class='text-muted'>Waiting for staff to restart the scanning process.</div>";
+                    }
+                    ?>
 
                 <?php else: ?>
 
@@ -562,19 +570,31 @@ $missing_items = [];
                 <?php if ($missing_result->num_rows > 0): ?>
 
                     <?php while ($row = $missing_result->fetch_assoc()): ?>
-                        <div class="border-bottom py-2">
-                            <div class="fw-bold">
-                                <?= htmlspecialchars($row['description'] ?? 'N/A') ?>
-                            </div>
+                        <div class="row">
+                            <div class="col-9">
+                                <div class="border-bottom py-2">
+                                    <div class="fw-bold">
+                                        <?= htmlspecialchars($row['description'] ?? 'N/A') ?>
+                                    </div>
 
-                            <div class="text-muted">
-                                <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
-                                /
-                                <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
-                            </div>
+                                    <div class="text-muted">
+                                        <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
+                                        /
+                                        <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
+                                    </div>
 
-                            <div class="text-muted small">
-                                Barcode: <?= htmlspecialchars($row['unique_barcode'] ?? 'N/A') ?>
+                                    <div class="text-muted small">
+                                        Barcode: <?= htmlspecialchars($row['unique_barcode'] ?? 'N/A') ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="text-end">
+                                    <a class="btn btn-outline-primary fs-11 item-found-btn"
+                                        href="item-found.php?barcode=<?= htmlspecialchars($row['unique_barcode'] ?? 'N/A') ?>&location=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&staff_id=<?= $staff_id ?>&warehouse=<?= $warehouse_audit_id ?>">
+                                        Item Found By Me
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     <?php endwhile; ?>
@@ -592,3 +612,83 @@ $missing_items = [];
     <?php endif; ?>
 
 </div>
+
+
+
+<script>
+document.addEventListener('click', async function(e) {
+
+    const btn = e.target.closest('.item-found-btn');
+    if (!btn) return;
+
+    e.preventDefault();
+
+    // First confirmation
+    const firstConfirm = await Swal.fire({
+        title: 'Approve this ticket?',
+        text: 'If this ticket is later rejected, you may need to start the audit process again.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Approve',
+        cancelButtonText: 'Cancel',
+        allowOutsideClick: false
+    });
+
+    if (!firstConfirm.isConfirmed) {
+        return;
+    }
+
+    // Second confirmation
+    const secondConfirm = await Swal.fire({
+        title: 'Are you really sure?',
+        text: 'This action cannot be easily undone.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, I am sure',
+        cancelButtonText: 'No'
+    });
+
+    if (!secondConfirm.isConfirmed) {
+        return;
+    }
+
+    // Loading indicator
+    Swal.fire({
+        title: 'Processing...',
+        text: 'Please wait.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+
+        const response = await fetch(btn.href);
+        const result = await response.text();
+
+        Swal.fire({
+            title: 'Server Response',
+            html: result,
+            icon: 'success'
+        });
+
+        // Optional: disable button after success
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        btn.innerHTML = '✓ Item Found';
+        btn.style.pointerEvents = 'none';
+
+    } catch(error) {
+
+        Swal.fire({
+            title: 'Error',
+            text: 'Failed to process request.',
+            icon: 'error'
+        });
+
+        console.error(error);
+    }
+
+});
+</script>

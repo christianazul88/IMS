@@ -5,48 +5,36 @@ include "../config/on_session.php";
 
 $audit_id = $_GET['audit_id'] ?? 0;
 
-if (!$audit_id) {
-    die("Invalid audit ID.");
-}
+if (!$audit_id) die("Invalid audit ID");
 
 /*
 |--------------------------------------------------------------------------
-| GET AUDIT INFO
+| AUDIT INFO
 |--------------------------------------------------------------------------
 */
 
 $audit_query = "
     SELECT al.*, w.warehouse_name
     FROM audit_logs al
-    LEFT JOIN warehouse w
-        ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci
+    LEFT JOIN warehouse w ON al.warehouse = w.hashed_id
     WHERE al.id = ?
 ";
 
 $stmt = $conn->prepare($audit_query);
 $stmt->bind_param("i", $audit_id);
 $stmt->execute();
-
 $audit = $stmt->get_result()->fetch_assoc();
-
 $stmt->close();
 
-if (!$audit) {
-    die("Audit not found.");
-}
+if (!$audit) die("Audit not found");
 
 /*
 |--------------------------------------------------------------------------
-| CSV HEADERS
+| CSV SETUP
 |--------------------------------------------------------------------------
 */
 
-$filename =
-    "summary_audit_report_" .
-    $audit['audit_num'] .
-    "_" .
-    date("Ymd_His") .
-    ".csv";
+$filename = "audit_parent_report_" . $audit['audit_num'] . "_" . date("Ymd_His") . ".csv";
 
 header('Content-Type: text/csv');
 header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -55,146 +43,248 @@ $output = fopen("php://output", "w");
 
 /*
 |--------------------------------------------------------------------------
-| TITLE
+| GLOBAL METRICS
 |--------------------------------------------------------------------------
 */
 
-fputcsv($output, [
-    "AUDIT SUMMARY REPORT"
-]);
+$total_items = 0;
+$scanned_items = 0;
 
-fputcsv($output, [
-    "Audit Number",
-    $audit['audit_num']
-]);
+$total_capital = 0;
 
-fputcsv($output, [
-    "Warehouse",
-    $audit['warehouse_name']
-]);
+$unexpected_warehouse = 0;
+$unexpected_location = 0;
 
-fputcsv($output, [
-    "Schedule Date",
-    $audit['schedule_date']
-]);
-
-fputcsv($output, []);
+$status_summary = [];
+$parent_groups = [];
 
 /*
 |--------------------------------------------------------------------------
-| COLUMN HEADERS
-|--------------------------------------------------------------------------
-*/
-
-fputcsv($output, [
-    "Parent Barcode",
-    "Description",
-    "Category",
-    "Brand",
-    "Expected Qty",
-    "Scanned Qty",
-    "Variance Qty",
-    "Outbounded Qty",
-    "Other Warehouse Qty",
-    "Other Location Qty",
-    "Variance Value",
-    "Scanned Value"
-]);
-
-/*
-|--------------------------------------------------------------------------
-| GET SUMMARY DATA
+| QUERY
 |--------------------------------------------------------------------------
 */
 
 $query = "
     SELECT
-
-        ai.parent_barcode,
-
+        ita.unique_barcode,
         p.description,
         c.category_name,
         b.brand_name,
 
-        ai.expected_qty,
-        ai.scanned_qty,
-        ai.variance_qty,
+        w_system.warehouse_name AS system_warehouse,
+        w_scan.warehouse_name AS scanned_warehouse,
 
-        ai.scanned_outbounded_qty,
-        ai.scanned_belong_to_other_wh,
-        ai.scanned_belong_to_other_location,
+        il_system.location_name AS system_location,
+        il_scan.location_name AS scanned_location,
 
-        ai.variance_value,
-        ai.scanned_value
+        ita.audit_status,
+        ita.outbounded,
+        s.capital,
+        ita.scanned_date
 
-    FROM audit_items ai
+    FROM items_to_audit ita
+    INNER JOIN stocks s ON s.unique_barcode = ita.unique_barcode
 
-    LEFT JOIN stocks s
-        ON ai.parent_barcode COLLATE utf8mb4_unicode_ci =
-           SUBSTRING_INDEX(
-                s.unique_barcode,
-                '-',
-                1
-           ) COLLATE utf8mb4_unicode_ci
+    LEFT JOIN product p ON p.hashed_id = s.product_id
+    LEFT JOIN category c ON c.hashed_id = p.category
+    LEFT JOIN brand b ON b.hashed_id = p.brand
 
-    LEFT JOIN product p
-        ON s.product_id COLLATE utf8mb4_unicode_ci =
-           p.hashed_id COLLATE utf8mb4_unicode_ci
+    LEFT JOIN warehouse w_system ON w_system.hashed_id = s.warehouse
+    LEFT JOIN warehouse w_scan ON w_scan.hashed_id = ita.warehouse_onscanned
 
-    LEFT JOIN category c
-        ON p.category COLLATE utf8mb4_unicode_ci =
-           c.hashed_id COLLATE utf8mb4_unicode_ci
+    LEFT JOIN item_location il_system ON il_system.id = s.item_location
+    LEFT JOIN item_location il_scan ON il_scan.id = ita.item_location_onscanned
 
-    LEFT JOIN brand b
-        ON p.brand COLLATE utf8mb4_unicode_ci =
-           b.hashed_id COLLATE utf8mb4_unicode_ci
-
-    WHERE ai.audit_id = ?
-
-    GROUP BY ai.parent_barcode
-
-    ORDER BY ai.parent_barcode ASC
+    WHERE ita.audit_id = ?
 ";
 
 $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $audit_id);
 $stmt->execute();
 
-$result = $stmt->get_result();
+$stmt->bind_result(
+    $barcode,
+    $description,
+    $category,
+    $brand,
+    $system_warehouse,
+    $scanned_warehouse,
+    $system_location,
+    $scanned_location,
+    $audit_status,
+    $outbounded,
+    $capital,
+    $scanned_date
+);
 
 /*
 |--------------------------------------------------------------------------
-| ROWS
+| PROCESS ROWS
 |--------------------------------------------------------------------------
 */
 
-while ($row = $result->fetch_assoc()) {
+while ($stmt->fetch()) {
 
-    fputcsv($output, [
+    if ($audit_status === "pending") {
+        $audit_status = "MISSING";
+    }
 
-        $row['parent_barcode'],
+    /*
+    |--------------------------------------------------------------------------
+    | PARENT BARCODE
+    |--------------------------------------------------------------------------
+    */
+    $parent = explode("-", $barcode)[0];
 
-        $row['description'],
-        $row['category_name'],
-        $row['brand_name'],
+    /*
+    |--------------------------------------------------------------------------
+    | GLOBAL COUNTERS
+    |--------------------------------------------------------------------------
+    */
 
-        $row['expected_qty'],
-        $row['scanned_qty'],
-        $row['variance_qty'],
+    $total_items++;
+    $total_capital += (float)$capital;
 
-        $row['scanned_outbounded_qty'],
-        $row['scanned_belong_to_other_wh'],
-        $row['scanned_belong_to_other_location'],
+    if ($audit_status === "scanned") {
+        $scanned_items++;
+    }
 
-        $row['variance_value'],
-        $row['scanned_value']
+    if ($system_warehouse != $scanned_warehouse) {
+        $unexpected_warehouse++;
+    }
 
-    ]);
+    if ($system_location != $scanned_location) {
+        $unexpected_location++;
+    }
+
+    if (!isset($status_summary[$audit_status])) {
+        $status_summary[$audit_status] = 0;
+    }
+    $status_summary[$audit_status]++;
+
+    /*
+    |--------------------------------------------------------------------------
+    | PARENT GROUP INIT
+    |--------------------------------------------------------------------------
+    */
+
+    if (!isset($parent_groups[$parent])) {
+        $parent_groups[$parent] = [
+            'expected_qty' => 0,
+            'scanned_qty' => 0,
+            'expected_value' => 0,
+            'scanned_value' => 0,
+            'warehouse_mismatch' => 0,
+            'location_mismatch' => 0,
+            'outbounded' => 0
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PARENT CALCULATIONS
+    |--------------------------------------------------------------------------
+    */
+
+    $parent_groups[$parent]['expected_qty']++;
+    $parent_groups[$parent]['expected_value'] += (float)$capital;
+
+    if ($audit_status === "scanned") {
+        $parent_groups[$parent]['scanned_qty']++;
+        $parent_groups[$parent]['scanned_value'] += (float)$capital;
+    }
+
+    if ($system_warehouse != $scanned_warehouse) {
+        $parent_groups[$parent]['warehouse_mismatch']++;
+    }
+
+    if ($system_location != $scanned_location) {
+        $parent_groups[$parent]['location_mismatch']++;
+    }
+
+    if ($outbounded == 1) {
+        $parent_groups[$parent]['outbounded']++;
+    }
 }
 
 $stmt->close();
 
-fclose($output);
+/*
+|--------------------------------------------------------------------------
+| CSV HEADER
+|--------------------------------------------------------------------------
+*/
 
+fputcsv($output, ["AUDIT PARENT BARCODE REPORT"]);
+fputcsv($output, ["Audit Number", $audit['audit_num']]);
+fputcsv($output, ["Warehouse", $audit['warehouse_name']]);
+fputcsv($output, ["Schedule Date", $audit['schedule_date']]);
+
+fputcsv($output, []);
+
+/*
+|--------------------------------------------------------------------------
+| GLOBAL SUMMARY
+|--------------------------------------------------------------------------
+*/
+
+$variance_qty = $total_items - $scanned_items;
+
+fputcsv($output, ["================ GLOBAL SUMMARY ================"]);
+fputcsv($output, ["Total Expected Items", $total_items]);
+fputcsv($output, ["Total Scanned Items", $scanned_items]);
+fputcsv($output, ["Quantity Variance", $variance_qty]);
+fputcsv($output, ["Total Capital", $total_capital]);
+
+fputcsv($output, []);
+fputcsv($output, ["Unexpected Warehouse Count", $unexpected_warehouse]);
+fputcsv($output, ["Unexpected Location Count", $unexpected_location]);
+
+fputcsv($output, []);
+fputcsv($output, ["------ STATUS BREAKDOWN ------"]);
+fputcsv($output, ["Status", "Count"]);
+
+foreach ($status_summary as $status => $count) {
+    fputcsv($output, [$status, $count]);
+}
+
+/*
+|--------------------------------------------------------------------------
+| PARENT SUMMARY
+|--------------------------------------------------------------------------
+*/
+
+fputcsv($output, []);
+fputcsv($output, ["================ PARENT BARCODE SUMMARY ================"]);
+
+fputcsv($output, [
+    "Parent Barcode",
+    "Expected Qty",
+    "Scanned Qty",
+    "Variance",
+    "Expected Value",
+    "Scanned Value",
+    "Warehouse Mismatch",
+    "Location Mismatch",
+    "Outbounded"
+]);
+
+foreach ($parent_groups as $parent => $data) {
+
+    $variance = $data['expected_qty'] - $data['scanned_qty'];
+
+    fputcsv($output, [
+        $parent,
+        $data['expected_qty'],
+        $data['scanned_qty'],
+        $variance,
+        $data['expected_value'],
+        $data['scanned_value'],
+        $data['warehouse_mismatch'],
+        $data['location_mismatch'],
+        $data['outbounded']
+    ]);
+}
+
+fclose($output);
 exit;
-?>

@@ -64,37 +64,63 @@ $warehouse_id_audit = $audit['warehouse'];
                     <option value="">Select Area</option>
 
                     <?php
-                    $assignment_query = "SELECT
-                                            il.location_name,
-                                            aa.item_location
-                                        FROM audit_assignment_staffs aas
-                                        LEFT JOIN audit_assignments aa
-                                        ON aas.audit_assignments_id = aa.id
-                                        LEFT JOIN item_location il
-                                        ON il.id = aa.item_location
-                                        WHERE aas.user_id = '$user_id'
-                                        AND (aas.status = 'idle' OR aas.status = 'rejected')";
-
+                    $assignment_query = "
+                        SELECT il.id, il.location_name
+                        FROM item_location il
+                        WHERE il.warehouse = '$warehouse_id_audit'
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM audit_assignments aa
+                            INNER JOIN audit_assignment_staffs aas
+                                ON aa.id = aas.audit_assignments_id
+                            WHERE aa.item_location = il.id
+                            AND aas.user_id = '$user_id'
+                            AND aas.status IN ('for_approval', 'approved')
+                        )
+                        ORDER BY il.location_name
+                    ";
                     $assignment_result = $conn->query($assignment_query);
-                    if ($assignment_result->num_rows === 0) {
-                        $item_location_query = "SELECT id, location_name FROM item_location WHERE warehouse = '$warehouse_id_audit' ORDER BY location_name";
-                        $item_location_result = $conn->query($item_location_query);
-                        if ($item_location_result->num_rows > 0) {
-                            while ($row = $item_location_result->fetch_assoc()) {
-                                echo "<option value='" . $row['id'] . "'>"
-                                    . htmlspecialchars($row['location_name']) .
-                                    "</option>";
-                            }
-                        } else {
-                            // echo "<option value='' disabled>No areas found in this warehouse</option>";
-                        }
-                    } else {
+                    if ($assignment_result->num_rows > 0) {
                         while ($row = $assignment_result->fetch_assoc()) {
-                            echo "<option value='" . $row['item_location'] . "'>"
+                            echo "<option value='" . $row['id'] . "'>"
                                 . htmlspecialchars($row['location_name']) .
                                 "</option>";
                         }
+                    } else {
+                        // echo "<option value='' disabled>No areas found in this warehouse</option>";
                     }
+
+                    // $assignment_query = "SELECT
+                    //                         il.location_name,
+                    //                         aa.item_location
+                    //                     FROM audit_assignment_staffs aas
+                    //                     LEFT JOIN audit_assignments aa
+                    //                     ON aas.audit_assignments_id = aa.id
+                    //                     LEFT JOIN item_location il
+                    //                     ON il.id = aa.item_location
+                    //                     WHERE aas.user_id = '$user_id'
+                    //                     AND (aas.status = 'idle' OR aas.status = 'rejected')";
+
+                    // $assignment_result = $conn->query($assignment_query);
+                    // if ($assignment_result->num_rows === 0) {
+                    //     $item_location_query = "SELECT id, location_name FROM item_location WHERE warehouse = '$warehouse_id_audit' ORDER BY location_name";
+                    //     $item_location_result = $conn->query($item_location_query);
+                    //     if ($item_location_result->num_rows > 0) {
+                    //         while ($row = $item_location_result->fetch_assoc()) {
+                    //             echo "<option value='" . $row['id'] . "'>"
+                    //                 . htmlspecialchars($row['location_name']) .
+                    //                 "</option>";
+                    //         }
+                    //     } else {
+                    //         // echo "<option value='' disabled>No areas found in this warehouse</option>";
+                    //     }
+                    // } else {
+                    //     while ($row = $assignment_result->fetch_assoc()) {
+                    //         echo "<option value='" . $row['item_location'] . "'>"
+                    //             . htmlspecialchars($row['location_name']) .
+                    //             "</option>";
+                    //     }
+                    // }
 
                     
                     ?>

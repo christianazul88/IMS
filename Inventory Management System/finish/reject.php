@@ -80,6 +80,25 @@ $stmt->bind_param("ii", $audit_assignment_id, $staff_id);
 $stmt->execute();
 $stmt->close();
 
+$get_location_name_query = "SELECT location_name FROM item_location WHERE id = ? LIMIT 1";
+$stmt = $conn->prepare($get_location_name_query);
+$stmt->bind_param("i", $selected_area);
+$stmt->execute();
+$result = $stmt->get_result();
+$location_name = "N/A";
+if ($row = $result->fetch_assoc()) {
+    $location_name = $row['location_name'];
+}
+
+
+$title = "Audit Rejected for " . htmlspecialchars($location_name);
+$message = "Your audit for " . htmlspecialchars($location_name) . " has been rejected. Please approach your supervisor for more details. rejected by " . htmlspecialchars($user_fullname) . ".";
+
+$insert_notification = "INSERT INTO notification (to_userid, title, `message`, `date`, `status`) VALUES (?, ?, ?, NOW(), 0)";
+$stmt = $conn->prepare($insert_notification);
+$stmt->bind_param("sss", $staff_id, $title, $message);
+$stmt->execute();
+$stmt->close();
 
 header("Location: ../finish/?audit_id=" . $audit_id . "&area=" . $selected_area . "&user_id=" . $staff_id);
 exit;

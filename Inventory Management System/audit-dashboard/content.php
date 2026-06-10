@@ -631,7 +631,7 @@ $variance_amount =
         }
     </style>
 
-    <div class="col-9 d-flex mb-3">
+    <div class="col-12 d-flex mb-3">
         <div class="card mb-3 h-100 w-100 shadow-sm">
             <div class="card-body">
 
@@ -718,7 +718,7 @@ $variance_amount =
     </div>
 
 
-    <div class="col-3 d-flex mb-3">
+    <div class="col-6 d-flex mb-3">
         <div class="card mb-3 h-100 w-100 shadow-sm">
             <div class="card-body">
 
@@ -800,7 +800,7 @@ $variance_amount =
     </div>
 
 
-    <div class="col-7">
+    <!-- <div class="col-7">
         <div class="card mb-3 shadow-sm">
             <div class="card-body" >
 
@@ -901,10 +901,10 @@ $variance_amount =
 
             </div>
         </div>
-    </div>
+    </div> -->
 
 
-    <div class="col-5">
+    <div class="col-6">
         <div class="card shadow-sm">
             <div class="card-body">
 

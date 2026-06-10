@@ -330,10 +330,9 @@ body {
 
                     <span class="badge bg-dark badge-soft">Audit Ended</span>
 
-                    <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
-                       class="btn btn-success btn-sm">
+                    <button class="btn btn-success btn-sm" onclick="startExport(<?= $audit_id ?>)">
                         CSV Detail
-                    </a>
+                    </button>
 
                     <a href="generate_summary_report.php?audit_id=<?php echo $audit_id; ?>"
                        class="btn btn-primary btn-sm">
@@ -675,6 +674,64 @@ body {
         </div>
     </div>
 </div>
+
+
+<div class="modal fade" id="exportModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Generating CSV...</h5>
+      </div>
+
+      <div class="modal-body">
+        <div class="progress">
+          <div id="progressBar" class="progress-bar" style="width:0%">
+            0%
+          </div>
+        </div>
+
+        <div class="mt-2 text-muted" id="progressText">
+          Starting...
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let interval;
+
+function startExport(audit_id) {
+
+    $('#exportModal').modal('show');
+
+    fetch(`generate_detailed_report.php?audit_id=${audit_id}`);
+
+    interval = setInterval(() => {
+        fetch(`progress.php?audit_id=${audit_id}`)
+            .then(res => res.json())
+            .then(data => {
+
+                let percent = data.progress || 0;
+
+                $('#progressBar')
+                    .css('width', percent + '%')
+                    .text(percent + '%');
+
+                $('#progressText').text(
+                    `${data.done} / ${data.total} rows`
+                );
+
+                if (data.status === 'done') {
+                    clearInterval(interval);
+                    $('#progressText').text('Completed! File saved in /csv folder');
+                }
+            });
+    }, 500);
+}
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
