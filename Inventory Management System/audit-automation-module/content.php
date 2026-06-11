@@ -30,6 +30,9 @@ $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? nul
 </div>
 
 
+<?php
+if($audit_position !== null || $user_position_name === "Administrator" || $user_position_name === "Superadmin"){
+?>
 <div class="card mb-3">
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center gap-3 mb-3 flex-wrap">
@@ -348,3 +351,6 @@ document.addEventListener('DOMContentLoaded', loadData);
     </div>
   </div>
 </div>
+<?php
+}
+?>

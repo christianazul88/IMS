@@ -70,7 +70,7 @@ foreach ($barcodes as $row) {
 
 $update_audit_assignment_staffs = "
     UPDATE audit_assignment_staffs
-    SET `status` = 'rejected'
+    SET status = 'rejected'
     WHERE audit_assignments_id = ?
     AND user_id = ?
 ";

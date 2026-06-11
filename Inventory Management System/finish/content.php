@@ -1,7 +1,7 @@
 <?php
 $audit_id = $_SESSION['audit_id'];
 $selected_area = $_GET['area'];
-$user_id = $_GET['user_id'] ?? $user_id;
+$staff_id = $_GET['user_id'] ?? $user_id;
 
 $audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
 $audit_position_result = $conn->query($audit_position_query);
@@ -69,7 +69,7 @@ $status_query = "
 ";
 
 $stmt = $conn->prepare($status_query);
-$stmt->bind_param("ii", $audit_assignment_id, $user_id);
+$stmt->bind_param("ii", $audit_assignment_id, $staff_id);
 $stmt->execute();
 $res = $stmt->get_result()->fetch_assoc();
 $stmt->close();
@@ -82,12 +82,12 @@ if (!$res) {
     ";
 
     $stmt = $conn->prepare($insert_query);
-    $stmt->bind_param("is", $audit_assignment_id, $user_id);
+    $stmt->bind_param("is", $audit_assignment_id, $staff_id);
     $stmt->execute();
     $stmt->close();
 
     $status = 'idle';
-    $staff_id = $user_id;
+    $staff_id = $staff_id;
 } else {
     $status = $res['status'];
     $staff_id = $res['user_id'];
@@ -119,7 +119,7 @@ $barcode_query = "
 ";
 
 $stmt = $conn->prepare($barcode_query);
-$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $user_id);
+$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -169,7 +169,7 @@ $amount_query = "
       AND ia.user_id = ?
 ";
 $stmt = $conn->prepare($amount_query);
-$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $user_id);
+$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
 $stmt->execute();
 $total_scanned_amount = $stmt->get_result()->fetch_assoc()['total_amount'] ?? 0;
 $stmt->close();
@@ -193,6 +193,13 @@ $variance_amount = $total_scanned_amount - $total_expected_amount;
 // avg value
 $avg_value = $total_scanned ? ($total_scanned_amount / $total_scanned) : 0;
 
+if($audit_position != 1){
+    $avg_value = 0;
+    $total_scanned_amount = 0;
+    $total_expected_amount = 0;
+    $variance_amount = 0;   
+}
+
 
 // =========================
 // OUTBOUNDED COUNT (FILTERED)
@@ -207,7 +214,7 @@ $outbounded_filtered_query = "
 ";
 
 $stmt = $conn->prepare($outbounded_filtered_query);
-$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $user_id);
+$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
 $stmt->execute();
 $total_outbounded_filtered = $stmt->get_result()->fetch_assoc()['total_outbounded'] ?? 0;
 $stmt->close();
@@ -229,7 +236,7 @@ if($status === 'idle' || $status === 'in_progress' || $status === 'pending'){
         die("Prepare failed: " . $conn->error);
     }
 
-    $stmt->bind_param("is", $audit_assignment_id, $user_id);
+    $stmt->bind_param("is", $audit_assignment_id, $staff_id);
 
     if ($stmt->execute()) {
         $stmt->close();
@@ -241,34 +248,34 @@ if($status === 'idle' || $status === 'in_progress' || $status === 'pending'){
     }
 }
 
-if($status === 'rejected' && $staff_id === $user_id){
-    // =========================
-    // UPDATE STATUS TO FOR APPROVAL
-    // =========================
-    $update_query = "
-        UPDATE audit_assignment_staffs
-        SET `status` = 'for_approval'
-        WHERE audit_assignments_id = ?
-        AND user_id = ?
-    ";
+// if($status === 'rejected' && $staff_id === $user_id){
+//     // =========================
+//     // UPDATE STATUS TO FOR APPROVAL
+//     // =========================
+//     $update_query = "
+//         UPDATE audit_assignment_staffs
+//         SET `status` = 'for_approval'
+//         WHERE audit_assignments_id = ?
+//         AND user_id = ?
+//     ";
 
-    $stmt = $conn->prepare($update_query);
+//     $stmt = $conn->prepare($update_query);
 
-    if (!$stmt) {
-        die("Prepare failed: " . $conn->error);
-    }
+//     if (!$stmt) {
+//         die("Prepare failed: " . $conn->error);
+//     }
 
-    $stmt->bind_param("is", $audit_assignment_id, $user_id);
+//     $stmt->bind_param("is", $audit_assignment_id, $user_id);
 
-    if ($stmt->execute()) {
-        $stmt->close();
-        // header("Location: ../finish/?area=success=true");
-        // exit;
-    } else {
-        $stmt->close();
-        die("Update failed: " . $conn->error);
-    }
-}
+//     if ($stmt->execute()) {
+//         $stmt->close();
+//         // header("Location: ../finish/?area=success=true");
+//         // exit;
+//     } else {
+//         $stmt->close();
+//         die("Update failed: " . $conn->error);
+//     }
+// }
 
 
 $missing_query = "SELECT p.description, b.brand_name, c.category_name, s.unique_barcode
@@ -337,17 +344,17 @@ $missing_items = [];
 
             <div class="text-end">
                 <?php 
-                if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+                // if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
                 ?>
-                <?php if ($status === 'for_approval'): ?>
+                <?php if ($status === 'for_approval' || $audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin"): ?>
 
                     <!-- APPROVE / REJECT -->
-                    <a href="approve.php?id=<?= $audit_assignment_id ?>&user=<?= $user_id ?>&area=<?php echo $selected_area;?>"
+                    <a href="approve.php?id=<?= $audit_assignment_id ?>&user=<?= $staff_id ?>&area=<?php echo $selected_area;?>"
                     class="btn btn-success btn-sm">
                         Approve
                     </a>
 
-                    <a href="reject.php?id=<?= $audit_assignment_id ?>&user=<?= $user_id ?>&area=<?php echo $selected_area;?>"
+                    <a href="reject.php?id=<?= $audit_assignment_id ?>&user=<?= $staff_id ?>&area=<?php echo $selected_area;?>"
                     class="btn btn-danger btn-sm">
                         Decline
                     </a>
@@ -366,12 +373,18 @@ $missing_items = [];
 
                 <?php elseif ($status === 'rejected'): ?>
                     <?php
+                    // echo $user_id;
                     if($staff_id === $user_id) {
                     ?>
                     <!-- RESTART SCANNING -->
                     <a href="/Choose-Area/"
                     class="btn btn-warning btn-sm">
                         Restart Scanning
+                    </a>
+
+                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>"
+                    class="btn btn-primary btn-sm">
+                        <i class="bi bi-qr-code"></i> Download QR Code
                     </a>
                     <?php
                     } else {
@@ -387,9 +400,6 @@ $missing_items = [];
                     </a>
 
                 <?php endif; ?>
-                <?php
-                }
-                ?>
             </div>
 
         </div>
