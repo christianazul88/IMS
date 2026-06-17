@@ -134,6 +134,8 @@ $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
 
 $currentDate = date('F d, Y');
 
+$total_scanned = $_SESSION['total_scanned'];
+
 $html = "
 <html>
 <head>
@@ -287,11 +289,11 @@ body{
     </div>
 
     <div class='footer'>
-        <strong>Quantity:</strong>
+        <strong>Quantity:{$total_scanned}</strong>
         <span class='qty-line'></span>
         <br><br>
 
-        Approved by:
+        Approved by:{$user_fullname}
         <span class='approval-line'></span>
     </div>
 

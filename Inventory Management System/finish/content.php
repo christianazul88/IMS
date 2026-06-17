@@ -45,9 +45,9 @@ if ($audit['audit_status'] == 'pending') {
 // =========================
 // ASSIGNMENT
 // =========================
-$audit_assignment_query = "SELECT id, warehouse FROM audit_assignments WHERE item_location = ? LIMIT 1";
+$audit_assignment_query = "SELECT id, warehouse FROM audit_assignments WHERE item_location = ? AND audit_id = ? LIMIT 1";
 $stmt = $conn->prepare($audit_assignment_query);
-$stmt->bind_param("i", $selected_area);
+$stmt->bind_param("ii", $selected_area, $audit_id);
 $stmt->execute();
 $assignment_data = $stmt->get_result()->fetch_assoc();
 $stmt->close();
@@ -154,6 +154,8 @@ foreach ($barcodes as $row) {
 // TOTALS
 // =========================
 $total_scanned = count($barcodes);
+
+$_SESSION['total_scanned'] = $total_scanned;
 
 // expected values
 $total_expected_qty = (float)$audit['total_expected_qty'];
@@ -314,7 +316,7 @@ $missing_items = [];
                 <div class="text-end">
 
                     <a href="../audit-dashboard/" class="btn btn-outline-dark btn-sm mb-2">
-                        ← Back to Dashboard
+                        ← Back to Dashboard <?php echo $audit_assignment_id;?>
                     </a>
 
                     <br>
@@ -346,7 +348,7 @@ $missing_items = [];
                 <?php 
                 // if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
                 ?>
-                <?php if ($status === 'for_approval' || $audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin"): ?>
+                <?php if ($status === 'for_approval' && ($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin")): ?>
 
                     <!-- APPROVE / REJECT -->
                     <a href="approve.php?id=<?= $audit_assignment_id ?>&user=<?= $staff_id ?>&area=<?php echo $selected_area;?>"
@@ -359,10 +361,7 @@ $missing_items = [];
                         Decline
                     </a>
 
-                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>"
-                    class="btn btn-primary btn-sm">
-                        <i class="bi bi-qr-code"></i> Download QR Code
-                    </a>
+                    
 
                 <?php elseif ($status === 'approved'): ?>
 
@@ -370,6 +369,11 @@ $missing_items = [];
                     <button class="btn btn-success btn-sm" disabled>
                         ✔ Approved & Closed
                     </button>
+
+                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>"
+                    class="btn btn-primary btn-sm">
+                        <i class="bi bi-qr-code"></i> Download QR Code
+                    </a>
 
                 <?php elseif ($status === 'rejected'): ?>
                     <?php
@@ -382,10 +386,6 @@ $missing_items = [];
                         Restart Scanning
                     </a>
 
-                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>"
-                    class="btn btn-primary btn-sm">
-                        <i class="bi bi-qr-code"></i> Download QR Code
-                    </a>
                     <?php
                     } else {
                         echo "<div class='text-muted'>Waiting for staff to restart the scanning process.</div>";
@@ -394,10 +394,6 @@ $missing_items = [];
 
                 <?php else: ?>
 
-                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>"
-                    class="btn btn-primary btn-sm">
-                        <i class="bi bi-qr-code"></i> Download QR Code
-                    </a>
 
                 <?php endif; ?>
             </div>
@@ -527,6 +523,19 @@ $missing_items = [];
                                 <?php foreach ($items as $item): ?>
 
                                     <div class="border-bottom py-2">
+                                        <?php 
+                                        if($status !== 'approved' && $status !== 'rejected' && $audit_position == 1){
+                                        ?>
+                                        <!-- added button -->
+                                        <div class="text-end mt-2 mb-3 fs-11">
+                                            <a href="missing.php?barcode=<?= urlencode($item['full']) ?>"
+                                            class="btn btn-outline-danger btn-sm mark-missing-btn fs-11">
+                                                Mark as Missing
+                                            </a>
+                                        </div>
+                                        <?php 
+                                        }
+                                        ?>
 
                                         <div class="d-flex justify-content-between">
                                             <span class="fw-bold"><?= $item['full'] ?></span>
@@ -583,6 +592,7 @@ $missing_items = [];
                         <div class="row">
                             <div class="col-9">
                                 <div class="border-bottom py-2">
+                                    
                                     <div class="fw-bold">
                                         <?= htmlspecialchars($row['description'] ?? 'N/A') ?>
                                     </div>
@@ -599,12 +609,16 @@ $missing_items = [];
                                 </div>
                             </div>
                             <div class="col-3">
+                                <?php 
+                                    if($status !== 'approved' && $status !== 'rejected' && $audit_position == 1){
+                                ?>
                                 <div class="text-end">
                                     <a class="btn btn-outline-primary fs-11 item-found-btn"
                                         href="item-found.php?barcode=<?= htmlspecialchars($row['unique_barcode'] ?? 'N/A') ?>&location=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&staff_id=<?= $staff_id ?>&warehouse=<?= $warehouse_audit_id ?>">
                                         Item Found By Me
                                     </a>
                                 </div>
+                                <?php }?>
                             </div>
                         </div>
                     <?php endwhile; ?>
@@ -701,4 +715,88 @@ document.addEventListener('click', async function(e) {
     }
 
 });
+
+document.addEventListener('click', async function (e) {
+
+    const btn = e.target.closest('.mark-missing-btn');
+    if (!btn) return;
+
+    e.preventDefault();
+
+    // STEP 1
+    const step1 = await Swal.fire({
+        title: 'Mark this item as MISSING?',
+        text: 'This will flag the item for audit discrepancy review.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, continue',
+        cancelButtonText: 'Cancel',
+        allowOutsideClick: false
+    });
+
+    if (!step1.isConfirmed) return;
+
+    // STEP 2
+    const step2 = await Swal.fire({
+        title: 'You cannot undo this',
+        text: 'If you continue, this item will be treated as missing in the audit records.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'I understand',
+        cancelButtonText: 'Go back'
+    });
+
+    if (!step2.isConfirmed) return;
+
+    // STEP 3 (FINAL WARNING)
+    const step3 = await Swal.fire({
+        title: 'FINAL CONFIRMATION',
+        html: `
+            <b>This action is irreversible.</b><br><br>
+            You cannot undo this, and you may need the developer to correct this later.<br><br>
+            Are you absolutely sure you want to proceed?
+        `,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, mark as missing',
+        cancelButtonText: 'Cancel'
+    });
+
+    if (!step3.isConfirmed) return;
+
+    // LOADING
+    Swal.fire({
+        title: 'Processing...',
+        text: 'Updating audit records.',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        const response = await fetch(btn.href);
+        const result = await response.text();
+
+        Swal.fire({
+            title: 'Completed',
+            text: 'Item has been marked as missing.',
+            icon: 'success'
+        });
+
+        // Optional UI update
+        btn.classList.remove('btn-outline-danger');
+        btn.classList.add('btn-secondary');
+        btn.innerHTML = '✔ Missing';
+        btn.style.pointerEvents = 'none';
+
+    } catch (err) {
+        Swal.fire({
+            title: 'Error',
+            text: 'Failed to mark item as missing.',
+            icon: 'error'
+        });
+
+        console.error(err);
+    }
+});
+
 </script>

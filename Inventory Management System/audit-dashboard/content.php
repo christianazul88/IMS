@@ -303,9 +303,9 @@ $variance_amount =
                 if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
                 ?>
                 <?php if ($last_status === 'start' || $last_status === 'resume'): ?>
-
-                    <a href="pause_audit.php" class="btn btn-warning btn-sm">Pause</a>
-                    <a href="end.php" class="btn btn-danger btn-sm">End Audit</a>
+                    <a href="area_codes.php" class="btn btn-info btn-sm fs-11"><span class="fas fa-download"></span> Area Code</a>
+                    <a href="pause_audit.php" class="btn btn-warning btn-sm fs-11">Pause</a>
+                    <a href="end.php" class="btn btn-danger btn-sm fs-11">End Audit</a>
 
                 <?php elseif ($last_status === 'pause'): ?>
 
@@ -979,7 +979,7 @@ $variance_amount =
 
                                     } elseif ($staff['staff_status'] === 'approved') {
 
-                                        echo '<span class="badge bg-success">Approved</span>';
+                                        echo '<span class="badge bg-success">Approved</span>';  
 
                                     } elseif ($staff['staff_status'] === 'declined') {
 
@@ -1003,7 +1003,7 @@ $variance_amount =
 
                                 <td class="text-end">
 
-                                    <?php if (($staff['staff_status'] === 'for_approval' || $staff['staff_status'] !== 'approved') || $staff['staff_status'] === 'rejected') : ?>
+                                    <?php if ($staff['staff_status'] === 'for_approval' || $staff['staff_status'] === 'approved' || $staff['staff_status'] === 'rejected') : ?>
 
                                         <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>"
                                         class="btn btn-success btn-sm">

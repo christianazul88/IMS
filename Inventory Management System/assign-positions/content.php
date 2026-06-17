@@ -1,5 +1,25 @@
 <?php
 
+if (isset($_POST['delete_personnel'])) {
+
+    $hashed_id = $_POST['hashed_id'];
+
+    $stmt = $conn->prepare("
+        DELETE FROM audit_users
+        WHERE hashed_id = ?
+    ");
+
+    $stmt->bind_param("s", $hashed_id);
+    $stmt->execute();
+    $stmt->close();
+
+    echo "<script>
+        alert('Personnel removed successfully.');
+        window.location.href = window.location.pathname;
+    </script>";
+    exit;
+}
+
 if (isset($_POST['update_position'])) {
 
     $hashed_id = $_POST['hashed_id'];
@@ -11,7 +31,7 @@ if (isset($_POST['update_position'])) {
         WHERE hashed_id = ?
     ");
 
-    $stmt->bind_param("is", $audit_position, $hashed_id);
+    $stmt->bind_param('is', $audit_position, $hashed_id);
     $stmt->execute();
     $stmt->close();
 
@@ -20,7 +40,8 @@ if (isset($_POST['update_position'])) {
         window.location.href = window.location.pathname;
     </script>";
     exit;
-}  
+}
+
 
 $users_query = "SELECT hashed_id, user_fname, user_lname FROM users";
 $result = mysqli_query($conn, $users_query);
@@ -286,8 +307,85 @@ while ($row = mysqli_fetch_assoc($result)) {
                                             <i class="far fa-edit"></i>
                                         </button>
 
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-danger btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deletePersonnelModal<?php echo $staff['hashed_id']; ?>"
+                                            title="Remove Personnel">
+
+                                            <i class="far fa-trash-alt"></i>
+                                        </button>
+
                                     </div>
 
+                                </div>
+
+                            </div>
+
+                            <!-- Delete Personnel Modal -->
+                            <div class="modal fade"
+                                id="deletePersonnelModal<?php echo $staff['hashed_id']; ?>"
+                                tabindex="-1">
+
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+
+                                        <form method="POST">
+
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">
+                                                    Remove Personnel
+                                                </h5>
+
+                                                <button
+                                                    type="button"
+                                                    class="btn-close"
+                                                    data-bs-dismiss="modal">
+                                                </button>
+                                            </div>
+
+                                            <div class="modal-body">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="hashed_id"
+                                                    value="<?php echo htmlspecialchars($staff['hashed_id']); ?>">
+
+                                                <div class="alert alert-danger mb-0">
+                                                    Are you sure you want to remove
+                                                    <strong>
+                                                        <?php echo htmlspecialchars($staff['user_fname'] . ' ' . $staff['user_lname']); ?>
+                                                    </strong>
+                                                    from the audit personnel list?
+                                                </div>
+
+                                            </div>
+
+                                            <div class="modal-footer">
+
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-secondary"
+                                                    data-bs-dismiss="modal">
+                                                    Cancel
+                                                </button>
+
+                                                <button
+                                                    type="submit"
+                                                    name="delete_personnel"
+                                                    class="btn btn-danger">
+
+                                                    <i class="far fa-trash-alt me-1"></i>
+                                                    Delete
+
+                                                </button>
+
+                                            </div>
+
+                                        </form>
+
+                                    </div>
                                 </div>
 
                             </div>
