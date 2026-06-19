@@ -69,10 +69,11 @@ try {
             user_id = ?
         WHERE audit_id = ?
         AND item_location_origin = ?
+        AND audit_status = 'pending'
     ");
 
     $stmt->bind_param(
-        "isiiis",
+        "isisis",
         $audit_assignment_id,
         $warehouse_id_audit,
         $area_code,

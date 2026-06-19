@@ -152,6 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['areacode'])) {
         FROM audit_assignment_staffs
         WHERE audit_assignments_id = ?
         AND user_id = ?
+        AND `status` = 'idle'
         LIMIT 1
     ");
     $stmt->bind_param(

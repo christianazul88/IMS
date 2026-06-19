@@ -82,7 +82,7 @@ if($audit_position != 1){
 $scanned_qty_query = "
     SELECT COUNT(*) AS total_scanned
     FROM items_to_audit
-    WHERE audit_id = ? AND audit_status = 'scanned'
+    WHERE audit_id = ? AND audit_status = 'approved'
 ";
 $stmt = $conn->prepare($scanned_qty_query);
 $stmt->bind_param("i", $audit_id);
@@ -95,7 +95,7 @@ $stmt->close();
 $outbounded_qty_query = "
     SELECT COUNT(*) AS total_outbounded
     FROM items_to_audit
-    WHERE audit_id = ? AND outbounded = 'yes' AND audit_status = 'scanned'
+    WHERE audit_id = ? AND outbounded = 'yes' AND audit_status = 'approved'
 ";
 $stmt = $conn->prepare($outbounded_qty_query);
 $stmt->bind_param("i", $audit_id);
@@ -109,7 +109,7 @@ $scanned_amount_query = "
     SELECT SUM(s.capital) AS total
     FROM items_to_audit ia
     LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
-    WHERE ia.audit_id = ? AND ia.audit_status = 'scanned'
+    WHERE ia.audit_id = ? AND ia.audit_status = 'approved'
 ";
 $stmt = $conn->prepare($scanned_amount_query);
 $stmt->bind_param("i", $audit_id);
@@ -127,7 +127,7 @@ $outbounded_amount_query = "
     FROM items_to_audit ia
     LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
     WHERE ia.audit_id = ? 
-    AND ia.audit_status = 'scanned' 
+    AND ia.audit_status = 'approved' 
     AND ia.outbounded = 'yes'
 ";
 $stmt = $conn->prepare($outbounded_amount_query);
@@ -924,7 +924,8 @@ $variance_amount =
                         aas.status AS staff_status,
                         aas.audit_assignments_id,
                         il.id AS location_id,
-                        il.location_name
+                        il.location_name,
+                        aas.id AS fi
                     FROM audit_assignment_staffs aas
                     LEFT JOIN users u
                         ON u.hashed_id = aas.user_id
@@ -1005,7 +1006,7 @@ $variance_amount =
 
                                     <?php if ($staff['staff_status'] === 'for_approval' || $staff['staff_status'] === 'approved' || $staff['staff_status'] === 'rejected') : ?>
 
-                                        <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>"
+                                        <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>"
                                         class="btn btn-success btn-sm">
                                             View
                                         </a>

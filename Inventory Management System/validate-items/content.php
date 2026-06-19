@@ -155,6 +155,7 @@ $warehouse_id_audit = $audit['warehouse'];
                             ON c.hashed_id = p.category
                         WHERE ia.item_location_origin = '$selected_area'
                         AND ia.audit_id = '$audit_id'
+                        AND ia.audit_status = 'pending'
                         ORDER BY ia.unique_barcode ASC
                     ";
 

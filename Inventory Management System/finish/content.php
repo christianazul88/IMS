@@ -3,6 +3,12 @@ $audit_id = $_SESSION['audit_id'];
 $selected_area = $_GET['area'];
 $staff_id = $_GET['user_id'] ?? $user_id;
 
+$additional_query = "";
+if(isset($_GET['fi'])){
+    $aas_id = $_GET['fi'];
+    $additional_query = "AND id = '$aas_id'";
+}
+
 $audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
 $audit_position_result = $conn->query($audit_position_query);
 $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
@@ -61,62 +67,118 @@ $warehouse_audit_id = $assignment_data['warehouse'] ?? null;
 $status = 'idle';
 
 $status_query = "
-    SELECT `status`, user_id
+    SELECT `status`, user_id, id
     FROM audit_assignment_staffs
     WHERE audit_assignments_id = ?
       AND user_id = ?
+      AND `status` = 'for_approval'
+      $additional_query
+      ORDER BY id DESC
     LIMIT 1
 ";
 
 $stmt = $conn->prepare($status_query);
-$stmt->bind_param("ii", $audit_assignment_id, $staff_id);
+$stmt->bind_param("is", $audit_assignment_id, $staff_id);
 $stmt->execute();
 $res = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$res) {
     // No row found → insert default row
-    $insert_query = "
-        INSERT INTO audit_assignment_staffs (audit_assignments_id, user_id, status, date_assigned)
-        VALUES (?, ?, 'idle', NOW())
+    $status_query2 = "
+        SELECT `status`, user_id, id
+        FROM audit_assignment_staffs
+        WHERE audit_assignments_id = ?
+        AND user_id = ?
+        $additional_query
+        ORDER BY id DESC
+        LIMIT 1
     ";
 
-    $stmt = $conn->prepare($insert_query);
+    $stmt = $conn->prepare($status_query2);
     $stmt->bind_param("is", $audit_assignment_id, $staff_id);
     $stmt->execute();
+    $res = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    $status = 'idle';
-    $staff_id = $staff_id;
+    if (!$res) {
+        // No row found → insert default row
+        $insert_query = "
+            INSERT INTO audit_assignment_staffs (audit_assignments_id, user_id, status, date_assigned)
+            VALUES (?, ?, 'idle', NOW())
+        ";
+
+        $stmt = $conn->prepare($insert_query);
+        $stmt->bind_param("is", $audit_assignment_id, $staff_id);
+        $stmt->execute();
+        $stmt->close();
+
+        if ($stmt->execute()) {
+            $audit_assignment_staff_id = $conn->insert_id; // inserted row ID
+        }
+
+        $status = 'idle';
+        $staff_id = $staff_id;
+    } else {
+        $status = $res['status'];
+        $staff_id = $res['user_id'];
+        $audit_assignment_staff_id = $res['id'];
+    }
 } else {
     $status = $res['status'];
     $staff_id = $res['user_id'];
+    $audit_assignment_staff_id = $res['id'];
 }
 
+$status = $status;
 // =========================
 // FETCH SCANNED ITEMS
 // =========================
 $barcodes = [];
 
-$barcode_query = "
-    SELECT 
-        ia.unique_barcode AS barcode,
-        p.description,
-        b.brand_name,
-        c.category_name,
-        il.location_name,
-        ia.outbounded
-    FROM items_to_audit ia
-    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
-    LEFT JOIN product p ON p.hashed_id = s.product_id
-    LEFT JOIN brand b ON b.hashed_id = p.brand
-    LEFT JOIN category c ON c.hashed_id = p.category
-    LEFT JOIN item_location il ON il.id = s.item_location
-    WHERE ia.audit_id = ?
-      AND ia.audit_assignment_id = ?
-      AND ia.user_id = ?
-    ORDER BY ia.scanned_date ASC
-";
+if($status === "for_approval"){
+    $barcode_query = "
+        SELECT 
+            ia.unique_barcode AS barcode,
+            p.description,
+            b.brand_name,
+            c.category_name,
+            il.location_name,
+            ia.outbounded
+        FROM items_to_audit ia
+        LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+        LEFT JOIN product p ON p.hashed_id = s.product_id
+        LEFT JOIN brand b ON b.hashed_id = p.brand
+        LEFT JOIN category c ON c.hashed_id = p.category
+        LEFT JOIN item_location il ON il.id = s.item_location
+        WHERE ia.audit_id = ?
+        AND ia.audit_assignment_id = ?
+        AND ia.user_id = ?
+        AND ia.audit_status = 'scanned'
+        ORDER BY ia.scanned_date ASC
+    ";
+} else {
+    $barcode_query = "
+        SELECT 
+            ia.unique_barcode AS barcode,
+            p.description,
+            b.brand_name,
+            c.category_name,
+            il.location_name,
+            ia.outbounded
+        FROM items_to_audit ia
+        LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
+        LEFT JOIN product p ON p.hashed_id = s.product_id
+        LEFT JOIN brand b ON b.hashed_id = p.brand
+        LEFT JOIN category c ON c.hashed_id = p.category
+        LEFT JOIN item_location il ON il.id = s.item_location
+        WHERE ia.audit_id = ?
+        AND ia.audit_assignment_id = ?
+        AND ia.user_id = ?
+        AND ia.audit_status = 'approved'
+        ORDER BY ia.scanned_date ASC
+    ";
+}
 
 $stmt = $conn->prepare($barcode_query);
 $stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
@@ -169,6 +231,7 @@ $amount_query = "
     WHERE ia.audit_id = ?
       AND ia.audit_assignment_id = ?
       AND ia.user_id = ?
+      AND ia.audit_status = 'scanned'
 ";
 $stmt = $conn->prepare($amount_query);
 $stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
@@ -213,6 +276,7 @@ $outbounded_filtered_query = "
       AND audit_assignment_id = ?
       AND user_id = ?
       AND outbounded = 'yes'
+      AND audit_status = 'scanned'
 ";
 
 $stmt = $conn->prepare($outbounded_filtered_query);
@@ -230,6 +294,7 @@ if($status === 'idle' || $status === 'in_progress' || $status === 'pending'){
         SET `status` = 'for_approval'
         WHERE audit_assignments_id = ?
         AND user_id = ?
+        AND `status` != 'approved'
     ";
 
     $stmt = $conn->prepare($update_query);
@@ -288,7 +353,8 @@ $missing_query = "SELECT p.description, b.brand_name, c.category_name, s.unique_
                     LEFT JOIN category c ON c.hashed_id = p.category
                     WHERE ia.audit_status = 'pending'
                     AND s.item_location = '$selected_area' 
-                    AND ia.audit_id = '$audit_id'";
+                    AND ia.audit_id = '$audit_id'
+                    AND ia.audit_status = 'scanned'";
 $missing_result = $conn->query($missing_query);
 $missing_items = [];
 
@@ -370,7 +436,7 @@ $missing_items = [];
                         ✔ Approved & Closed
                     </button>
 
-                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>"
+                    <a href="download_qrcode.php?audit_id=<?= $audit_id ?>&area=<?= $selected_area ?>&audit_assignment_id=<?= $audit_assignment_id ?>&user_id=<?= $staff_id ?>&fi=<?= $audit_assignment_staff_id; ?>"
                     class="btn btn-primary btn-sm">
                         <i class="bi bi-qr-code"></i> Download QR Code
                     </a>

@@ -19,6 +19,7 @@ $barcode_query = "
     WHERE audit_id = ?
         AND audit_assignment_id = ?
         AND user_id = ?
+        AND audit_status = 'scanned'
     ORDER BY scanned_date ASC
 ";
 
@@ -45,6 +46,8 @@ foreach ($barcodes as $row) {
     $onscanned_location_id = $row['item_location_onscanned'];
     $outbounded_value = $row['outbounded'];
 
+
+
     if($outbounded_value === "no"){
         $outbounded = false;
     } else {
@@ -64,10 +67,18 @@ foreach ($barcodes as $row) {
     }
     
 
-    
+    $update_items_to_audit_query = "
+        UPDATE items_to_audit
+        SET
+            audit_status = 'approved'
+        WHERE unique_barcode = ?
+        AND audit_id = ?
+    ";
 
-    
-
+    $stmt = $conn->prepare($update_items_to_audit_query);
+    $stmt->bind_param("si", $unique_barcode, $audit_id);
+    $stmt->execute();
+    // $stmt->close();
     
 
 
@@ -320,15 +331,41 @@ foreach ($barcodes as $row) {
 
 }
 
+$get_audit_assignment_Staff_id = "
+    SELECT id
+    FROM audit_assignment_staffs
+    WHERE audit_assignments_id = ?
+    AND user_id = ?
+    AND `status` = 'for_approval'
+    ORDER BY id DESC
+    LIMIT 1
+";
+
+$stmt = $conn->prepare($get_audit_assignment_Staff_id);
+$stmt->bind_param("is", $audit_assignment_id, $staff_id);
+$stmt->execute();
+
+$result = $stmt->get_result();
+
+$audit_assignment_staff_id = null;
+
+if ($result->num_rows > 0) {
+    $audit_assignment_staff_id = $result->fetch_assoc()['id'];
+} else {
+    $audit_assignment_staff_id = "NULL";
+}
+
+
 $update_audit_assignment_staffs = "
     UPDATE audit_assignment_staffs
     SET `status` = 'approved'
     WHERE audit_assignments_id = ?
     AND user_id = ?
+    AND id = ?
 ";
 
 $stmt = $conn->prepare($update_audit_assignment_staffs);
-$stmt->bind_param("ii", $audit_assignment_id, $staff_id);
+$stmt->bind_param("isi", $audit_assignment_id, $staff_id, $audit_assignment_staff_id);
 $stmt->execute();
 $stmt->close();
 

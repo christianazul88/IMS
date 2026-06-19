@@ -21,7 +21,7 @@ $staff_name = "";
 // ===============================
 // BUILD URL
 // ===============================
-$url = "http://lpoims.com/Inventory%20Management%20System/finish/?area={$area}&user_id={$staff_id}";
+$url = "http://lpoims.com/Inventory%20Management%20System/finish/?area={$area}&user_id={$staff_id}&fi={}";
 
 
 if(!empty($staff_id)) {
