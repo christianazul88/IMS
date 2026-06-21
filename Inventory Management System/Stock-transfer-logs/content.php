@@ -40,24 +40,27 @@ if (isset($_SESSION['Stock_id'])) {
             $imploded_warehouse_ids = implode(",", $quoted_warehouse_ids);
 
             $Stock_sql = "
-              SELECT 
-                st.*, 
-                fw.warehouse_name AS from_warehouse_name, 
-                tw.warehouse_name AS to_warehouse_name, 
-                CONCAT(fu.user_fname, ' ', fu.user_lname) AS from_fullname, 
-                CONCAT(ru.user_fname, ' ', ru.user_lname) AS receiver_fullname
-              FROM 
-                stock_transfer st
-              INNER JOIN stock_transfer_content stc ON stc.st_id = st.id
-              LEFT JOIN warehouse fw ON st.from_warehouse = fw.hashed_id
-              LEFT JOIN warehouse tw ON st.to_warehouse = tw.hashed_id
-              LEFT JOIN users fu ON st.from_userid = fu.hashed_id
-              LEFT JOIN users ru ON st.received_userid = ru.hashed_id
-              WHERE 
-                st.from_warehouse IN ($imploded_warehouse_ids) 
-                OR st.to_warehouse IN ($imploded_warehouse_ids)
-              GROUP BY st.id
-              ORDER BY st.id DESC";
+                            SELECT
+                                st.*,
+                                fw.warehouse_name AS from_warehouse_name,
+                                tw.warehouse_name AS to_warehouse_name,
+                                CONCAT(fu.user_fname, ' ', fu.user_lname) AS from_fullname,
+                                CONCAT(ru.user_fname, ' ', ru.user_lname) AS receiver_fullname
+                            FROM stock_transfer st
+                            INNER JOIN stock_transfer_content stc ON stc.st_id = st.id
+                            LEFT JOIN warehouse fw ON st.from_warehouse = fw.hashed_id
+                            LEFT JOIN warehouse tw ON st.to_warehouse = tw.hashed_id
+                            LEFT JOIN users fu ON st.from_userid = fu.hashed_id
+                            LEFT JOIN users ru ON st.received_userid = ru.hashed_id
+                            WHERE
+                                (
+                                    st.from_warehouse IN ($imploded_warehouse_ids)
+                                    OR st.to_warehouse IN ($imploded_warehouse_ids)
+                                )
+                                AND st.date_received >= DATE_SUB(NOW(), INTERVAL 5 DAY)
+                            GROUP BY st.id
+                            ORDER BY st.id DESC
+                        ";
 
 
             $Stock_res = $conn->query($Stock_sql);
