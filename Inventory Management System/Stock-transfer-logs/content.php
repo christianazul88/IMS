@@ -57,7 +57,7 @@ if (isset($_SESSION['Stock_id'])) {
                                     st.from_warehouse IN ($imploded_warehouse_ids)
                                     OR st.to_warehouse IN ($imploded_warehouse_ids)
                                 )
-                                AND st.date_received >= DATE_SUB(NOW(), INTERVAL 5 DAY)
+                                AND st.date_out >= DATE_SUB(NOW(), INTERVAL 5 DAY)
                             GROUP BY st.id
                             ORDER BY st.id DESC
                         ";
