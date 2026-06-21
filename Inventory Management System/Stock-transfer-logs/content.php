@@ -54,8 +54,11 @@ if (isset($_SESSION['Stock_id'])) {
               LEFT JOIN users fu ON st.from_userid = fu.hashed_id
               LEFT JOIN users ru ON st.received_userid = ru.hashed_id
               WHERE 
-                st.from_warehouse IN ($imploded_warehouse_ids) 
-                OR st.to_warehouse IN ($imploded_warehouse_ids)
+                (
+                    st.from_warehouse IN ($imploded_warehouse_ids)
+                    OR st.to_warehouse IN ($imploded_warehouse_ids)
+                )
+                AND st.date_received >= DATE_SUB(NOW(), INTERVAL 5 DAY)
               GROUP BY st.id
               ORDER BY st.id DESC";
 

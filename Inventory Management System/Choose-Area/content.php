@@ -74,8 +74,7 @@ $warehouse_id_audit = $audit['warehouse'];
                             INNER JOIN audit_assignment_staffs aas
                                 ON aa.id = aas.audit_assignments_id
                             WHERE aa.item_location = il.id
-                            AND aas.user_id = '$user_id'
-                            AND aas.status IN ('for_approval', 'approved')
+                            AND aas.status IN ('idle','for_approval', 'approved')
                         )
                         ORDER BY il.location_name
                     ";

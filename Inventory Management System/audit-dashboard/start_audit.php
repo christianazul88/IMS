@@ -41,7 +41,17 @@ $stmt->execute();
 $stocks_result = $stmt->get_result();
 
 // Prepare inserts
-$insert_items_to_audit = "INSERT INTO items_to_audit (audit_id, unique_barcode, warehouse_origin, item_location_origin, audit_status) VALUES (?, ?, ?, ?, 'pending')";
+$insert_items_to_audit = "
+            INSERT IGNORE INTO items_to_audit
+            (
+                audit_id,
+                unique_barcode,
+                warehouse_origin,
+                item_location_origin,
+                audit_status
+            )
+            VALUES (?, ?, ?, ?, 'pending')
+        ";
 $stmt_items = $conn->prepare($insert_items_to_audit);
 
 $total_expected_qty = 0;

@@ -296,7 +296,7 @@ $variance_amount =
                     Start Scanning barcode
                 </a>
                 <a href="../Scan-Area/"
-                   class="btn btn-secondary btn-sm <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
+                   class="btn btn-secondary btn-sm <?php if($last_status === 'pause' ) echo "d-none"; ?>">
                     Scan Barcode Area
                 </a>
                 <?php 
@@ -329,6 +329,7 @@ $variance_amount =
                         CSV Summary
                     </a>
 
+                    
 
 
                 <?php endif; 
