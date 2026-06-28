@@ -1,46 +1,11 @@
 <?php
+$audit_id = null;
 
-if (isset($_POST['delete_personnel'])) {
-
-    $hashed_id = $_POST['hashed_id'];
-
-    $stmt = $conn->prepare("
-        DELETE FROM audit_users
-        WHERE hashed_id = ?
-    ");
-
-    $stmt->bind_param("s", $hashed_id);
-    $stmt->execute();
-    $stmt->close();
-
-    echo "<script>
-        alert('Personnel removed successfully.');
-        window.location.href = window.location.pathname;
-    </script>";
-    exit;
+if(isset($_GET['audit'])){
+    $audit_id = $_GET['audit'];
 }
 
-if (isset($_POST['update_position'])) {
 
-    $hashed_id = $_POST['hashed_id'];
-    $audit_position = (int) $_POST['audit_position'];
-
-    $stmt = $conn->prepare("
-        UPDATE audit_users
-        SET audit_position = ?
-        WHERE hashed_id = ?
-    ");
-
-    $stmt->bind_param('is', $audit_position, $hashed_id);
-    $stmt->execute();
-    $stmt->close();
-
-    echo "<script>
-        alert('Position updated successfully.');
-        window.location.href = window.location.pathname;
-    </script>";
-    exit;
-}
 
 
 $users_query = "SELECT hashed_id, user_fname, user_lname FROM users";
@@ -130,6 +95,7 @@ while ($row = mysqli_fetch_assoc($result)) {
             </p>
         </div>
 
+        <input type="hidden" name="audit_id" value="<?php echo $audit_id;?>">
 
         <div class="card-body p-4 collapse multi-collapse" id="multiCollapseExample1">
 
@@ -246,6 +212,7 @@ while ($row = mysqli_fetch_assoc($result)) {
                         pos.audit_position
                     FROM audit_users pos
                     LEFT JOIN users u ON pos.hashed_id = u.hashed_id
+                    WHERE audit_id = '$audit_id'
                     ORDER BY u.user_lname ASC
                 ";
 
@@ -331,7 +298,7 @@ while ($row = mysqli_fetch_assoc($result)) {
                                 <div class="modal-dialog">
                                     <div class="modal-content">
 
-                                        <form method="POST">
+                                        <form method="POST" action="delete.php?audit=<?php echo $audit_id;?>">
 
                                             <div class="modal-header">
                                                 <h5 class="modal-title">
@@ -351,6 +318,8 @@ while ($row = mysqli_fetch_assoc($result)) {
                                                     type="hidden"
                                                     name="hashed_id"
                                                     value="<?php echo htmlspecialchars($staff['hashed_id']); ?>">
+
+                                                <input type="hidden" value="<?php echo $audit_id;?>" name="audit_id">
 
                                                 <div class="alert alert-danger mb-0">
                                                     Are you sure you want to remove
@@ -398,7 +367,7 @@ while ($row = mysqli_fetch_assoc($result)) {
                                 <div class="modal-dialog">
                                     <div class="modal-content">
 
-                                        <form method="POST">
+                                        <form method="POST" action="update.php?audit=<?php echo $audit_id;?>">
 
                                             <div class="modal-header">
                                                 <h5 class="modal-title">
@@ -418,6 +387,8 @@ while ($row = mysqli_fetch_assoc($result)) {
                                                     type="hidden"
                                                     name="hashed_id"
                                                     value="<?php echo htmlspecialchars($staff['hashed_id']); ?>">
+
+                                                <input type="hidden" value="<?php echo $audit_id;?>" name="audit_id">
 
                                                 <input
                                                     type="hidden"

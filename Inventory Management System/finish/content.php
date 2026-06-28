@@ -9,7 +9,7 @@ if(isset($_GET['fi'])){
     $additional_query = "AND id = '$aas_id'";
 }
 
-$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
+$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id' AND audit_id = '$audit_id'";
 $audit_position_result = $conn->query($audit_position_query);
 $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
 

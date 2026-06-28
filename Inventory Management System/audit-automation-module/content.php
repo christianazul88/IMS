@@ -18,7 +18,7 @@ $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? nul
             <!-- 1 is for manager and 2 is for scanner -->
             <?php 
             if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
-                echo '<a href="../assign-positions/" class="btn btn-primary">Assign Staff</a>';
+                // echo '<a href="../assign-positions/" class="btn btn-primary">Assign Staff</a>';
             ?>
             <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#schedaudit">Schedule Audit</button>
             <?php
@@ -119,7 +119,15 @@ function renderTable() {
             <td>${formatDateTime(row.updated_at)}</td>
             <td>${row.updater_fname || ''} ${row.updater_lname || ''}</td>
             <td>${getStatusBadge(row.audit_status)}</td>
-            <td>${updateButton}</td>
+            <td>
+              <?php
+              if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+              ?> 
+              <a href="../assign-positions/?audit=${row.id}" class="btn btn-primary fs-11">Assign Staff</a>
+              <?php }
+              ?>
+              ${updateButton}
+            </td>
         </tr>`;
     });
     tbody.innerHTML = html;

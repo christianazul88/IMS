@@ -1,7 +1,7 @@
 <?php
 $audit_id = $_SESSION['audit_id'];
 
-$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
+$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id' AND audit_id = '$audit_id'";
 $audit_position_result = $conn->query($audit_position_query);
 $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
 
@@ -276,6 +276,34 @@ $variance_amount =
         $variance_amount = 0;
         $net_variance_amount = 0;   
     }
+
+$check_scanned_query = "
+    SELECT id
+    FROM items_to_audit
+    WHERE audit_id = ?
+      AND audit_status != 'approved'
+";
+
+$stmt = $conn->prepare($check_scanned_query);
+$stmt->bind_param("i", $audit_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows == 0) {
+
+    $update_query = "
+        UPDATE audit_logs
+        SET audit_status = 'completed'
+        WHERE id = ?
+    ";
+
+    $update_stmt = $conn->prepare($update_query);
+    $update_stmt->bind_param("i", $audit_id);
+    $update_stmt->execute();
+    $update_stmt->close();
+}
+
+$stmt->close();
 ?>
 
 
@@ -301,18 +329,17 @@ $variance_amount =
                 </a>
                 <?php 
                 if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
-                ?>
-                <?php if ($last_status === 'start' || $last_status === 'resume'): ?>
+                    if($last_status === 'start' || $last_status === 'resume'){ ?>
                     <a href="area_codes.php" class="btn btn-info btn-sm fs-11"><span class="fas fa-download"></span> Area Code</a>
                     <a href="pause_audit.php" class="btn btn-warning btn-sm fs-11">Pause</a>
                     <a href="end.php" class="btn btn-danger btn-sm fs-11">End Audit</a>
 
-                <?php elseif ($last_status === 'pause'): ?>
+                <?php } elseif($last_status === 'pause'){ ?>
 
                     <a href="resume_audit.php" class="btn btn-success btn-sm">Resume</a>
                     <a href="end.php" class="btn btn-danger btn-sm">End Audit</a>
 
-                <?php elseif ($last_status === 'end'): ?>
+                <?php } elseif ($last_status === 'end'){ ?>
 
                     <a href="../Variance-look/?audit_id=<?php echo $audit_id; ?>"
                         class="btn btn-info btn-sm">
@@ -332,7 +359,7 @@ $variance_amount =
                     
 
 
-                <?php endif; 
+                <?php }
                 }
                 ?>
 

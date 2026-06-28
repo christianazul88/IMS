@@ -500,6 +500,52 @@ $(document).ready(function(){
 
     }, 2000);
 
+    // =====================================================
+    // REMOVE ITEM
+    // =====================================================
+    $(document).on("click", ".remove-item", function(){
+
+        let button = $(this);
+        let itemId = button.data("id");
+
+        $.ajax({
+            url: "remove_item.php",
+            type: "POST",
+            data: {
+                id: itemId
+            },
+            success: function(response){
+
+                console.log(response);
+
+                if(response.trim() === "successfully removed"){
+
+                    // Option 1 - reload the receipt
+                    loadReceipt();
+
+                    // refresh count
+                    $.getJSON("receipt-count.php", function(data){
+                        lastCount = data.count;
+                        $("#total-scanned").text(data.count);
+                    });
+
+                }else{
+
+                    alert(response);
+
+                }
+
+            },
+            error: function(){
+
+                alert("Unable to contact server.");
+
+            }
+
+        });
+
+    });
+
 
     // =====================================================
     // AREA COMPLETE CONFIRMATION

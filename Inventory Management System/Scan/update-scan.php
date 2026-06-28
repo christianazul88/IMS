@@ -64,6 +64,7 @@ if (!$audit_log_timestamp) {
 }
 
 $warehouse_id_audit = $audit['warehouse'];
+$warehouse_name_audit = $audit['warehouse_name'];
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
@@ -241,8 +242,46 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (!$stmt_update->execute()) {
         die("Update failed: " . $stmt_update->error);
     }
+
+    // Insert into stock_timeline
+    $timeline_title = "Audited";
+    $audit_date = date("M j, Y");
+    $timeline_action = "Item was audited (date: {$audit_date}) by {$user_fullname}.";
+
+    $timeline_stmt = $conn->prepare("
+        INSERT INTO stock_timeline (
+            unique_barcode,
+            title,
+            action,
+            date,
+            user_id
+        ) VALUES (?, ?, ?, NOW(), ?)
+    ");
+
+    if (!$timeline_stmt) {
+        die("Timeline prepare failed: " . $conn->error);
+    }
+
+    $timeline_stmt->bind_param(
+        "sssi",
+        $barcode,
+        $timeline_title,
+        $timeline_action,
+        $user_id
+    );
+
+    if (!$timeline_stmt->execute()) {
+        die("Timeline insert failed: " . $timeline_stmt->error);
+    }
+
+    $timeline_stmt->close();
+
+    
     echo "Scan successful for barcode: " . htmlspecialchars($barcode);
     $stmt_update->close();
+
+
+    
     
     
 }

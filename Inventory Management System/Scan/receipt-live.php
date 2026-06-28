@@ -122,11 +122,13 @@ $barcodes = [];
 if ($audit_assignment_id) {
 
     $barcode_query = "
-        SELECT unique_barcode AS barcode
+        SELECT
+            id,
+            unique_barcode AS barcode
         FROM items_to_audit
         WHERE audit_id = ?
-          AND audit_assignment_id = ?
-          AND user_id = ?
+        AND audit_assignment_id = ?
+        AND user_id = ?
         ORDER BY scanned_date ASC
     ";
 
@@ -201,9 +203,22 @@ if ($audit_assignment_id) {
 
         <?php foreach ($barcodes as $index => $item): ?>
 
-            <div class="receipt-item">
-                <span><?php echo count($barcodes) - $index; ?>.</span>
-                <span><?php echo htmlspecialchars($item['barcode'] ?? ''); ?></span>
+            
+
+            <div class="receipt-item" id="receipt-item-<?= $item['id']; ?>">
+
+                <span>
+                    <?php echo count($barcodes) - $index; ?>.
+                    <?php echo htmlspecialchars($item['barcode']); ?>
+                </span>
+
+               <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger remove-item"
+                    data-id="<?= $item['id']; ?>">
+                    <i class="fas fa-times"></i>
+                </button>
+
             </div>
 
         <?php endforeach; ?>
