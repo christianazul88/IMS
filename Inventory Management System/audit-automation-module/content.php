@@ -1,8 +1,3 @@
-<?php
-$audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id'";
-$audit_position_result = $conn->query($audit_position_query);
-$audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
-?>
 <div class="card bg-danger text-white mb-3">
     <div class="card-body">
         <h5 class="card-title">Audit Automation Module</h5>
@@ -17,7 +12,7 @@ $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? nul
         <div class="text-end">
             <!-- 1 is for manager and 2 is for scanner -->
             <?php 
-            if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+            if($user_position_name === "Administrator" || $user_position_name === "Superadmin") {
                 // echo '<a href="../assign-positions/" class="btn btn-primary">Assign Staff</a>';
             ?>
             <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#schedaudit">Schedule Audit</button>
@@ -30,9 +25,6 @@ $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? nul
 </div>
 
 
-<?php
-if($audit_position !== null || $user_position_name === "Administrator" || $user_position_name === "Superadmin"){
-?>
 <div class="card mb-3">
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center gap-3 mb-3 flex-wrap">
@@ -121,7 +113,7 @@ function renderTable() {
             <td>${getStatusBadge(row.audit_status)}</td>
             <td>
               <?php
-              if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+              if($user_position_name === "Administrator" || $user_position_name === "Superadmin") {
               ?> 
               <a href="../assign-positions/?audit=${row.id}" class="btn btn-primary fs-11">Assign Staff</a>
               <?php }
@@ -359,6 +351,3 @@ document.addEventListener('DOMContentLoaded', loadData);
     </div>
   </div>
 </div>
-<?php
-}
-?>
