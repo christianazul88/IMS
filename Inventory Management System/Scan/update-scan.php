@@ -138,13 +138,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     // Check if barcode is already scanned in items_to_audit
     $already_scanned = false;
+    $location_onscan = NULL;
 
     $check_scanned_query = "
-        SELECT id
-        FROM items_to_audit
-        WHERE audit_id = ?
-        AND unique_barcode = ?
-        AND (audit_status = 'scanned' OR audit_status = 'approved')
+        SELECT il.location_name
+        FROM items_to_audit ita
+        INNER JOIN item_location il
+        ON il.id = ita.item_location_onscanned
+        WHERE ita.audit_id = ?
+        AND ita.unique_barcode = ?
+        AND (ita.audit_status = 'scanned' OR ita.audit_status = 'approved')
         LIMIT 1
     ";
 
@@ -155,12 +158,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($stmt_check->num_rows > 0) {
         $already_scanned = true;
+        $location_onscan = $row['location_name'];
     }
-
+    $location_onscanned = $location_onscan;
     $stmt_check->close();
 
     if ($already_scanned) {
-        die("Barcode already scanned.");
+        die("Barcode already scanned on " . $location_onscanned . ".");
     }
 
     $needsInsert = false;
