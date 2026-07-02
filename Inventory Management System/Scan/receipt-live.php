@@ -101,11 +101,12 @@ $audit_assignment_query = "
     SELECT id
     FROM audit_assignments
     WHERE item_location = ?
+    AND audit_id = ?
     LIMIT 1
 ";
 
 $stmt = $conn->prepare($audit_assignment_query);
-$stmt->bind_param("i", $selected_area);
+$stmt->bind_param("ii", $selected_area, $audit_id);
 $stmt->execute();
 
 $result = $stmt->get_result();
@@ -133,7 +134,7 @@ if ($audit_assignment_id) {
     ";
 
     $stmt = $conn->prepare($barcode_query);
-    $stmt->bind_param("iii", $audit_id, $audit_assignment_id, $user_id);
+    $stmt->bind_param("iis", $audit_id, $audit_assignment_id, $user_id);
     $stmt->execute();
 
     $result = $stmt->get_result();
@@ -186,7 +187,7 @@ if ($audit_assignment_id) {
 <div class="receipt-box">
 
     <div class="receipt-title">
-        AUDIT RECEIPT
+        AUDIT RECEIPT <?php echo $audit_assignment_id;  ?>
     </div>
 
     

@@ -320,7 +320,37 @@ document.addEventListener('DOMContentLoaded', loadData);
               <label class="form-label">Warehouse <span class="text-danger">*</span></label>
               <select name="warehouse" id="warehouse" class="form-select" required>
                 <option value="">Select Warehouse</option>
-                <?php echo implode("\n", $warehouse_options2); ?>
+                <?php 
+                  $query = "
+                  SELECT
+                      w.hashed_id,
+                      w.warehouse_name,
+                      (
+                          SELECT al.audit_status
+                          FROM audit_logs al
+                          WHERE al.warehouse = w.hashed_id
+                          ORDER BY al.id DESC
+                          LIMIT 1
+                      ) AS latest_status
+                  FROM warehouse w
+                  WHERE w.hashed_id IN ($user_warehouse_id)
+                  ORDER BY w.warehouse_name ASC
+                  ";
+
+                  $result = $conn->query($query);
+
+                  while ($row = $result->fetch_assoc()) {
+
+                      // Show if never audited OR latest audit is completed
+                      if (is_null($row['latest_status']) || $row['latest_status'] === 'completed') {
+
+                          echo
+                              '<option value="' . htmlspecialchars($row['hashed_id']) . '">' .
+                              htmlspecialchars($row['warehouse_name']) .
+                              '</option>';
+                      }
+                  } 
+                ?>
               </select>
             </div>
 

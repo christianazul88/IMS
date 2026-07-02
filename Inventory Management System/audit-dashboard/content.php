@@ -23,7 +23,7 @@ if ($today < $schedule_date) {
     exit;
 }
 
-if ($audit['audit_status'] == 'pending') {
+if ($audit['audit_status'] == 'pending' && $audit_position == 1) {
     // Show start modal
     echo "<script>document.addEventListener('DOMContentLoaded', function() { 
         const startModal = new bootstrap.Modal(document.getElementById('startAuditModal'));
@@ -328,18 +328,18 @@ $stmt->close();
                     Scan Barcode Area
                 </a>
                 <?php 
-                if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
+                if($audit_position == 1) {
                     if($last_status === 'start' || $last_status === 'resume'){ ?>
                     <a href="area_codes.php" class="btn btn-info btn-sm fs-11"><span class="fas fa-download"></span> Area Code</a>
                     <a href="pause_audit.php" class="btn btn-warning btn-sm fs-11">Pause</a>
                     <a href="end.php" class="btn btn-danger btn-sm fs-11">End Audit</a>
 
-                <?php } elseif($last_status === 'pause'){ ?>
+                <?php } elseif($last_status === 'pause' && $audit_position == 1){ ?>
 
                     <a href="resume_audit.php" class="btn btn-success btn-sm">Resume</a>
                     <a href="end.php" class="btn btn-danger btn-sm">End Audit</a>
 
-                <?php } elseif ($last_status === 'end'){ ?>
+                <?php } elseif ($last_status === 'end' && $audit_position == 1){ ?>
 
                     <a href="../Variance-look/?audit_id=<?php echo $audit_id; ?>"
                         class="btn btn-info btn-sm">

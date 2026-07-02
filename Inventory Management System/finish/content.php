@@ -3,6 +3,8 @@ $audit_id = $_SESSION['audit_id'];
 $selected_area = $_GET['area'];
 $staff_id = $_GET['user_id'] ?? $user_id;
 
+// echo $staff_id;
+
 $additional_query = "";
 if(isset($_GET['fi'])){
     $aas_id = $_GET['fi'];
@@ -60,6 +62,7 @@ $stmt->close();
 
 $audit_assignment_id = $assignment_data['id'] ?? null;
 $warehouse_audit_id = $assignment_data['warehouse'] ?? null;
+// echo $audit_assignment_id;
 
 // ==========================
 // FETCH audit staff status
@@ -71,7 +74,7 @@ $status_query = "
     FROM audit_assignment_staffs
     WHERE audit_assignments_id = ?
       AND user_id = ?
-      AND `status` = 'for_approval'
+      AND (`status` = 'for_approval' OR `status` = 'rejected')
       $additional_query
       ORDER BY id DESC
     LIMIT 1
@@ -181,7 +184,7 @@ if($status === "for_approval"){
 }
 
 $stmt = $conn->prepare($barcode_query);
-$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
+$stmt->bind_param("iis", $audit_id, $audit_assignment_id, $staff_id);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -234,7 +237,7 @@ $amount_query = "
       AND ia.audit_status = 'scanned'
 ";
 $stmt = $conn->prepare($amount_query);
-$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
+$stmt->bind_param("iis", $audit_id, $audit_assignment_id, $staff_id);
 $stmt->execute();
 $total_scanned_amount = $stmt->get_result()->fetch_assoc()['total_amount'] ?? 0;
 $stmt->close();
@@ -280,7 +283,7 @@ $outbounded_filtered_query = "
 ";
 
 $stmt = $conn->prepare($outbounded_filtered_query);
-$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
+$stmt->bind_param("iis", $audit_id, $audit_assignment_id, $staff_id);
 $stmt->execute();
 $total_outbounded_filtered = $stmt->get_result()->fetch_assoc()['total_outbounded'] ?? 0;
 $stmt->close();
@@ -369,7 +372,7 @@ $missing_items = [];
 
                 <!-- LEFT: TITLE -->
                 <div>
-                    <h5 class="fw-bold mb-0">AUDIT RECEIPT DASHBOARD</h5>
+                    <h5 class="fw-bold mb-0">AUDIT RECEIPT DASHBOARD <?php// echo $audit_assignment_id; ?></h5>
                     <div class="text-muted small">
                         Warehouse: <?= htmlspecialchars($audit['warehouse_name'] ?? 'N/A') ?>
                     </div>
@@ -414,7 +417,7 @@ $missing_items = [];
                 <?php 
                 // if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
                 ?>
-                <?php if ($status === 'for_approval' && ($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin")): ?>
+                <?php if ($status === 'for_approval' && $audit_position == 1): ?>
 
                     <!-- APPROVE / REJECT -->
                     <a href="approve.php?id=<?= $audit_assignment_id ?>&user=<?= $staff_id ?>&area=<?php echo $selected_area;?>"
@@ -447,7 +450,7 @@ $missing_items = [];
                     if($staff_id === $user_id) {
                     ?>
                     <!-- RESTART SCANNING -->
-                    <a href="/Choose-Area/"
+                    <a href="../Choose-Area/"
                     class="btn btn-warning btn-sm">
                         Restart Scanning
                     </a>

@@ -81,14 +81,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     
     $selected_area = $_SESSION['selected_area'];
 
-    $audit_assignment_query = "SELECT id FROM audit_assignments WHERE item_location = ? LIMIT 1";
+    $audit_assignment_query = "SELECT id FROM audit_assignments WHERE item_location = ? AND audit_id = ? ORDER BY id DESC LIMIT 1";
 
     $stmt = $conn->prepare($audit_assignment_query);
     if (!$stmt) {
         die("Prepare failed: " . $conn->error);
     }
 
-    $stmt->bind_param("i", $selected_area);
+    $stmt->bind_param("ii", $selected_area, $audit_id);
     $stmt->execute();
 
     $result = $stmt->get_result();
@@ -141,30 +141,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $location_onscan = NULL;
 
     $check_scanned_query = "
-        SELECT il.location_name
-        FROM items_to_audit ita
-        INNER JOIN item_location il
-        ON il.id = ita.item_location_onscanned
-        WHERE ita.audit_id = ?
-        AND ita.unique_barcode = ?
-        AND (ita.audit_status = 'scanned' OR ita.audit_status = 'approved')
-        LIMIT 1
+        SELECT id, item_location_onscanned
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND unique_barcode = ?
+        AND (audit_status = 'scanned' OR audit_status = 'approved')
     ";
+
 
     $stmt_check = $conn->prepare($check_scanned_query);
     $stmt_check->bind_param("is", $audit_id, $barcode);
     $stmt_check->execute();
-    $stmt_check->store_result();
 
-    if ($stmt_check->num_rows > 0) {
+    $result = $stmt_check->get_result();
+
+    if ($row = $result->fetch_assoc()) {
         $already_scanned = true;
-        $location_onscan = $row['location_name'];
+        $location_onscan = $row['item_location_onscanned'];
     }
-    $location_onscanned = $location_onscan;
+
     $stmt_check->close();
 
     if ($already_scanned) {
-        die("Barcode already scanned on " . $location_onscanned . ".");
+        $stmt_location = $conn->prepare("SELECT location_name FROM item_location WHERE id = ?");
+        $stmt_location->bind_param("i", $location_onscan);
+        $stmt_location->execute();
+        $location_result = $stmt_location->get_result();
+        $location_name = $location_result->fetch_assoc()['location_name'];
+        die("Barcode already scanned. Location: " . $location_name);
     }
 
     $needsInsert = false;

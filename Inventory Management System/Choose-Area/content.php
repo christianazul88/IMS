@@ -68,22 +68,24 @@ $warehouse_id_audit = $audit['warehouse'];
                         SELECT il.id, il.location_name
                         FROM item_location il
                         WHERE il.warehouse = '$warehouse_id_audit'
-                        AND NOT EXISTS (
-                            SELECT 1
-                            FROM audit_assignments aa
-                            INNER JOIN audit_assignment_staffs aas
-                                ON aa.id = aas.audit_assignments_id
-                            WHERE aa.item_location = il.id
-                            AND aas.status IN ('idle','for_approval', 'approved')
-                        )
                         ORDER BY il.location_name
                     ";
                     $assignment_result = $conn->query($assignment_query);
                     if ($assignment_result->num_rows > 0) {
                         while ($row = $assignment_result->fetch_assoc()) {
+                            $assignment_check_query = "
+                                SELECT *
+                                FROM audit_assignments aa
+                                LEFT JOIN audit_assignment_staffs aas ON aa.id = aas.audit_assignments_id
+                                WHERE aa.item_location = '" . $row['id'] . "'
+                                AND aas.user_id = '$user_id'
+                                AND aas.status = 'approved'";
+                            $assignment_check_result = $conn->query($assignment_check_query);
+                            if ($assignment_check_result->num_rows == 0) {
                             echo "<option value='" . $row['id'] . "'>"
                                 . htmlspecialchars($row['location_name']) .
                                 "</option>";
+                            }
                         }
                     } else {
                         // echo "<option value='' disabled>No areas found in this warehouse</option>";

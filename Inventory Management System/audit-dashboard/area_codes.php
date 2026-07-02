@@ -77,7 +77,7 @@ header('Content-Disposition: attachment; filename="' . $warehouse_audit_name . '
 $output = fopen('php://output', 'w');
 
 // CSV Header Row
-fputcsv($output, ['Area Name', 'Area Code']);
+fputcsv($output, ['Area Name', 'Area Code', 'QTY']);
 
 /*
 |--------------------------------------------------------------------------
@@ -87,14 +87,19 @@ fputcsv($output, ['Area Name', 'Area Code']);
 
 $stmt = $conn->prepare("
     SELECT
-        id,
-        location_name
-    FROM item_location
-    WHERE warehouse = ?
-    ORDER BY location_name ASC
+        il.id,
+        il.location_name,
+        COUNT(ita.id) AS qty
+    FROM item_location il
+    LEFT JOIN items_to_audit ita
+        ON ita.item_location_origin = il.id
+        AND ita.audit_id = ?
+    WHERE il.warehouse = ?
+    GROUP BY il.id, il.location_name
+    ORDER BY il.location_name ASC
 ");
 
-$stmt->bind_param("s", $warehouse_audit_id);
+$stmt->bind_param("is", $audit_id, $warehouse_audit_id);
 $stmt->execute();
 
 $result = $stmt->get_result();
@@ -103,7 +108,8 @@ while ($row = $result->fetch_assoc()) {
 
     fputcsv($output, [
         $row['location_name'],
-        $row['id']
+        $row['id'],
+        $row['qty'] > 0 ? $row['qty'] : ''
     ]);
 
 }

@@ -98,6 +98,8 @@ if ($_POST['area'] === 'others') {
 
         $audit_assignment_id = $existing_assignment['id'];
 
+        
+
     } else {
 
         $stmt = $conn->prepare("
@@ -155,12 +157,14 @@ if ($_POST['area'] === 'others') {
         $stmt->execute();
         $stmt->close();
     }
+    
 
     $selected_area = $item_location_id;
 
 } else {
 
     $selected_area = $_POST['area'];
+
 
 }
     
@@ -207,6 +211,8 @@ if ($_POST['area'] === 'others') {
         if ($existing_assignment) {
 
             $audit_assignment_id = $existing_assignment['id'];
+
+            
 
         } else {
 
@@ -264,6 +270,18 @@ if ($_POST['area'] === 'others') {
             );
             $stmt->execute();
             $stmt->close();
+        } else {
+            $audit_assignment_staff_id = $existing_staff['id'];
+            $update_assignment_query = "
+                UPDATE audit_assignment_staffs
+                SET status = 'idle'
+                WHERE id = ?
+            ";
+
+            $stmt = $conn->prepare($update_assignment_query);
+            $stmt->bind_param("i", $audit_assignment_staff_id);
+            $stmt->execute();
+            $stmt->close();
         }
     }
     
@@ -298,7 +316,7 @@ if (!$audit_log_timestamp) {
     $last_status = $last_status['status'] ?? '';
 }
 
-
+    echo $audit_assignment_id;
 ?>
 
 <div class="card bg-primary text-white mb-3">
