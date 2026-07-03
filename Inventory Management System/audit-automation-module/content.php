@@ -342,7 +342,7 @@ document.addEventListener('DOMContentLoaded', loadData);
                   while ($row = $result->fetch_assoc()) {
 
                       // Show if never audited OR latest audit is completed
-                      if (is_null($row['latest_status']) || $row['latest_status'] === 'completed') {
+                      if (is_null($row['latest_status']) || $row['latest_status'] === 'completed' || $row['latest_status'] === 'partially_completed') {
 
                           echo
                               '<option value="' . htmlspecialchars($row['hashed_id']) . '">' .
