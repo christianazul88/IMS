@@ -69,7 +69,7 @@ body{
 
     <p class="quote">
         I know waiting isn't fun, but I hope you'll come back on Wednesday.
-        I wanted to prepare this properly instead of rushing it.
+        I wanted to prepare this properly instead of rushing it. Give me 2 more days, hirap mag direk ng ganto, now ko lang naranasan. (oo di mo kasalanan, di mo naman hiningi..)
     </p>
 
     <p class="quote">
