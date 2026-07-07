@@ -270,10 +270,16 @@ $net_variance_amount =
     $positive_variance_amount -
     $negative_variance_amount;
 
-$audit_progress =
+$total_qty_scanned_exclude_positive_variance = $total_qty_scanned - $positive_variance_qty;
+$audit_progress = 
     $total_expected_qty > 0
-    ? ($total_qty_scanned / $total_expected_qty) * 100
+    ? ($total_qty_scanned_exclude_positive_variance / $total_expected_qty) * 100
     : 0;
+    
+// $audit_progress =
+//     $total_expected_qty > 0
+//     ? ($total_qty_scanned / $total_expected_qty) * 100
+//     : 0;
 
 
 $variance_amount =
