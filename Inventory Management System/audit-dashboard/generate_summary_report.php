@@ -149,11 +149,11 @@ while ($stmt->fetch()) {
         $scanned_items++;
     }
 
-    if ($system_warehouse != $scanned_warehouse) {
+    if ($system_warehouse !== $scanned_warehouse) {
         $unexpected_warehouse++;
     }
 
-    if ($system_location != $scanned_location) {
+    if ($system_location !== $scanned_location) {
         $unexpected_location++;
     }
 
@@ -189,16 +189,16 @@ while ($stmt->fetch()) {
     $parent_groups[$parent]['expected_qty']++;
     $parent_groups[$parent]['expected_value'] += (float)$capital;
 
-    if ($audit_status === "scanned") {
+    if ($audit_status === "scanned" ||$audit_status === "approved" ) {
         $parent_groups[$parent]['scanned_qty']++;
         $parent_groups[$parent]['scanned_value'] += (float)$capital;
     }
 
-    if ($system_warehouse != $scanned_warehouse) {
+    if ($system_warehouse !== $scanned_warehouse) {
         $parent_groups[$parent]['warehouse_mismatch']++;
     }
 
-    if ($system_location != $scanned_location) {
+    if ($system_location !== $scanned_location) {
         $parent_groups[$parent]['location_mismatch']++;
     }
 
