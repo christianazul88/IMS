@@ -275,7 +275,7 @@ $audit_progress =
     $total_expected_qty > 0
     ? ($total_qty_scanned_exclude_positive_variance / $total_expected_qty) * 100
     : 0;
-    
+
 // $audit_progress =
 //     $total_expected_qty > 0
 //     ? ($total_qty_scanned / $total_expected_qty) * 100
@@ -721,7 +721,8 @@ $stmt->close();
                             ia.item_location_origin,
                             ia.item_location_onscanned,
                             s.capital,
-                            ia.audit_status
+                            ia.audit_status,
+                            COUNT(ia.unique_barcode) AS qty
                     FROM items_to_audit ia
                     LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
                     LEFT JOIN product p ON p.hashed_id = s.product_id
@@ -746,7 +747,7 @@ $stmt->close();
                                     <th>Brand</th>
                                     <th>Category</th>
                                     <th>Location</th>
-                                    <th>Outbounded?</th>
+                                    <th>QTY</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -758,6 +759,7 @@ $stmt->close();
                                     $category_name = htmlspecialchars($row['category_name']);
                                     $location_name = htmlspecialchars($row['location_name']);
                                     $outbounded_yes_no = $row['outbounded'];
+                                    $qty = $row['qty'];
                                 ?>
                                 <tr>
                                     <td class="fw-medium"><?= $product_description ?></td>
@@ -765,11 +767,7 @@ $stmt->close();
                                     <td><?= $category_name ?></td>
                                     <td class="text-muted"><?= $location_name ?? "For SKU" ?></td>
                                     <td>
-                                        <?php if ($outbounded_yes_no === "yes") { ?>
-                                            <span class="badge bg-primary">Yes</span>
-                                        <?php } else { ?>
-                                            <span class="badge bg-secondary">No</span>
-                                        <?php } ?>
+                                        <?php echo $qty;?>
                                     </td>
                                 </tr>
                                 <?php } ?>
