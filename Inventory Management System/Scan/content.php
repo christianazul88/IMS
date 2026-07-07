@@ -316,7 +316,7 @@ if (!$audit_log_timestamp) {
     $last_status = $last_status['status'] ?? '';
 }
 
-    echo $audit_assignment_id;
+    // echo $audit_assignment_id;
 ?>
 
 <div class="card bg-primary text-white mb-3">

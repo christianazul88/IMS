@@ -146,7 +146,7 @@ $query = "
 
     WHERE ita.audit_id = ?
 
-        AND ita.audit_status = 'approved'
+        AND ita.audit_status = 'pending'
 
     ORDER BY ita.audit_status;
 ";

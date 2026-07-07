@@ -70,6 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    header("Location: ../assign-positions/?audit=$audit_id");
+    header("Location: ../audit-dashboard/?audit_id=$audit_id");
     exit;
 }

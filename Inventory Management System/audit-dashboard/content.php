@@ -33,11 +33,16 @@ if ($audit['audit_status'] == 'pending' && $audit_position == 1) {
         const startModal = new bootstrap.Modal(document.getElementById('startAuditModal'));
         startModal.show();
     });</script>";
-} elseif ($audit['audit_status'] != 'active' && $audit['audit_status'] != 'partially_completed') {
+} elseif (
+    $audit['audit_status'] !== 'active' &&
+    $audit['audit_status'] !== 'partially_completed' &&
+    $audit['audit_status'] !== 'completed'
+) {
     echo "<div class='alert alert-info'>Audit status: " . ucfirst($audit['audit_status']) . "</div>";
     exit;
 }
 
+$audit_status = $audit['audit_status'];
 
 $check_query = "SELECT * FROM audit_logs_timestamps WHERE audit_id = ? AND `status` = 'start' LIMIT 1";
 $stmt = $conn->prepare($check_query);
@@ -314,7 +319,7 @@ $stmt->close();
 <div class="audit-header mb-3">
     <div class="row align-items-center">
         <div class="col-lg-6">
-            <h4 class="mb-1 fw-bold">Audit Dashboard</h4>
+            <h4 class="mb-1 fw-bold">Audit Dashboard </h4>
             <div class="small opacity-75">
                 Audit #<?= $audit['audit_num']; ?> • <?= $audit['warehouse_name']; ?>
             </div>
@@ -324,35 +329,40 @@ $stmt->close();
             <div class="action-bar">
 
                 <a href="../Choose-Area/"
-                   class="btn btn-light btn-sm <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
+                   class="btn btn-light btn-sm <?php if( $audit_status === "completed"){ echo "d-none";}?> <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
                     Start Scanning barcode
                 </a>
                 <a href="../Scan-Area/"
-                   class="btn btn-secondary btn-sm <?php if($last_status === 'pause' ) echo "d-none"; ?>">
+                   class="btn btn-secondary btn-sm <?php if( $audit_status === "completed"){ echo "d-none";}?> <?php if($last_status === 'pause' ) echo "d-none"; ?>">
                     Scan Barcode Area
                 </a>
                 <?php 
                 if($audit_position == 1) {
-                    if($last_status === 'start' || $last_status === 'resume'){ ?>
-                    <a href="area_codes.php" class="btn btn-info btn-sm fs-11"><span class="fas fa-download"></span> Area Code</a>
-                    <a href="pause_audit.php" class="btn btn-warning btn-sm fs-11">Pause</a>
-                    <a href="end.php" class="btn btn-danger btn-sm fs-11">End Audit</a>
+                    if($audit_status !== "completed" && $last_status === 'start' || $last_status === 'resume'){ ?>
+                    <a href="area_codes.php" class="btn btn-info btn-sm fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>"><span class="fas fa-download"></span> Area Code</a>
+                    <a href="pause_audit.php" class="btn btn-warning btn-sm fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>">Pause</a>
+                    <a href="end.php" class="btn btn-danger btn-sm fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>">End Audit</a>
 
-                <?php } elseif($last_status === 'pause' && $audit_position == 1){ ?>
+                <?php } elseif($audit_status !== "completed" && $last_status === 'pause' && $audit_position == 1){ ?>
 
                     <a href="resume_audit.php" class="btn btn-success btn-sm">Resume</a>
                     <a href="end.php" class="btn btn-danger btn-sm">End Audit</a>
 
-                <?php } elseif ($last_status === 'end' && $audit_position == 1){ ?>
+                <?php } elseif ($audit_status !== "completed" && $last_status === 'end' && $audit_position == 1){ ?>
 
                     <a href="../Variance-look/?audit_id=<?php echo $audit_id; ?>"
                         class="btn btn-info btn-sm">
                         Find Variance
                     </a>
 
+                    <a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>"
+                       class="btn btn-danger btn-sm">
+                        Missing CSV
+                    </a>
+
                     <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
                        class="btn btn-success btn-sm">
-                        CSV Detail
+                        Scanned CSV
                     </a>
 
                     <a href="generate_summary_report.php?audit_id=<?php echo $audit_id; ?>"
@@ -363,7 +373,25 @@ $stmt->close();
                     
 
 
-                <?php }
+                <?php 
+                    } elseif($audit_status === "completed") {
+                    ?>
+                    <a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>"
+                       class="btn btn-danger btn-sm">
+                        Missing CSV
+                    </a>
+                    
+                    <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
+                       class="btn btn-success btn-sm">
+                        Scanned CSV
+                    </a>
+
+                    <a href="generate_summary_report.php?audit_id=<?php echo $audit_id; ?>"
+                       class="btn btn-primary btn-sm">
+                        CSV Summary
+                    </a>
+                    <?php
+                    }
                 }
                 ?>
 
