@@ -45,7 +45,9 @@ if ($audit['audit_status'] == 'pending') {
             startModal.show();
         });
     </script>";
-} elseif ($audit['audit_status'] != 'active' && $audit['audit_status'] != 'partially_completed') {
+} elseif ($audit['audit_status'] !== 'active' &&
+    $audit['audit_status'] !== 'partially_completed' &&
+    $audit['audit_status'] !== 'completed') {
     echo "<div class='alert alert-info'>Audit status: " . ucfirst($audit['audit_status']) . "</div>";
     exit;
 }

@@ -147,9 +147,9 @@ body{
 }
 
 .card{
-    border:2px solid #000;
+    border:2px solid #000000;
     padding:8px;
-    min-height:100%;
+    min-height:100vh;
 }
 
 .logo{
@@ -198,7 +198,7 @@ body{
 }
 
 .barcode{
-    width:80px;
+    width:130px;
 }
 
 .barcode-number{
