@@ -141,31 +141,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $location_onscan = NULL;
 
     // check if na audit na yung item
-    $check_if_audited_query = "
-        SELECT audit_id 
-        FROM items_to_audit
-        WHERE scanned_date >= NOW() - INTERVAL 30 DAY
-        AND unique_barcode = ?
-        AND (audit_status = 'scanned' OR audit_status = 'approved')
-        LIMIT 1
-    ";
+    // $check_if_audited_query = "
+    //     SELECT audit_id 
+    //     FROM items_to_audit
+    //     WHERE scanned_date >= NOW() - INTERVAL 30 DAY
+    //     AND unique_barcode = ?
+    //     AND (audit_status = 'scanned' OR audit_status = 'approved')
+    //     LIMIT 1
+    // ";
 
-    $stmt_checkaudit = $conn->prepare($check_if_audited_query);
-    $stmt_checkaudit ->bind_param("s", $barcode);
-    $stmt_checkaudit->execute();
+    // $stmt_checkaudit = $conn->prepare($check_if_audited_query);
+    // $stmt_checkaudit ->bind_param("s", $barcode);
+    // $stmt_checkaudit->execute();
 
-    $result = $stmt_checkaudit->get_result();
+    // $result = $stmt_checkaudit->get_result();
 
-    if($row = $result->fetch_assoc()) {
-        $already_scanned = true;
-        $audit_id_onscanned = $row['audit_id'];
-    }
+    // if($row = $result->fetch_assoc()) {
+    //     $already_scanned = true;
+    //     $audit_id_onscanned = $row['audit_id'];
+    // }
 
-    $stmt_checkaudit->close();
+    // $stmt_checkaudit->close();
 
-    if($already_scanned) {
-        die("Barcode already audited on Audit # " . $audit_id_onscanned);
-    }
+    // if($already_scanned) {
+    //     die("Barcode already audited on Audit # " . $audit_id_onscanned);
+    // }
 
     // -----check if scanned na on the same audit
     $check_scanned_query = "

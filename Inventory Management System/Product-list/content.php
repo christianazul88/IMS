@@ -1,4 +1,4 @@
-<div class="row" id="tableExample4" data-list='{"valueNames":["desc","cat","brand","barcode","by", "date"]}'>
+<div class="row" id="tableExample4" data-list='{"valueNames":["desc","cat","brand","main","barcode","by", "date"]}'>
   <div class="col-lg-12">
     <h4>Product list</h4>
   </div>
@@ -19,6 +19,7 @@
                 <th data-sort="cat"><small>Category</small></th>
                 <th data-sort="brand"><small>Brand</small></th>
                 <th data-sort="brand"><small>Product ID</small></th>
+                <th data-sort="main">Main Barcode</th>
                 <th data-sort="barcode"><small>Parent Barcode</small></th>
                 <th data-sort="by"><small>Created by</small></th>
                 <th data-sort="date"><small>Date</small></th>
@@ -32,9 +33,9 @@
               $product_list_query = "
                 SELECT product.*, users.user_fname, users.user_lname, category.category_name, brand.brand_name
                 FROM product 
-                LEFT JOIN users ON users.hashed_id = product.user_id 
-                LEFT JOIN category ON category.hashed_id = product.category
-                LEFT JOIN brand ON brand.hashed_id = product.brand
+                INNER JOIN users ON users.hashed_id = product.user_id 
+                INNER JOIN category ON category.hashed_id = product.category
+                INNER JOIN brand ON brand.hashed_id = product.brand
                 WHERE product.current_status = 0
                 ORDER BY product.id DESC
               ";
@@ -78,9 +79,12 @@
                   }
 
 
+
+
                   
                   $product_category = $row['category_name'];
                   $product_brand = $row['brand_name'];
+                  $product_main_barcode = $row['main_barcode'] ?? "<span class='badge'>NOT SET</span>";
                   $product_des = $row['description'];
                   $product_date = $row['date'];
                   $product_publisher = $row['user_fname'] . " " . $row['user_lname'];
@@ -94,6 +98,7 @@
                   <td class="cat"><small><?php echo $product_category; ?></small></td>
                   <td class="brand"><small><?php echo $product_brand; ?></small></td>
                   <td class="barcode"><code><?php echo $unique_id; ?></code></small></td>
+                  <td class="main"><?php echo $product_main_barcode;?></td>
                   <td class="barcode"><small><?php echo $product_pbarcode; ?></small></td>
                   <td class="by"><small><?php echo $product_publisher; ?></small></td>
                   <td class="date"><small><?php echo $product_date; ?></small></td>
