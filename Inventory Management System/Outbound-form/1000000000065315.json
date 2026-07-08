@@ -1,0 +1,26 @@
+[
+    {
+        "barcode": "4241974-1",
+        "product_description": "Accessories Fan Loving Cool LC-R600 Cooler",
+        "batch_num": "PObatch-1539",
+        "brand_name": "No Brand",
+        "category_name": "Accessories",
+        "capital": "995.00"
+    },
+    {
+        "barcode": "1189877-5",
+        "product_description": "Accessories ARGB Controller For Fan",
+        "batch_num": "PObatch-1539",
+        "brand_name": "No Brand",
+        "category_name": "Accessories",
+        "capital": "180.00"
+    },
+    {
+        "barcode": "3927523-3",
+        "product_description": "8GB DDR4 DIMM DAHUA (MEMORY)",
+        "batch_num": "PObatch-1064",
+        "brand_name": "No Brand",
+        "category_name": "Memory",
+        "capital": "1000.00"
+    }
+]
