@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stock_timeline = "INSERT INTO stock_timeline 
                                         (unique_barcode, title, `action`, `date`, user_id) 
                                         VALUES 
-                                        ('$unique_barcode', 'INBOUND', 'Product was inbounded to $inbound_warehouse_name', '$currentDateTime', '$user_id')";
+                                        ('$unique_barcode', 'INBOUND', 'Inbound #: $unique_key, Product was inbounded to $inbound_warehouse_name', '$currentDateTime', '$user_id')";
 
                         if ($conn->query($stock_timeline) === TRUE) {
                             $logs = "INSERT INTO logs 

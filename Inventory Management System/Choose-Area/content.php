@@ -107,6 +107,31 @@ JSON Counter Error:
 </pre>");
 }
 
+
+$letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ?>
 
 <div class="card bg-primary text-white mb-3">

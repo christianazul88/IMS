@@ -1025,6 +1025,7 @@ $stmt->close();
                                 while ($staff = $audit_assignment_staffs_result->fetch_assoc()) {
 
                                     $full_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
+                                    if ($staff['staff_status'] !== 'idle') {
                             ?>
                             <tr>
                                 <td>
@@ -1084,6 +1085,7 @@ $stmt->close();
                                 </td>
                             </tr>
                             <?php
+                                    }
                                 }
                             } else {
                             ?>

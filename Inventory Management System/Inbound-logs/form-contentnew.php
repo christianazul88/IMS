@@ -30,7 +30,7 @@ if (isset($_GET['id'])) {
         if($row['po_id'] !=0){
             $po_id = $row['po_id'];
         } else {
-            $po_id = 0;
+            $po_id = null;
         }
         
 
@@ -77,42 +77,24 @@ if (isset($_GET['id'])) {
                         </thead>
                         <tbody>
                             <?php
-                            if($po_id == 0){
-                                $query = "
-                                    SELECT 
-                                        COUNT(s.unique_barcode) AS quantity, 
-                                        s.capital, 
-                                        p.description, 
-                                        b.brand_name, 
-                                        c.category_name, 
-                                        p.parent_barcode
-                                    FROM stocks s
-                                    INNER JOIN product p ON s.product_id = p.hashed_id
-                                    LEFT JOIN brand b ON p.brand = b.hashed_id
-                                    LEFT JOIN category c ON p.category = c.hashed_id
-                                    WHERE s.unique_key = '$unique_key'
-                                    GROUP BY s.product_id
-                                ";
-                            } else {
-                                $query = "
-                                    SELECT 
-                                        COUNT(s.unique_barcode) AS quantity, 
-                                        s.capital, 
-                                        p.description, 
-                                        b.brand_name, 
-                                        c.category_name, 
-                                        p.parent_barcode,
-                                        poc.qty
-                                    FROM purchased_order_content poc
-                                    INNER JOIN inbound_logs il on il.po_id = poc.po_id
-                                    LEFT JOIN stocks s ON s.unique_key = il.unique_key
-                                    LEFT JOIN product p ON s.product_id = p.hashed_id
-                                    LEFT JOIN brand b ON p.brand = b.hashed_id
-                                    LEFT JOIN category c ON p.category = c.hashed_id
-                                    WHERE s.unique_key = '$unique_key'
-                                    GROUP BY poc.product_id
-                                ";
-                            }
+                            $query = "
+                                SELECT 
+                                    COUNT(s.unique_barcode) AS quantity, 
+                                    s.capital, 
+                                    p.description, 
+                                    b.brand_name, 
+                                    c.category_name, 
+                                    p.parent_barcode,
+                                    poc.qty
+                                FROM purchased_order_content poc
+                                LEFT JOIN inbound_logs il on il.po_id = poc.po_id
+                                LEFT JOIN stocks s ON s.unique_key = il.unique_key
+                                LEFT JOIN product p ON s.product_id = p.hashed_id
+                                LEFT JOIN brand b ON p.brand = b.hashed_id
+                                LEFT JOIN category c ON p.category = c.hashed_id
+                                WHERE s.unique_key = '$unique_key'
+                                GROUP BY s.product_id
+                            ";
                             $result = $conn->query($query);
                             if($result->num_rows>0){
                                 $number = 0;
@@ -120,12 +102,7 @@ if (isset($_GET['id'])) {
                                     $description = $row['description'];
                                     $brand_name = $row['brand_name'];
                                     $category_name = $row['category_name'];
-                                    if(isset($row['qty'])){
-                                        $ordered_qty = $row['qty'];
-                                    } else {
-                                        $ordered_qty = 0;
-                                    }
-                                    
+                                    $ordered_qty = $row['qty'];
                                     $product_quantity = $row['quantity'];
                                     $parent_barcode = $row['parent_barcode'];
                                     $unit_price = $row['capital'];
