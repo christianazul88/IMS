@@ -29,7 +29,7 @@ $warehouse_id_audit = $audit['warehouse'];
 
 try {
     // --------------------------JSON WRITE-------------
-    $json_file = __DIR__ . "/count.json";
+    $json_file = "count.json";
 
     // Create file if it doesn't exist
     if (!file_exists($json_file)) {
@@ -41,7 +41,12 @@ try {
     }
 
     // Open the file
-    $fp = fopen($json_file, "c+");
+    $fp = @fopen($json_file, "c+");
+
+    if (!$fp) {
+        $error = error_get_last();
+        die("<pre>" . print_r($error, true) . "</pre>");
+    }
     if (!$fp) {
         throw new Exception("Unable to open {$json_file}");
     }
