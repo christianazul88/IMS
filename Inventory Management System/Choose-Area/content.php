@@ -29,7 +29,7 @@ $warehouse_id_audit = $audit['warehouse'];
 
 try {
     // --------------------------JSON WRITE-------------
-    $json_file = "count.json";
+    $json_file = __DIR__ . "/count.json";
 
     // Create file if it doesn't exist
     if (!file_exists($json_file)) {
@@ -102,8 +102,6 @@ JSON Counter Error:
 </pre>");
 }
 
-echo "Directory writable: ";
-var_dump(is_writable(__DIR__));
 ?>
 
 <div class="card bg-primary text-white mb-3">
