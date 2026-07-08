@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Insert into stock timeline
-            $action = "Outbounded to Customer: " . $customerName;
+            $action = "Order #: " . $orderNo . ". Was outbounded to Customer: " . $customerName . ".";
             $insert_to_item_history = "INSERT INTO stock_timeline (unique_barcode, title, action, user_id, date) VALUES (?, 'Outbound', ?, ?, ?)";
             $stmt = $conn->prepare($insert_to_item_history);
             $stmt->bind_param("ssss", $barcode, $action, $user_id, $currentDateTime);

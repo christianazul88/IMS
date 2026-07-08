@@ -80,7 +80,7 @@ if (isset($_GET['id'])) {
                             if($po_id == 0){
                                 $query = "
                                     SELECT 
-                                        COUNT(s.product_id) AS quantity, 
+                                        COUNT(s.unique_barcode) AS quantity, 
                                         s.capital, 
                                         p.description, 
                                         b.brand_name, 
@@ -104,13 +104,13 @@ if (isset($_GET['id'])) {
                                         p.parent_barcode,
                                         poc.qty
                                     FROM purchased_order_content poc
-                                    LEFT JOIN inbound_logs il on il.po_id = poc.po_id
+                                    INNER JOIN inbound_logs il on il.po_id = poc.po_id
                                     LEFT JOIN stocks s ON s.unique_key = il.unique_key
                                     LEFT JOIN product p ON s.product_id = p.hashed_id
                                     LEFT JOIN brand b ON p.brand = b.hashed_id
                                     LEFT JOIN category c ON p.category = c.hashed_id
                                     WHERE s.unique_key = '$unique_key'
-                                    GROUP BY s.product_id
+                                    GROUP BY poc.product_id
                                 ";
                             }
                             $result = $conn->query($query);
@@ -123,7 +123,7 @@ if (isset($_GET['id'])) {
                                     if(isset($row['qty'])){
                                         $ordered_qty = $row['qty'];
                                     } else {
-                                        
+                                        $ordered_qty = 0;
                                     }
                                     
                                     $product_quantity = $row['quantity'];

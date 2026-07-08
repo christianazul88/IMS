@@ -48,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if ($stmt->execute()) {
         $created_id = $conn->insert_id;
+        $transfer_id = 10000 + $created_id;
         
         // Retrieve and decode the scanned items from the session
         $existingData = isset($_SESSION['scanned_item']) ? json_decode($_SESSION['scanned_item'], true) : [];
@@ -69,8 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $insert = "INSERT INTO stock_transfer_content (unique_barcode, st_id) VALUES ('$unique_barcode', '$created_id')";
                 if ($conn->query($insert)) {
                     // Log the transfer process
-                    $stmt_logs = $conn->prepare("INSERT INTO stock_timeline (unique_barcode, title, `action`, `date`, user_id) VALUES (?, 'STOCK TRANSFER', 'About to be transferred', ?, ?)");
-                    $stmt_logs->bind_param("sss", $unique_barcode, $currentDateTime, $user_id);
+                    $about = "Transfer ID: " . $transfer_id . ". About to be transferred to " . $to_warehouse_name;
+                    $stmt_logs = $conn->prepare("INSERT INTO stock_timeline (unique_barcode, title, `action`, `date`, user_id) VALUES (?, 'STOCK TRANSFER', ?, ?, ?)");
+                    $stmt_logs->bind_param("ssss", $unique_barcode, $about, $currentDateTime, $user_id);
                     $stmt_logs->execute();
                 }
 
@@ -79,6 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 }
             }
+        }
+        $to_warehouse_name = "";
+        $to_warehouse_query = "SELECT warehouse_name FROM warehouse WHERE hashed_id = '$to_warehouse' LIMIT 1";
+        $to_warehouse_res = $conn->query($to_warehouse_query);
+        if($to_warehouse_res->num_rows>0){
+            $row=$to_warehouse_res->fetch_assoc();
+            $to_warehouse_name = $row['warehouse_name'];
+        } else {
+            $to_warehouse_name = "Not Available";
         }
 
         // Insert into logs
