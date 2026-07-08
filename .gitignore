@@ -1,0 +1,5 @@
+# Runtime outbound JSON files
+Inventory Management System/Outbound-form/*.json
+
+# Runtime counter
+Inventory Management System/Choose-Area/count.json
