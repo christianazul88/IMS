@@ -25,6 +25,48 @@ if ($today < $schedule_date) {
 }
 
 $warehouse_id_audit = $audit['warehouse'];
+
+
+
+// --------------------------JSON WRITE-------------
+$json_file = "../Choose-Area/count.json";
+
+// Create file if it doesn't exist
+if (!file_exists($json_file)) {
+    file_put_contents($json_file, json_encode([
+        ["number" => 0]
+    ], JSON_PRETTY_PRINT));
+}
+
+// Open the file
+$fp = fopen($json_file, "c+");
+
+// Lock the file
+flock($fp, LOCK_EX);
+
+// Read current contents
+rewind($fp);
+$json = stream_get_contents($fp);
+$data = json_decode($json, true);
+
+$current = isset($data[0]['number']) ? (int)$data[0]['number'] : 0;
+
+// Increment immediately
+$current++;
+
+// Save the new value
+$data[0]['number'] = $current;
+
+rewind($fp);
+ftruncate($fp, 0);
+fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
+fflush($fp);
+
+// Release the lock
+flock($fp, LOCK_UN);
+fclose($fp);
+
+
 ?>
 
 <div class="card bg-primary text-white mb-3">
@@ -60,82 +102,84 @@ $warehouse_id_audit = $audit['warehouse'];
                     Assigned Areas
                 </label>
 
-                <select name="area" id="area" class="form-select" required>
+                <select name="area" id="area" class="form-select d-none" required>
                     <option value="">Select Area</option>
 
-                    <?php
-                    $assignment_query = "
-                        SELECT il.id, il.location_name
-                        FROM item_location il
-                        WHERE il.warehouse = '$warehouse_id_audit'
-                        AND NOT EXISTS (
-                            SELECT 1
-                            FROM audit_assignments aa
-                            INNER JOIN audit_assignment_staffs aas
-                                ON aa.id = aas.audit_assignments_id
-                            WHERE aa.item_location = il.id
-                            AND aas.status IN ('idle','for_approval', 'approved')
-                        )
-                        ORDER BY il.location_name
-                    ";
-                    $assignment_result = $conn->query($assignment_query);
-                    if ($assignment_result->num_rows > 0) {
-                        while ($row = $assignment_result->fetch_assoc()) {
-                            echo "<option value='" . $row['id'] . "'>"
-                                . htmlspecialchars($row['location_name']) .
-                                "</option>";
-                        }
-                    } else {
-                        // echo "<option value='' disabled>No areas found in this warehouse</option>";
-                    }
-
-                    // $assignment_query = "SELECT
-                    //                         il.location_name,
-                    //                         aa.item_location
-                    //                     FROM audit_assignment_staffs aas
-                    //                     LEFT JOIN audit_assignments aa
-                    //                     ON aas.audit_assignments_id = aa.id
-                    //                     LEFT JOIN item_location il
-                    //                     ON il.id = aa.item_location
-                    //                     WHERE aas.user_id = '$user_id'
-                    //                     AND (aas.status = 'idle' OR aas.status = 'rejected')";
-
-                    // $assignment_result = $conn->query($assignment_query);
-                    // if ($assignment_result->num_rows === 0) {
-                    //     $item_location_query = "SELECT id, location_name FROM item_location WHERE warehouse = '$warehouse_id_audit' ORDER BY location_name";
-                    //     $item_location_result = $conn->query($item_location_query);
-                    //     if ($item_location_result->num_rows > 0) {
-                    //         while ($row = $item_location_result->fetch_assoc()) {
-                    //             echo "<option value='" . $row['id'] . "'>"
-                    //                 . htmlspecialchars($row['location_name']) .
-                    //                 "</option>";
-                    //         }
-                    //     } else {
-                    //         // echo "<option value='' disabled>No areas found in this warehouse</option>";
-                    //     }
-                    // } else {
-                    //     while ($row = $assignment_result->fetch_assoc()) {
-                    //         echo "<option value='" . $row['item_location'] . "'>"
-                    //             . htmlspecialchars($row['location_name']) .
-                    //             "</option>";
-                    //     }
-                    // }
-
                     
-                    ?>
 
-                    <option value="others">Others</option>
+                    <option value="others" selected>Others</option>
                 </select>
 
-                <div class="mt-3">
-                    <input
+                <div class="row mt-3">
+                    <div class="col-3">
+                        <select name="area_code" class="form-select" id="area_code" required>
+                            <option value="">Select area</option>
+                            <option value="UP">UP</option>
+                            <option value="BR">BR</option>
+                            <option value="JP">JP</option>
+                            <option value="AG">AG</option>
+                            <option value="OG">OG</option>
+                        </select>
+                    </div>
+                    <div class="col-3">
+                        <select name="rack" class="form-select" id="rack" required>
+                            <option value="">Select rack</option>
+                            <option value="NA">NA</option>
+                            <option value="R1">R1</option>
+                            <option value="R2">R2</option>
+                            <option value="R3">R3</option>
+                            <option value="R4">R4</option>
+                            <option value="R5">R5</option>
+                            <option value="R6">R6</option>
+                            <option value="R7">R7</option>
+                            <option value="R8">R8</option>
+                            <option value="R9">R9</option>
+                            <option value="R10">R10</option>
+                            <option value="R11">R11</option>
+                            <option value="R12">R12</option>
+                        </select>
+                    </div>
+                    <div class="col-3">
+                        <select name="level" class="form-select" id="level" required>
+                            <option value="">Select level</option>
+                            <option value="NA">NA</option>
+                            <option value="L1">L1</option>
+                            <option value="L2">L2</option>
+                            <option value="L3">L3</option>
+                            <option value="L4">L4</option>
+                            <option value="L5">L5</option>
+                            <option value="L6">L6</option>
+                            <option value="L7">L7</option>
+                            <option value="L8">L8</option>
+                            <option value="L9">L9</option>
+                            <option value="L10">L10</option>
+                            <option value="L11">L11</option>
+                            <option value="L12">L12</option>
+                            <option value="L13">L13</option>
+                            <option value="L14">L14</option>
+                            <option value="L15">L15</option>
+                            <option value="L16">L16</option>
+                            <option value="L17">L17</option>
+                        </select>
+                    </div>
+                    <div class="col-3">
+                        <input
+                        type="text"
+                        name="box_num"
+                        class="form-control bg-secondary text-white"
+                        value="<?php echo $current; ?>"
+                        readonly>
+                    </div>
+
+                    
+                    <!-- <input
                         type="text"
                         name="other_location"
                         id="other_location"
                         class="form-control"
                         placeholder="Enter new area/location"
                         disabled
-                    >
+                    > -->
                 </div>
 
                 <small class="text-muted">
