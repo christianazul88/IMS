@@ -101,6 +101,9 @@ JSON Counter Error:
 " . $e->getMessage() . "
 </pre>");
 }
+
+echo "Directory writable: ";
+var_dump(is_writable(__DIR__));
 ?>
 
 <div class="card bg-primary text-white mb-3">
