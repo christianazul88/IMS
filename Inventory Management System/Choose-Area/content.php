@@ -206,7 +206,7 @@ JSON Counter Error:
                         <input
                         type="text"
                         name="box_num"
-                        class="form-control bg-secondary text-white"
+                        class="form-control readonly"
                         value="<?php echo $current; ?>"
                         readonly>
                     </div>
