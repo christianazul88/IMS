@@ -37,7 +37,9 @@ $warehouse_id_audit = $audit['warehouse'];
 
 if ($_POST['area'] === 'others') {
 
-    $location_name = trim($_POST['other_location']);
+    $location_combo = $_POST['area_code'] . "-" . $_POST['rack'] . "-" . $_POST['level'] . "-" . $_POST['box_num'];
+
+    $location_name = trim($location_combo);
 
     if ($location_name == '') {
         die('Location name is required.');
