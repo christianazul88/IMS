@@ -27,43 +27,80 @@ if ($today < $schedule_date) {
 $warehouse_id_audit = $audit['warehouse'];
 
 
-// --------------------------JSON WRITE-------------
-$json_file = "count.json";
+try {
+    // --------------------------JSON WRITE-------------
+    $json_file = "count.json";
 
-// Create file if it doesn't exist
-if (!file_exists($json_file)) {
-    file_put_contents($json_file, json_encode([
-        ["number" => 0]
-    ], JSON_PRETTY_PRINT));
+    // Create file if it doesn't exist
+    if (!file_exists($json_file)) {
+        if (file_put_contents($json_file, json_encode([
+            ["number" => 0]
+        ], JSON_PRETTY_PRINT)) === false) {
+            throw new Exception("Failed to create {$json_file}");
+        }
+    }
+
+    // Open the file
+    $fp = fopen($json_file, "c+");
+    if (!$fp) {
+        throw new Exception("Unable to open {$json_file}");
+    }
+
+    // Lock the file
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        throw new Exception("Unable to lock {$json_file}");
+    }
+
+    // Read current contents
+    rewind($fp);
+    $json = stream_get_contents($fp);
+
+    $data = json_decode($json, true);
+
+    // Check JSON validity
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new Exception("JSON Decode Error: " . json_last_error_msg());
+    }
+
+    // Initialize if empty
+    if (!is_array($data) || !isset($data[0])) {
+        $data = [
+            ["number" => 0]
+        ];
+    }
+
+    $current = isset($data[0]['number']) ? (int)$data[0]['number'] : 0;
+
+    // Increment immediately
+    $current++;
+    $data[0]['number'] = $current;
+
+    // Write back
+    rewind($fp);
+    ftruncate($fp, 0);
+
+    if (fwrite($fp, json_encode($data, JSON_PRETTY_PRINT)) === false) {
+        throw new Exception("Failed to write to {$json_file}");
+    }
+
+    fflush($fp);
+
+    // Release the lock
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+} catch (Exception $e) {
+    if (isset($fp) && is_resource($fp)) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    }
+
+    die("<pre style='color:red;font-weight:bold;'>
+JSON Counter Error:
+" . $e->getMessage() . "
+</pre>");
 }
-
-// Open the file
-$fp = fopen($json_file, "c+");
-
-// Lock the file
-flock($fp, LOCK_EX);
-
-// Read current contents
-rewind($fp);
-$json = stream_get_contents($fp);
-$data = json_decode($json, true);
-
-$current = isset($data[0]['number']) ? (int)$data[0]['number'] : 0;
-
-// Increment immediately
-$current++;
-
-// Save the new value
-$data[0]['number'] = $current;
-
-rewind($fp);
-ftruncate($fp, 0);
-fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
-fflush($fp);
-
-// Release the lock
-flock($fp, LOCK_UN);
-fclose($fp);
 ?>
 
 <div class="card bg-primary text-white mb-3">
