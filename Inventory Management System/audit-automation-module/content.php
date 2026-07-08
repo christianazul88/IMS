@@ -1,11 +1,3 @@
-<div class="card bg-danger text-white mb-3">
-    <div class="card-body">
-        <h5 class="card-title">Audit Automation Module</h5>
-        <p class="card-text">This module is currently in development. It will allow users to automate their audit processes, making it easier to identify and address potential issues in a timely manner.</p>
-    </div>
-</div>
-
-
 <div class="card mb-3">
     <div class="card-body">
         <h5 class="card-title">Audit Automation Module</h5>
