@@ -27,12 +27,6 @@ if (isset($_GET['id'])) {
         $void_request_date = !empty($row['date_request_void']) ? $row['date_request_void'] : null;
         $approved_void_date = !empty($row['date_approved']) ? $row['date_approved'] : null;
         
-        if($row['po_id'] !=0){
-            $po_id = $row['po_id'];
-        } else {
-            $po_id = 0;
-        }
-        
 
     }
     ?>
@@ -69,50 +63,28 @@ if (isset($_GET['id'])) {
                                 <th>Brand</th>
                                 <th>Category</th>
                                 <th>Parent Barcode</th>
-                                <?php if($po_id != 0){ ?><th>Qty Ordered</th><?php } ?>
-                                <th class="text-end">Qty Received</th>
+                                <th class="text-end">Quantity</th>
                                 <th class="text-end">Unit Price</th>
                                 <th class="text-end">Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php
-                            if($po_id == 0){
-                                $query = "
-                                    SELECT 
-                                        COUNT(s.unique_barcode) AS quantity, 
-                                        s.capital, 
-                                        p.description, 
-                                        b.brand_name, 
-                                        c.category_name, 
-                                        p.parent_barcode
-                                    FROM stocks s
-                                    INNER JOIN product p ON s.product_id = p.hashed_id
-                                    LEFT JOIN brand b ON p.brand = b.hashed_id
-                                    LEFT JOIN category c ON p.category = c.hashed_id
-                                    WHERE s.unique_key = '$unique_key'
-                                    GROUP BY s.product_id
-                                ";
-                            } else {
-                                $query = "
-                                    SELECT 
-                                        COUNT(s.unique_barcode) AS quantity, 
-                                        s.capital, 
-                                        p.description, 
-                                        b.brand_name, 
-                                        c.category_name, 
-                                        p.parent_barcode,
-                                        poc.qty
-                                    FROM purchased_order_content poc
-                                    INNER JOIN inbound_logs il on il.po_id = poc.po_id
-                                    LEFT JOIN stocks s ON s.unique_key = il.unique_key
-                                    LEFT JOIN product p ON s.product_id = p.hashed_id
-                                    LEFT JOIN brand b ON p.brand = b.hashed_id
-                                    LEFT JOIN category c ON p.category = c.hashed_id
-                                    WHERE s.unique_key = '$unique_key'
-                                    GROUP BY poc.product_id
-                                ";
-                            }
+                            $query = "
+                                SELECT 
+                                    COUNT(s.product_id) AS quantity, 
+                                    s.capital, 
+                                    p.description, 
+                                    b.brand_name, 
+                                    c.category_name, 
+                                    p.parent_barcode
+                                FROM stocks s
+                                LEFT JOIN product p ON s.product_id = p.hashed_id
+                                LEFT JOIN brand b ON p.brand = b.hashed_id
+                                LEFT JOIN category c ON p.category = c.hashed_id
+                                WHERE s.unique_key = '$unique_key'
+                                GROUP BY s.product_id
+                            ";
                             $result = $conn->query($query);
                             if($result->num_rows>0){
                                 $number = 0;
@@ -120,11 +92,11 @@ if (isset($_GET['id'])) {
                                     $description = $row['description'];
                                     $brand_name = $row['brand_name'];
                                     $category_name = $row['category_name'];
-                                    if(isset($row['qty'])){
-                                        $ordered_qty = $row['qty'];
-                                    } else {
-                                        $ordered_qty = 0;
-                                    }
+                                    // if(isset($row['qty'])){
+                                    //     $ordered_qty = $row['qty'];
+                                    // } else {
+                                    //     $ordered_qty = 0;
+                                    // }
                                     
                                     $product_quantity = $row['quantity'];
                                     $parent_barcode = $row['parent_barcode'];
@@ -139,7 +111,6 @@ if (isset($_GET['id'])) {
                                         <td><?php echo $brand_name;?></td>
                                         <td><?php echo $category_name; ?></td>
                                         <td><?php echo $parent_barcode;?></td>
-                                        <?php if($po_id != 0){ ?><td class="text-end"><?php echo $ordered_qty;?></td> <?php } ?>
                                         <td class="text-end"><?php echo $product_quantity;?></td>
                                         <td class="text-end">₱<?php echo number_format($unit_price, 2); ?></td>
                                         <td class="text-end">₱<?php echo number_format($subtotal, 2);?></td>
@@ -151,7 +122,7 @@ if (isset($_GET['id'])) {
                         </tbody>
                         <tfoot class="table-info">
                             <tr>
-                                <td class="text-start" colspan="<?php if($po_id != 0){ echo 7; } else { echo 6; } ?>"><b><i>Total</i></b></td>
+                                <td class="text-start" colspan="6"><b><i>Total</i></b></td>
                                 <td class="text-end"><strong><b>₱</b></strong></td>
                                 <td class="text-end"><b><i>₱<?php echo number_format($total, 2);?></i></b></td>
                             </tr>
