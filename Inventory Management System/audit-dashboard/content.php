@@ -864,108 +864,7 @@ $stmt->close();
     </div>
 
 
-    <!-- <div class="col-7">
-        <div class="card mb-3 shadow-sm">
-            <div class="card-body" >
-
-                <div class="section-header">
-                    <div>
-                        <h5 class="card-title mb-0">Audit Assignments</h5>
-                        <div class="soft-muted">Warehouse and location assignments for this audit</div>
-                    </div>
-                </div>
-
-                <?php
-                $assignments_query = "
-                    SELECT
-                        w.warehouse_name,
-                        il.location_name,
-                        il.id AS location_id,
-                        aa.status,
-                        aa.expected_qty,
-                        aa.sub_total_expected_amount,
-                        aa.id
-                    FROM audit_assignments aa
-                    LEFT JOIN warehouse w ON aa.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci
-                    LEFT JOIN item_location il ON aa.item_location = il.id
-                    WHERE aa.audit_id = ?
-                    LIMIT 10
-                ";
-
-                $stmt = $conn->prepare($assignments_query);
-                $stmt->bind_param("i", $audit_id);
-                $stmt->execute();
-                $assignments_result = $stmt->get_result();
-                ?>
-
-                <div class="table-responsive flex-grow-1 overflow-auto">
-                    <table class="table table-hover table-modern align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Warehouse</th>
-                                <th>Item Location</th>
-                                <th>Status</th>
-                                <th class="text-end">Action</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                                
-                            <?php 
-
-                                while ($row = $assignments_result->fetch_assoc()) {
-
-                                    $random = chr(rand(65, 90));
-                                    for ($i = 1; $i < 95; $i++) {
-                                        $random .= substr('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(0, 61), 1);
-                                    }
-                            ?>
-                            <tr>
-                                <td class="fw-medium">
-                                    <?= htmlspecialchars($row['warehouse_name']) ?>
-                                </td>
-
-                                <td>
-                                    <?= htmlspecialchars($row['location_name']) ?>
-                                </td>
-
-                                <td>
-                                    <span class="badge bg-info text-dark">
-                                        <?= htmlspecialchars($row['status']) ?>
-                                    </span>
-                                </td>
-
-                                <td class="text-end">
-                                    <a class="btn btn-primary btn-sm fs-11"
-                                    href="../audit-data/?hash=<?= $row['id'] . $random ?>">
-                                        View
-                                    </a>
-                                    <?php 
-                                    if($audit_position == 1 || $user_position_name === "Administrator" || $user_position_name === "Superadmin") {
-                                    ?>
-                                    <button class="btn btn-outline-info btn-sm"
-                                            type="button"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#assign-modal"
-                                            data-target-id="<?= $row['id']; ?>">
-                                        Assign Staffs
-                                    </button>
-                                    <?php } ?>
-                                </td>
-                            </tr>
-                            <?php
-                                }
-                            ?>
-
-                        </tbody>
-                    </table>
-                </div>
-
-                <?php $stmt->close(); ?>
-
-            </div>
-        </div>
-    </div> -->
+    
 
 
     <div class="col-6">
@@ -1009,7 +908,7 @@ $stmt->close();
                 ?>
 
                 <div class="table-responsive">
-                    <table class="table table-hover table-modern align-middle mb-0">
+                    <table class="table mb-0 data-table fs-10" data-datatables="data-datatables">
                         <thead class="table-light">
                             <tr>
                                 <th>Staff</th>
