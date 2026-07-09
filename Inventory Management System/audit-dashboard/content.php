@@ -897,7 +897,7 @@ $stmt->close();
                     LEFT JOIN item_location il
                         ON il.id = aa.item_location
                     WHERE aa.audit_id = ?
-                    ORDER BY il.location_name, u.user_fname, u.user_lname
+                    ORDER BY aas.id DESC
                     LIMIT 100
                 ";
 
@@ -929,6 +929,7 @@ $stmt->close();
                             <tr>
                                 <td>
                                     <div class="fw-medium">
+                                        <?php if($staff['staff_status'] === 'for_approval'){ echo "<span class='d-none'>0</span>";}?>
                                         <?= htmlspecialchars($full_name) ?>
                                     </div>
                                     <small class="text-muted">
