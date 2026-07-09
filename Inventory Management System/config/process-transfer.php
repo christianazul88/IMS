@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $unhashed_from = $_SESSION['warehouse_for_transfer'];
     $from_warehouse = $_SESSION['hashed_warehouse'] ?? null;
     $to_warehouse = $_POST['to_wh'] ?? null;
+    $to_rack = $_POST['to_rack'] ?? null;
     $remarks = trim($_POST['remarks'] ?? '');
     $user_id = $_SESSION['user_id']; // Assuming a user session is available
 
@@ -43,8 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     // Insert the transfer request into the database
-    $stmt = $conn->prepare("INSERT INTO stock_transfer (from_warehouse, to_warehouse, remarks_sender, from_userid, date_out, `status`) VALUES (?, ?, ?, ?, ?, 'pending')");
-    $stmt->bind_param("sssss", $from_warehouse, $to_warehouse, $remarks, $user_id, $currentDateTime);
+    $stmt = $conn->prepare("INSERT INTO stock_transfer (from_warehouse, to_warehouse, to_rack, remarks_sender, from_userid, date_out, `status`) VALUES (?, ?, ?, ?, ?, ?, 'pending')");
+    $stmt->bind_param("ssisss", $from_warehouse, $to_warehouse, $to_rack, $remarks, $user_id, $currentDateTime);
 
     if ($stmt->execute()) {
         $created_id = $conn->insert_id;
@@ -70,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $insert = "INSERT INTO stock_transfer_content (unique_barcode, st_id) VALUES ('$unique_barcode', '$created_id')";
                 if ($conn->query($insert)) {
                     // Log the transfer process
+                    $total_transfer_id = $transfer_id + 10000;
                     $about = "Transfer ID: " . $transfer_id . ". About to be transferred to " . $to_warehouse_name;
                     $stmt_logs = $conn->prepare("INSERT INTO stock_timeline (unique_barcode, title, `action`, `date`, user_id) VALUES (?, 'STOCK TRANSFER', ?, ?, ?)");
                     $stmt_logs->bind_param("ssss", $unique_barcode, $about, $currentDateTime, $user_id);

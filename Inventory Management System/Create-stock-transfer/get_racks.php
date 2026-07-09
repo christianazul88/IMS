@@ -8,7 +8,7 @@ if (!isset($_POST['warehouse'])) {
 $warehouse = $_POST['warehouse'];
 
 $stmt = $conn->prepare("
-    SELECT hashed_id, location_name
+    SELECT id, location_name
     FROM item_location
     WHERE warehouse = ?
     ORDER BY location_name ASC

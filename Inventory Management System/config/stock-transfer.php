@@ -71,10 +71,21 @@ if($status === "pending"){
 
         // Validate the inputs
         $id = $conn->real_escape_string($_POST['id'] ?? '');
+        $to_rack = 0;
+
+
+        $to_rack_query = "SELECT to_rack FROM stock_transfer WHERE id = '$id' LIMIT 1";
+        $to_rack_Result = $conn->query($to_rack_query);
+        if($to_rack_Result->num_rows>0){
+            $row=$to_rack_Result->fetch_assoc();
+            $to_rack = $row['to_rack'];
+        }
 
         if(isset($_POST['to_warehouse'])){
             $toWarehouse = $conn->real_escape_string($_POST['to_warehouse'] ?? '');
             $remarks = $_POST['remarks_sender'];
+            
+
             $warehousename_sql = "SELECT warehouse_name FROM warehouse WHERE hashed_id = '$toWarehouse' LIMIT 1";
             $result = $conn->query($warehouse_sql);
             $row = $result->fetch_assoc();
@@ -126,7 +137,7 @@ if($status === "pending"){
                     while($row=$result->fetch_assoc()){
                         $unique_barcode = $row['unique_barcode'];
 
-                        $update_stock = "UPDATE stocks SET item_status = 0, warehouse = '$receiver_warehouse', item_location = '' WHERE unique_barcode = '$unique_barcode'";
+                        $update_stock = "UPDATE stocks SET item_status = 0, warehouse = '$receiver_warehouse', item_location = '$to_rack' WHERE unique_barcode = '$unique_barcode'";
                         if($conn->query($update_stock) === TRUE){
                             $stock_action = "has been received by " . $toWarehouse_name . ". transfer #" . $id;
                             $stock_timeline_query = "INSERT INTO stock_timeline SET unique_barcode = '$unique_barcode', title = 'STOCK TRANSFER', `action` = '$stock_action', `date` = '$currentDateTime', user_id = '$user_id'";
