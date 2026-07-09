@@ -120,7 +120,7 @@ if(!isset($_SESSION['warehouse_outbound']) && strpos($warehouses, ',')!==false){
             <div class="card">
                 <!-- Card Header -->
                 <div class="card-header bg-info">
-                    <h2 class="text-white">Outbound Form</h2>
+                    <h2 class="text-white">Outbound Form <?php echo $_SESSION['warehouse_outbound'];?></h2>
                     <div class="my-3" id="barcode-form"></div>
                 </div>
                 <form action="../config/outbound.php" id="myform2" method="post">

@@ -7,6 +7,17 @@ ini_set('display_errors', 1);
 include "../config/database.php";
 include "../config/on_session.php";
 
+$imploded_warehouse = !empty($_SESSION['finance_warehouse_transaction']) ? $_SESSION['finance_warehouse_transaction'] : $user_warehouse_id;
+$imploded_categories = $_SESSION['finance_categories'];
+$imploded_suppliers =$_SESSION['finance_suppliers'];
+
+// echo $imploded_warehouse . "<br><hr>";
+// echo $imploded_categories . "<br><hr>" ;
+// echo $imploded_suppliers;
+
+
+
+
 $from = htmlspecialchars($_GET['from'] ?? '');
 $to = htmlspecialchars($_GET['to'] ?? '');
 $warehouse_transaction = htmlspecialchars($_GET['wh'] ?? '');
@@ -19,17 +30,17 @@ $toFormatted   = date("M j Y", strtotime($to));
 $raw_category = !empty($_GET['category']) ? implode(', ', array_map(fn($c) => "'" . trim($c) . "'", explode(',', $_GET['category']))) : "";
 $get_supplier = !empty($_GET['supplier']) ? implode(', ', array_map(fn($s) => "'" . trim($s) . "'", explode(',', htmlspecialchars($_GET['supplier'])))) : "";
 
-$category_additional_query = $item_additional_query = $supplier_warehouse_additional = "AND ol.warehouse IN ($user_warehouse_id)";
+$category_additional_query = $item_additional_query = $supplier_warehouse_additional = "AND ol.warehouse IN ($imploded_warehouse)";
 if ($raw_category && $warehouse_transaction) {
-    $category_additional_query = "AND c.hashed_id IN ($raw_category) AND ol.warehouse = '$warehouse_transaction'";
-    $item_additional_query = $supplier_warehouse_additional = "AND p.category IN ($raw_category) AND ol.warehouse = '$warehouse_transaction'";
+    $category_additional_query = "AND c.hashed_id IN ($imploded_categories) AND ol.warehouse IN ($imploded_warehouse)";
+    $item_additional_query = $supplier_warehouse_additional = "AND p.category IN ($imploded_categories) AND ol.warehouse IN ($imploded_warehouse)";
 } elseif ($warehouse_transaction) {
-    $category_additional_query = $item_additional_query = $supplier_warehouse_additional = "AND ol.warehouse = '$warehouse_transaction'";
+    $category_additional_query = $item_additional_query = $supplier_warehouse_additional = "AND ol.warehouse IN ($imploded_warehouse)";
 }
 
 $additional_supplier_query = "";
 if ($get_supplier) {
-    $additional_supplier_query = "AND s.supplier IN ($get_supplier)";
+    $additional_supplier_query = "AND s.supplier IN ($imploded_suppliers)";
     if ($sup_type !== "All") {
         $additional_supplier_query .= " AND sup.local_international = '$sup_type'";
     }
@@ -52,7 +63,7 @@ if ($from && $to) {
         SELECT sup.hashed_id AS supplier_head_id, sup.supplier_name AS supplier, sup.local_international AS sup_type,
                COUNT(oc.unique_barcode) AS sup_outbounded_qty, SUM(s.capital) AS sup_unit_cost, SUM(oc.sold_price) AS sup_gross_sale
         FROM supplier sup
-        LEFT JOIN stocks s ON s.supplier = sup.hashed_id
+        INNER JOIN stocks s ON s.supplier = sup.hashed_id
         LEFT JOIN outbound_content oc ON oc.unique_barcode = s.unique_barcode
         LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
         LEFT JOIN product p ON p.hashed_id = s.product_id
@@ -76,7 +87,7 @@ if ($from && $to) {
                        SUM(s.capital) AS unit_cost,
                        SUM(oc.sold_price) AS gross_sale
                 FROM category c
-                LEFT JOIN product p ON p.category = c.hashed_id
+                INNER JOIN product p ON p.category = c.hashed_id
                 LEFT JOIN stocks s ON s.product_id = p.hashed_id
                 LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
                 LEFT JOIN outbound_content oc ON oc.unique_barcode = s.unique_barcode
@@ -106,7 +117,7 @@ if ($from && $to) {
                                ol.customer_fullname, ol.date_sent, sup.supplier_name, sup.local_international,
                                p.description, b.brand_name, s.batch_code, s.capital
                         FROM outbound_content oc
-                        LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
+                        INNER JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
                         LEFT JOIN stocks s ON s.unique_barcode = oc.unique_barcode
                         LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
                         LEFT JOIN product p ON p.hashed_id = s.product_id
