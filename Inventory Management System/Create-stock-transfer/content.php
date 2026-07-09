@@ -82,40 +82,34 @@ if(!isset($_SESSION['warehouse_for_transfer'])){
         <div class="card" style="height: 100px;">
           <div class="card-body">
             <div class="row">
-                <div class="col-md-4">
-                    <label for="">From:</label>
-                    <input type="text" class="form-control" value="<?php echo $_SESSION['warehouse_for_transfer']; ?>" disabled>
-                </div>
-                <div class="col-md-4">
-                    <label for="">To:</label>
-                    <select class="form-select" name="to_wh" id="to_wh" required>
-                    <option value="" selected>Select Warehouse</option>
-                    <?php 
-                    // Quote each ID in the array
-                    $quoted_warehouse_ids = array_map(function ($id) {
-                        return "'" . trim($id) . "'";
-                    }, $user_warehouse_ids);
+              <div class="col-md-6">
+                <label for="">From:</label>
+                <input type="text" class="form-control" value="<?php echo $_SESSION['warehouse_for_transfer']; ?>" disabled>
+              </div>
+              <div class="col-md-6">
+                <label for="">To:</label>
+                <select class="form-select" name="to_wh" id="to_wh" required>
+                  <option value="" selected>Select Warehouse</option>
+                  <?php 
+                  // Quote each ID in the array
+                  $quoted_warehouse_ids = array_map(function ($id) {
+                    return "'" . trim($id) . "'";
+                  }, $user_warehouse_ids);
 
-                    // Create a comma-separated string of quoted IDs
-                    $imploded_warehouse_ids = implode(",", $quoted_warehouse_ids);
-                    $to_query = "SELECT hashed_id, warehouse_name FROM warehouse ORDER BY warehouse_name ASC";
-                    $to_res = $conn->query($to_query);
-                    if($to_res->num_rows>0){
-                        while($row=$to_res->fetch_assoc()){
-                        if($warehouse_for_transfer !== $row['hashed_id']){
-                            echo '<option value="' . $row['hashed_id'] . '">' . $row['warehouse_name'] . '</option>';
-                        }
-                        }
+                  // Create a comma-separated string of quoted IDs
+                  $imploded_warehouse_ids = implode(",", $quoted_warehouse_ids);
+                  $to_query = "SELECT hashed_id, warehouse_name FROM warehouse ORDER BY warehouse_name ASC";
+                  $to_res = $conn->query($to_query);
+                  if($to_res->num_rows>0){
+                    while($row=$to_res->fetch_assoc()){
+                      if($warehouse_for_transfer !== $row['hashed_id']){
+                        echo '<option value="' . $row['hashed_id'] . '">' . $row['warehouse_name'] . '</option>';
+                      }
                     }
-                    ?>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label>To Rack:</label>
-                    <select class="form-select" name="to_rack" id="to_rack" required>
-                        <option value="">Select Warehouse First</option>
-                    </select>
-                </div>
+                  }
+                  ?>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -332,39 +326,6 @@ $(document).ready(function(){
             }
         });
     });
-});
-</script>
-
-<script>
-$(document).ready(function(){
-
-    $('#to_wh').on('change', function(){
-
-        let warehouse = $(this).val();
-
-        $('#to_rack').html('<option>Loading...</option>');
-
-        if(warehouse == ''){
-            $('#to_rack').html('<option value="">Select Warehouse First</option>');
-            return;
-        }
-
-        $.ajax({
-            url: 'get_racks.php',
-            type: 'POST',
-            data: {
-                warehouse: warehouse
-            },
-            success: function(response){
-                $('#to_rack').html(response);
-            },
-            error: function(){
-                $('#to_rack').html('<option value="">Error loading racks</option>');
-            }
-        });
-
-    });
-
 });
 </script>
 
