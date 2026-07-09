@@ -1,0 +1,34 @@
+[
+    {
+        "barcode": "5366639-4",
+        "product_description": "Led Screen 15.6 40 Pins Borderless FHD 144HZ (Recreational)",
+        "batch_num": "PObatch-1336",
+        "brand_name": "No Brand",
+        "category_name": "Led Screen",
+        "capital": "2498.01"
+    },
+    {
+        "barcode": "76725222-74",
+        "product_description": "Led Screen 15.6 30 Pins Slim FHD",
+        "batch_num": "PObatch-495",
+        "brand_name": "No Brand",
+        "category_name": "Led Screen",
+        "capital": "1659.88"
+    },
+    {
+        "barcode": "94827963-3",
+        "product_description": "Led Screen 15.6 30 Pins Slim Up and Down HD",
+        "batch_num": "LPO048",
+        "brand_name": "No Brand",
+        "category_name": "Led Screen",
+        "capital": "1588.25"
+    },
+    {
+        "barcode": "22854729-45",
+        "product_description": "Led Screen 15.6 40 Pins Borderless FHD 144HZ",
+        "batch_num": "PObatch-1379",
+        "brand_name": "No Brand",
+        "category_name": "Led Screen",
+        "capital": "2745.16"
+    }
+]
