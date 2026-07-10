@@ -205,33 +205,33 @@ while ($row = mysqli_fetch_assoc($recent_scans_result)) {
     $item_location_origin_id = $row['item_location_origin'];
     $item_location_onscanned_id = $row['item_location_onscanned'];
 
-    // if($outbounded_yes_no === "yes"){
+    if($outbounded_yes_no === "yes"){
 
-    //     $outbounded_variance_qty++;
-    //     $outbounded_variance_amount += $capital;
+        $outbounded_variance_qty++;
+        $outbounded_variance_amount += $capital;
 
-    //     $positive_variance_qty++;
-    //     $positive_variance_amount += $capital;
-    // }
+        $positive_variance_qty++;
+        $positive_variance_amount += $capital;
+    }
 
-    // if($warehouse_origin_id !== $warehouse_onscanned_id){
+    if($warehouse_origin_id !== $warehouse_onscanned_id){
 
-    //     $wrong_warehouse_qty++;
-    //     $wrong_warehouse_amount += $capital;
+        $wrong_warehouse_qty++;
+        $wrong_warehouse_amount += $capital;
 
-    //     $positive_variance_qty++;
-    //     $positive_variance_amount += $capital;
-    // }
+        $positive_variance_qty++;
+        $positive_variance_amount += $capital;
+    }
 
-    // if(
-    //     $warehouse_origin_id === $warehouse_onscanned_id &&
-    //     $item_location_origin_id !== $item_location_onscanned_id
-    // ){
+    if(
+        $warehouse_origin_id === $warehouse_onscanned_id &&
+        $item_location_origin_id !== $item_location_onscanned_id
+    ){
 
-    //     $wrong_location_qty++;
-    //     $wrong_location_amount += $capital;
+        $wrong_location_qty++;
+        $wrong_location_amount += $capital;
 
-    // }
+    }
 }
 
 $negative_variance_qty = 0;
@@ -254,182 +254,11 @@ $missing_result = $stmt->get_result();
 
 while($row = $missing_result->fetch_assoc()){
 
-    // $negative_variance_qty++;
+    $negative_variance_qty++;
     $negative_variance_amount += (float)$row['capital'];
 }
 
 $stmt->close();
-
-$stmt_summary = "
-    SELECT
-
-    -- Expected Qty
-    (
-        SELECT COUNT(*)
-        FROM items_to_audit
-        WHERE audit_id = $audit_id
-        AND warehouse_origin = '$warehouse_id_audit'
-        AND outbounded = 'no'
-    ) AS total_expected_qty,
-
-    -- Expected Amount
-    (
-        SELECT SUM(s.capital)
-        FROM items_to_audit ita
-        LEFT JOIN stocks s
-            ON s.unique_barcode = ita.unique_barcode
-        WHERE ita.audit_id = $audit_id
-        AND ita.warehouse_origin = '$warehouse_id_audit'
-        AND ita.outbounded = 'no'
-    ) AS total_expected_amount,
-
-    -- Total Scanned
-    (
-        SELECT COUNT(*)
-        FROM items_to_audit
-        WHERE audit_id = $audit_id
-        AND audit_status IN ('scanned','approved')
-    ) AS total_scanned,
-
-    -- Total Scanned Amount
-    (
-        SELECT SUM(s.capital)
-        FROM items_to_audit ita
-        LEFT JOIN stocks s
-            ON s.unique_barcode = ita.unique_barcode
-        WHERE ita.audit_id = $audit_id
-        AND ita.audit_status IN ('scanned','approved')
-    ) AS total_scanned_amount,
-
-    -- Total Expected Scanned QTY
-    (
-        SELECT COUNT(*)
-        FROM items_to_audit
-        WHERE audit_id = $audit_id
-        AND audit_status IN ('scanned','approved')
-        AND warehouse_origin = '$warehouse_id_audit'
-        AND outbounded = 'no'
-    ) AS total_expected_scanned_qty,
-
-    -- Total Expected Scanned Amount
-    (
-        SELECT SUM(s.capital)
-        FROM items_to_audit ita
-        LEFT JOIN stocks s
-            ON s.unique_barcode = ita.unique_barcode
-        WHERE ita.audit_id = $audit_id
-        AND ita.warehouse_origin = '$warehouse_id_audit'
-        AND ita.audit_status IN ('scanned','approved')
-        AND ita.outbounded = 'no'
-    ) AS total_expected_scanned_amount,
-
-
-    -- Missing Qty
-    (
-        SELECT COUNT(*)
-        FROM items_to_audit
-        WHERE audit_id = $audit_id
-        AND audit_status = 'pending'
-        AND warehouse_origin = '$warehouse_id_audit'
-        AND outbounded = 'no'
-    ) AS total_missing_qty,
-
-    -- Missing Expected amount
-    (
-        SELECT SUM(s.capital)
-        FROM items_to_audit ita
-        LEFT JOIN stocks s
-            ON s.unique_barcode = ita.unique_barcode
-        WHERE ita.audit_id = $audit_id
-        AND ita.audit_status = 'pending'
-        AND ita.warehouse_origin = '$warehouse_id_audit'
-        AND ita.outbounded = 'no'
-    ) AS total_missing_amount,
-
-
-    -- Positive Variance Outbounded
-    (
-        SELECT COUNT(*)
-        FROM items_to_audit
-        WHERE audit_id = $audit_id
-        AND audit_status IN ('scanned','approved')
-        AND warehouse_origin = '$warehouse_id_audit'
-        AND outbounded != 'no'
-    ) AS total_scanned_outbounded_as_positive_variance_qty,
-
-    -- Positive Variance Outbounded Amount
-    (
-        SELECT SUM(s.capital)
-        FROM items_to_audit ita
-        LEFT JOIN stocks s
-            ON s.unique_barcode = ita.unique_barcode
-        WHERE ita.audit_id = $audit_id
-        AND ita.audit_status IN ('scanned','approved')
-        AND ita.warehouse_origin = '$warehouse_id_audit'
-        AND ita.outbounded != 'no'
-    ) AS total_scanned_outbounded_as_positive_variance_amount,
-
-    -- Positive Variance Wrong Warehouse
-    (
-        SELECT COUNT(*)
-        FROM items_to_audit
-        WHERE audit_id = $audit_id
-        AND audit_status IN ('scanned','approved')
-        AND warehouse_origin != '$warehouse_id_audit'
-    ) AS total_scanned_wrong_warehouse_as_positive_variance_qty,
-
-    -- Positive Variace Wrong Warehouse Amount
-    (
-        SELECT SUM(s.capital)
-        FROM items_to_audit ita
-        LEFT JOIN stocks s
-            ON s.unique_barcode = ita.unique_barcode
-        WHERE ita.audit_id = $audit_id
-        AND ita.audit_status IN ('scanned','approved')
-        AND ita.warehouse_origin != '$warehouse_id_audit'
-    ) AS total_scanned_wrong_warehouse_as_positive_variance_amount
-";
-
-$stmt_summary_result = $conn->prepare($stmt_summary);
-
-if (!$stmt_summary_result) {
-    die("Prepare failed: " . $conn->error);
-}
-
-$stmt_summary_result->execute();
-
-$result = $stmt_summary_result->get_result();
-$row = $result->fetch_assoc();
-
-// Expected
-$total_expected_qty = (int)$row['total_expected_qty'];
-$total_expected_amount = (float)($row['total_expected_amount'] ?? 0);
-
-// Scanned
-$total_qty_scanned = (int)$row['total_scanned'];
-$total_scanned_amount = (float)($row['total_scanned_amount'] ?? 0);
-
-// Expected Scanned
-$total_expected_scanned_qty = (int)$row['total_expected_scanned_qty'];
-$total_expected_scanned_amount = (float)($row['total_expected_scanned_amount'] ?? 0);
-
-// Missing
-$negative_variance_qty = (int)$row['total_missing_qty'];
-$negative_variance_amount = (float)($row['total_missing_amount'] ?? 0);
-
-// Positive Variance - Outbounded
-$total_scanned_outbounded_as_positive_variance_qty = (int)$row['total_scanned_outbounded_as_positive_variance_qty'];
-$total_scanned_outbounded_as_positive_variance_amount = (float)($row['total_scanned_outbounded_as_positive_variance_amount'] ?? 0);
-
-// Positive Variance - Wrong Warehouse
-$wrong_warehouse_qty = $row['total_scanned_wrong_warehouse_as_positive_variance_qty'];
-$total_scanned_wrong_warehouse_as_positive_variance_amount = (float)($row['total_scanned_wrong_warehouse_as_positive_variance_amount'] ?? 0);
-
-$stmt_summary_result->close();
-
-$outbounded_variance_qty = $total_scanned_outbounded_as_positive_variance_amount;
-$positive_variance_qty = $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty;
-$positive_variance_amount = $total_scanned_wrong_warehouse_as_positive_variance_amount + $total_scanned_outbounded_as_positive_variance_amount;
 
 $net_variance_qty =
     $positive_variance_qty -
@@ -439,9 +268,10 @@ $net_variance_amount =
     $positive_variance_amount -
     $negative_variance_amount;
 
+$total_qty_scanned_exclude_positive_variance = $total_qty_scanned - $positive_variance_qty;
 $audit_progress = 
     $total_expected_qty > 0
-    ? ($total_expected_scanned_qty / $total_expected_qty) * 100
+    ? ($total_qty_scanned_exclude_positive_variance / $total_expected_qty) * 100
     : 0;
 
 // $audit_progress =
@@ -450,7 +280,10 @@ $audit_progress =
 //     : 0;
 
 
-$variance_amount = $negative_variance_amount;
+$variance_amount =
+    $total_expected_amount -
+    $total_amount_scanned -
+    $total_amount_outbounded;
 
     if($audit_position != 1){
         $variance_amount = 0;
