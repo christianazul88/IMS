@@ -7,6 +7,7 @@ $audit_id = $_GET['audit_id'] ?? 0;
 
 if (!$audit_id) die("Invalid audit ID");
 
+
 /*
 |--------------------------------------------------------------------------
 | AUDIT INFO
@@ -27,6 +28,7 @@ $audit = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$audit) die("Audit not found");
+$warehouse_id_audit = $audit['warehouse'];
 
 /*
 |--------------------------------------------------------------------------
@@ -47,17 +49,170 @@ $output = fopen("php://output", "w");
 |--------------------------------------------------------------------------
 */
 
-$total_items = 0;
-$scanned_items = 0;
-
-$total_capital = 0;
-
-$unexpected_warehouse = 0;
-$unexpected_location = 0;
-
-$status_summary = [];
 $parent_groups = [];
 
+$summary_query = "
+    SELECT
+
+    -- Expected Qty
+    (
+        SELECT COUNT(*)
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND warehouse_origin = ?
+        AND outbounded = 'no'
+    ) AS total_expected_qty,
+
+    -- Expected Amount
+    (
+        SELECT SUM(s.capital)
+        FROM items_to_audit ita
+        LEFT JOIN stocks s
+            ON s.unique_barcode = ita.unique_barcode
+        WHERE ita.audit_id = ?
+        AND ita.warehouse_origin = ?
+        AND ita.outbounded = 'no'
+    ) AS total_expected_amount,
+
+    -- Total Scanned
+    (
+        SELECT COUNT(*)
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND audit_status IN ('scanned','approved')
+    ) AS total_scanned,
+
+    -- Total Scanned Amount
+    (
+        SELECT SUM(s.capital)
+        FROM items_to_audit ita
+        LEFT JOIN stocks s
+            ON s.unique_barcode = ita.unique_barcode
+        WHERE ita.audit_id = ?
+        AND ita.audit_status IN ('scanned','approved')
+    ) AS total_scanned_amount,
+
+    -- Total Expected Scanned QTY
+    (
+        SELECT COUNT(*)
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND audit_status IN ('scanned','approved')
+        AND warehouse_origin = ?
+        AND outbounded = 'no'
+    ) AS total_expected_scanned_qty,
+
+    -- Total Expected Scanned Amount
+    (
+        SELECT SUM(s.capital)
+        FROM items_to_audit ita
+        LEFT JOIN stocks s
+            ON s.unique_barcode = ita.unique_barcode
+        WHERE ita.audit_id = ?
+        AND ita.warehouse_origin = ?
+        AND ita.audit_status IN ('scanned','approved')
+        AND ita.outbounded = 'no'
+    ) AS total_expected_scanned_amount,
+
+
+    -- Missing Qty
+    (
+        SELECT COUNT(*)
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND audit_status = 'pending'
+        AND warehouse_origin = ?
+        AND outbounded = 'no'
+    ) AS total_missing_qty,
+
+    -- Missing Expected amount
+    (
+        SELECT SUM(s.capital)
+        FROM items_to_audit ita
+        LEFT JOIN stocks s
+            ON s.unique_barcode = ita.unique_barcode
+        WHERE ita.audit_id = ?
+        AND ita.audit_status = 'pending'
+        AND ita.warehouse_origin = ?
+        AND ita.outbounded = 'no'
+    ) AS total_missing_amount,
+
+
+    -- Positive Variance Outbounded
+    (
+        SELECT COUNT(*)
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND audit_status IN ('scanned','approved')
+        AND warehouse_origin = ?
+        AND outbounded != 'no'
+    ) AS total_scanned_outbounded_as_positive_variance_qty,
+
+    -- Positive Variance Outbounded Amount
+    (
+        SELECT SUM(s.capital)
+        FROM items_to_audit ita
+        LEFT JOIN stocks s
+            ON s.unique_barcode = ita.unique_barcode
+        WHERE ita.audit_id = ?
+        AND ita.audit_status IN ('scanned','approved')
+        AND ita.warehouse_origin = ?
+        AND ita.outbounded != 'no'
+    ) AS total_scanned_outbounded_as_positive_variance_amount,
+
+    -- Positive Variance Wrong Warehouse
+    (
+        SELECT COUNT(*)
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND audit_status IN ('scanned','approved')
+        AND warehouse_origin != ?
+    ) AS total_scanned_wrong_warehouse_as_positive_variance_qty,
+
+    -- Positive Variace Wrong Warehouse Amount
+    (
+        SELECT SUM(s.capital)
+        FROM items_to_audit ita
+        LEFT JOIN stocks s
+            ON s.unique_barcode = ita.unique_barcode
+        WHERE ita.audit_id = ?
+        AND ita.audit_status IN ('scanned','approved')
+        AND ita.warehouse_origin != ?
+    ) AS total_scanned_wrong_warehouse_as_positive_variance_amount
+";
+$stmt_summary = $conn->prepare($summary_query);
+
+$stmt_summary->bind_param(
+    "isisiiisisisisisisisis",
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $audit_id,
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $warehouse_id_audit,
+    $audit_id,
+    $warehouse_id_audit
+);
+
+$stmt_summary->execute();
+
+$summary = $stmt_summary->get_result()->fetch_assoc();
+
+$stmt_summary->close();
 /*
 |--------------------------------------------------------------------------
 | QUERY
@@ -142,25 +297,7 @@ while ($stmt->fetch()) {
     |--------------------------------------------------------------------------
     */
 
-    $total_items++;
-    $total_capital += (float)$capital;
-
-    if ($audit_status === "approved") {
-        $scanned_items++;
-    }
-
-    if ($system_warehouse !== $scanned_warehouse && $audit_status === "approved") {
-        $unexpected_warehouse++;
-    }
-
-    if ($system_location !== $scanned_location && $audit_status === "approved") {
-        $unexpected_location++;
-    }
-
-    if (!isset($status_summary[$audit_status])) {
-        $status_summary[$audit_status] = 0;
-    }
-    $status_summary[$audit_status]++;
+    
 
     /*
     |--------------------------------------------------------------------------
@@ -228,25 +365,73 @@ fputcsv($output, []);
 |--------------------------------------------------------------------------
 */
 
-$variance_qty = $total_items - $scanned_items;
+fputcsv($output, ["================ AUDIT SUMMARY ================"]);
 
-fputcsv($output, ["================ GLOBAL SUMMARY ================"]);
-fputcsv($output, ["Total Expected Items", $total_items]);
-fputcsv($output, ["Total Scanned Items", $scanned_items]);
-fputcsv($output, ["Quantity Variance", $variance_qty]);
-fputcsv($output, ["Total Capital", $total_capital]);
+fputcsv($output, ["Expected Qty", $summary['total_expected_qty']]);
+fputcsv($output, ["Expected Amount", number_format($summary['total_expected_amount'],2)]);
 
 fputcsv($output, []);
-fputcsv($output, ["Unexpected Warehouse Count", $unexpected_warehouse]);
-fputcsv($output, ["Unexpected Location Count", $unexpected_location]);
+
+fputcsv($output, ["Expected Scanned Qty", $summary['total_expected_scanned_qty']]);
+fputcsv($output, ["Expected Scanned Amount", number_format($summary['total_expected_scanned_amount'],2)]);
 
 fputcsv($output, []);
-fputcsv($output, ["------ STATUS BREAKDOWN ------"]);
-fputcsv($output, ["Status", "Count"]);
 
-foreach ($status_summary as $status => $count) {
-    fputcsv($output, [$status, $count]);
-}
+fputcsv($output, ["Missing Qty", $summary['total_missing_qty']]);
+fputcsv($output, ["Missing Amount", number_format($summary['total_missing_amount'],2)]);
+
+fputcsv($output, []);
+
+fputcsv($output, ["Positive Variance - Outbounded Qty", $summary['total_scanned_outbounded_as_positive_variance_qty']]);
+fputcsv($output, ["Positive Variance - Outbounded Amount", number_format($summary['total_scanned_outbounded_as_positive_variance_amount'],2)]);
+
+fputcsv($output, []);
+
+fputcsv($output, ["Positive Variance - Wrong Warehouse Qty", $summary['total_scanned_wrong_warehouse_as_positive_variance_qty']]);
+fputcsv($output, ["Positive Variance - Wrong Warehouse Amount", number_format($summary['total_scanned_wrong_warehouse_as_positive_variance_amount'],2)]);
+
+
+
+
+
+
+$balance_qty =
+    $summary['total_expected_qty']
+    - $summary['total_missing_qty'];
+
+$balance_amount =
+    $summary['total_expected_amount']
+    - $summary['total_missing_amount'];
+
+$qty_status =
+    ($balance_qty == $summary['total_expected_scanned_qty'])
+    ? "BALANCED"
+    : "NOT BALANCED";
+
+$amount_status =
+    (round($balance_amount,2) == round($summary['total_expected_scanned_amount'],2))
+    ? "BALANCED"
+    : "NOT BALANCED";
+
+fputcsv($output, []);
+
+fputcsv($output, ["================ BALANCING CHECK ================"]);
+
+fputcsv($output, ["Expected Qty", $summary['total_expected_qty']]);
+fputcsv($output, ["Less Missing Qty", $summary['total_missing_qty']]);
+fputcsv($output, ["Balance Qty", $balance_qty]);
+fputcsv($output, ["Actual Expected Scanned Qty", $summary['total_expected_scanned_qty']]);
+fputcsv($output, ["Qty Status", $qty_status]);
+
+fputcsv($output, []);
+
+fputcsv($output, ["Expected Amount", number_format($summary['total_expected_amount'],2)]);
+fputcsv($output, ["Less Missing Amount", number_format($summary['total_missing_amount'],2)]);
+fputcsv($output, ["Balance Amount", number_format($balance_amount,2)]);
+fputcsv($output, ["Actual Expected Scanned Amount", number_format($summary['total_expected_scanned_amount'],2)]);
+fputcsv($output, ["Amount Status", $amount_status]);
+
+
 
 /*
 |--------------------------------------------------------------------------
