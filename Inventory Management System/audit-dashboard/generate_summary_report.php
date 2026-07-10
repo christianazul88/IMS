@@ -213,6 +213,149 @@ $stmt_summary->execute();
 $summary = $stmt_summary->get_result()->fetch_assoc();
 
 $stmt_summary->close();
+// Prevent NULL values
+foreach ($summary as $key => $value) {
+    $summary[$key] = $value ?? 0;
+}
+
+// Assign variables
+$total_expected_qty     = (int)$summary['total_expected_qty'];
+$total_expected_amount  = (float)$summary['total_expected_amount'];
+
+$total_scanned_qty      = (int)$summary['total_scanned'];
+$total_scanned_amount   = (float)$summary['total_scanned_amount'];
+
+$total_expected_scanned_qty    = (int)$summary['total_expected_scanned_qty'];
+$total_expected_scanned_amount = (float)$summary['total_expected_scanned_amount'];
+
+$total_missing_qty      = (int)$summary['total_missing_qty'];
+$total_missing_amount   = (float)$summary['total_missing_amount'];
+
+$total_other_wh_qty     = (int)$summary['total_scanned_wrong_warehouse_as_positive_variance_qty'];
+$total_other_wh_amount  = (float)$summary['total_scanned_wrong_warehouse_as_positive_variance_amount'];
+
+$total_outbounded_qty   = (int)$summary['total_scanned_outbounded_as_positive_variance_qty'];
+$total_outbounded_amount= (float)$summary['total_scanned_outbounded_as_positive_variance_amount'];
+
+// Positive Variance Totals
+$total_positive_variance_qty =
+    $total_other_wh_qty +
+    $total_outbounded_qty;
+
+$total_positive_variance_amount =
+    $total_other_wh_amount +
+    $total_outbounded_amount;
+
+// Validation
+$qty_result = 0;
+$amount_result = 0;
+
+if ($total_expected_qty > 0) {
+    $qty_result = (
+        $total_scanned_qty
+        - $total_other_wh_qty
+        - $total_outbounded_qty
+        + $total_missing_qty
+    ) / $total_expected_qty;
+}
+
+if ($total_expected_amount > 0) {
+    $amount_result = (
+        $total_scanned_amount
+        - $total_other_wh_amount
+        - $total_outbounded_amount
+        + $total_missing_amount
+    ) / $total_expected_amount;
+}
+
+$qty_status = (abs($qty_result - 1) < 0.0001) ? "BALANCED" : "NOT BALANCED";
+$amount_status = (abs($amount_result - 1) < 0.0001) ? "BALANCED" : "NOT BALANCED";
+
+
+// =======================================
+// WRITE CSV
+// =======================================
+
+fputcsv($output, ["AUDIT SUMMARY"]);
+fputcsv($output, ["================================================================================"]);
+fputcsv($output, []);
+
+fputcsv($output, ["AUDIT EXPECTED VALUES"]);
+fputcsv($output, ["-------------------------------"]);
+fputcsv($output, ["Expected Quantity", $total_expected_qty]);
+fputcsv($output, ["Expected Amount", number_format($total_expected_amount, 2, '.', '')]);
+fputcsv($output, []);
+
+fputcsv($output, ["SCANNED RESULTS"]);
+fputcsv($output, ["-------------------------------"]);
+fputcsv($output, ["Total Scanned Quantity", $total_scanned_qty]);
+fputcsv($output, ["Total Scanned Amount", number_format($total_scanned_amount, 2, '.', '')]);
+fputcsv($output, []);
+
+fputcsv($output, ["EXPECTED ITEMS SUCCESSFULLY SCANNED"]);
+fputcsv($output, ["-------------------------------"]);
+fputcsv($output, ["Expected Scanned Quantity", $total_expected_scanned_qty]);
+fputcsv($output, ["Expected Scanned Amount", number_format($total_expected_scanned_amount, 2, '.', '')]);
+fputcsv($output, []);
+
+fputcsv($output, ["MISSING ITEMS"]);
+fputcsv($output, ["-------------------------------"]);
+fputcsv($output, ["Missing Quantity", $total_missing_qty]);
+fputcsv($output, ["Missing Expected Amount", number_format($total_missing_amount, 2, '.', '')]);
+fputcsv($output, []);
+
+fputcsv($output, ["POSITIVE VARIANCE BREAKDOWN"]);
+fputcsv($output, ["-------------------------------"]);
+fputcsv($output, ["Items from Other Warehouse (Qty)", $total_other_wh_qty]);
+fputcsv($output, ["Items from Other Warehouse (Amount)", number_format($total_other_wh_amount, 2, '.', '')]);
+fputcsv($output, ["Outbounded Items (Qty)", $total_outbounded_qty]);
+fputcsv($output, ["Outbounded Items (Amount)", number_format($total_outbounded_amount, 2, '.', '')]);
+fputcsv($output, []);
+
+fputcsv($output, ["POSITIVE VARIANCE TOTAL"]);
+fputcsv($output, ["-------------------------------"]);
+fputcsv($output, ["Positive Variance Quantity", $total_positive_variance_qty]);
+fputcsv($output, ["Positive Variance Amount", number_format($total_positive_variance_amount, 2, '.', '')]);
+fputcsv($output, []);
+
+fputcsv($output, ["AUDIT VALIDATION"]);
+fputcsv($output, ["-------------------------------"]);
+
+$qty_formula =
+    "(" .
+    $total_scanned_qty .
+    " - " .
+    $total_other_wh_qty .
+    " - " .
+    $total_outbounded_qty .
+    " + " .
+    $total_missing_qty .
+    ") / " .
+    $total_expected_qty;
+
+$amount_formula =
+    "(" .
+    number_format($total_scanned_amount, 2, '.', '') .
+    " - " .
+    number_format($total_other_wh_amount, 2, '.', '') .
+    " - " .
+    number_format($total_outbounded_amount, 2, '.', '') .
+    " + " .
+    number_format($total_missing_amount, 2, '.', '') .
+    ") / " .
+    number_format($total_expected_amount, 2, '.', '');
+
+fputcsv($output, ["Quantity Check Formula", $qty_formula]);
+fputcsv($output, ["Quantity Check Result", number_format($qty_result, 2, '.', '')]);
+fputcsv($output, ["Quantity Status", $qty_status]);
+fputcsv($output, []);
+
+fputcsv($output, ["Amount Check Formula", $amount_formula]);
+fputcsv($output, ["Amount Check Result", number_format($amount_result, 2, '.', '')]);
+fputcsv($output, ["Amount Status", $amount_status]);
+fputcsv($output, []);
+
+fputcsv($output, ["================================================================================"]);
 /*
 |--------------------------------------------------------------------------
 | QUERY
@@ -346,90 +489,6 @@ while ($stmt->fetch()) {
 
 $stmt->close();
 
-/*
-|--------------------------------------------------------------------------
-| CSV HEADER
-|--------------------------------------------------------------------------
-*/
-
-fputcsv($output, ["AUDIT PARENT BARCODE REPORT"]);
-fputcsv($output, ["Audit Number", $audit['audit_num']]);
-fputcsv($output, ["Warehouse", $audit['warehouse_name']]);
-fputcsv($output, ["Schedule Date", $audit['schedule_date']]);
-
-fputcsv($output, []);
-
-/*
-|--------------------------------------------------------------------------
-| GLOBAL SUMMARY
-|--------------------------------------------------------------------------
-*/
-
-fputcsv($output, ["================ AUDIT SUMMARY ================"]);
-
-fputcsv($output, ["Expected Qty", $summary['total_expected_qty']]);
-fputcsv($output, ["Expected Amount", number_format($summary['total_expected_amount'],2)]);
-
-fputcsv($output, []);
-
-fputcsv($output, ["Expected Scanned Qty", $summary['total_expected_scanned_qty']]);
-fputcsv($output, ["Expected Scanned Amount", number_format($summary['total_expected_scanned_amount'],2)]);
-
-fputcsv($output, []);
-
-fputcsv($output, ["Missing Qty", $summary['total_missing_qty']]);
-fputcsv($output, ["Missing Amount", number_format($summary['total_missing_amount'],2)]);
-
-fputcsv($output, []);
-
-fputcsv($output, ["Positive Variance - Outbounded Qty", $summary['total_scanned_outbounded_as_positive_variance_qty']]);
-fputcsv($output, ["Positive Variance - Outbounded Amount", number_format($summary['total_scanned_outbounded_as_positive_variance_amount'],2)]);
-
-fputcsv($output, []);
-
-fputcsv($output, ["Positive Variance - Wrong Warehouse Qty", $summary['total_scanned_wrong_warehouse_as_positive_variance_qty']]);
-fputcsv($output, ["Positive Variance - Wrong Warehouse Amount", number_format($summary['total_scanned_wrong_warehouse_as_positive_variance_amount'],2)]);
-
-
-
-
-
-
-$balance_qty =
-    $summary['total_expected_qty']
-    - $summary['total_missing_qty'];
-
-$balance_amount =
-    $summary['total_expected_amount']
-    - $summary['total_missing_amount'];
-
-$qty_status =
-    ($balance_qty == $summary['total_expected_scanned_qty'])
-    ? "BALANCED"
-    : "NOT BALANCED";
-
-$amount_status =
-    (round($balance_amount,2) == round($summary['total_expected_scanned_amount'],2))
-    ? "BALANCED"
-    : "NOT BALANCED";
-
-fputcsv($output, []);
-
-fputcsv($output, ["================ BALANCING CHECK ================"]);
-
-fputcsv($output, ["Expected Qty", $summary['total_expected_qty']]);
-fputcsv($output, ["Less Missing Qty", $summary['total_missing_qty']]);
-fputcsv($output, ["Balance Qty", $balance_qty]);
-fputcsv($output, ["Actual Expected Scanned Qty", $summary['total_expected_scanned_qty']]);
-fputcsv($output, ["Qty Status", $qty_status]);
-
-fputcsv($output, []);
-
-fputcsv($output, ["Expected Amount", number_format($summary['total_expected_amount'],2)]);
-fputcsv($output, ["Less Missing Amount", number_format($summary['total_missing_amount'],2)]);
-fputcsv($output, ["Balance Amount", number_format($balance_amount,2)]);
-fputcsv($output, ["Actual Expected Scanned Amount", number_format($summary['total_expected_scanned_amount'],2)]);
-fputcsv($output, ["Amount Status", $amount_status]);
 
 
 
