@@ -229,27 +229,84 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $stmt_existing->close();
 
     if (!$exists) {
-        $insert_items_to_audit = "
-            INSERT INTO items_to_audit (
-                audit_id,
-                unique_barcode,
-                warehouse_origin,
-                item_location_origin,
-                audit_status
-            )
-            VALUES (?, ?, ?, ?, 'pending')
+
+        $check_existing_barcode_query = "
+            SELECT id, audit_id, warehouse_origin
+            FROM items_to_audit
+            WHERE unique_barcode = ?
+            AND audit_status = 'pending'
+            ORDER BY id DESC
+            LIMIT 1
         ";
 
-        $stmt_items = $conn->prepare($insert_items_to_audit);
-        $stmt_items->bind_param(
-            "issi",
-            $audit_id,
-            $barcode,
-            $warehouse_id_audit,
-            $selected_area
-        );
-        $stmt_items->execute();
-        $stmt_items->close();
+        $stmt_on_other_audit = $conn->prepare($check_existing_barcode_query);
+        $stmt_on_other_audit->bind_param("s", $barcode);
+        $stmt_on_other_audit->execute();
+        // $stmt_on_other_audit->get_result();
+
+        $result = $stmt_on_other_audit->get_result();
+
+        // $stmt_on_other_audit->close();
+
+        if($result->num_rows == 0){
+
+            $insert_items_to_audit = "
+                INSERT INTO items_to_audit (
+                    audit_id,
+                    unique_barcode,
+                    warehouse_origin,
+                    item_location_origin,
+                    audit_status
+                )
+                VALUES (?, ?, ?, ?, 'pending')
+            ";
+
+            $stmt_items = $conn->prepare($insert_items_to_audit);
+            $stmt_items->bind_param(
+                "issi",
+                $audit_id,
+                $barcode,
+                $warehouse_id_audit,
+                $selected_area
+            );
+            $stmt_items->execute();
+            $stmt_items->close();
+
+        } else {
+            $row = $result->fetch_assoc();
+            $id_of_barcode = $row['id'];
+
+
+            $previous_audit_id = $row['audit_id'];
+            $update_to_current_audit = "
+                UPDATE items_to_audit
+                SET
+                    audit_assignment_id = '$audit_assignment_id',
+                    user_id = '$user_id',
+                    audit_status = 'scanned',
+                    scanned_date = NOW(),
+                    item_location_onscanned = '$selected_area',
+                    outbounded = '$outbounded_option',
+                    warehouse_onscanned = '$warehouse_id_audit',
+                    audit_id = '$audit_id'
+
+                WHERE audit_id = '$previous_audit_id'
+                AND id = '$id_of_barcode'
+            ";
+
+            $stmt_update_prevaudit = $conn->prepare($update_to_current_audit);
+
+            if (!$stmt_update_prevaudit) {
+                die("Prepare failed: " . $conn->error);
+            }
+
+            if(!$stmt_update_prevaudit->execute()) {
+                die("Prepare failed: " . $conn->error);
+            }
+        }
+
+
+        
     }
 
     $update_items_to_audit = "
@@ -262,7 +319,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             item_location_origin = '$stock_item_location', 
             item_location_onscanned = '$selected_area', 
             outbounded = '$outbounded_option', 
-            warehouse_origin = '$stock_warehouse', 
             warehouse_onscanned = '$warehouse_id_audit'
 
         WHERE audit_id = '$audit_id'

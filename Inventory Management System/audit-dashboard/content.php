@@ -231,8 +231,6 @@ while ($row = mysqli_fetch_assoc($recent_scans_result)) {
         $wrong_location_qty++;
         $wrong_location_amount += $capital;
 
-        // $positive_variance_qty++;
-        // $positive_variance_amount += $capital;
     }
 }
 
@@ -245,7 +243,7 @@ FROM items_to_audit ia
 LEFT JOIN stocks s
 ON s.unique_barcode = ia.unique_barcode
 WHERE ia.audit_id = ?
-AND ia.audit_status='pending'
+AND ia.audit_status = 'pending'
 ";
 
 $stmt = $conn->prepare($missing_query);
