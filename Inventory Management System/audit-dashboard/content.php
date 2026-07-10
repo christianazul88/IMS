@@ -422,7 +422,7 @@ $total_scanned_outbounded_as_positive_variance_qty = (int)$row['total_scanned_ou
 $total_scanned_outbounded_as_positive_variance_amount = (float)($row['total_scanned_outbounded_as_positive_variance_amount'] ?? 0);
 
 // Positive Variance - Wrong Warehouse
-$$wrong_warehouse_qty = (int)$row['total_scanned_wrong_warehouse_as_positive_variance_qty'];
+$$wrong_warehouse_qty = $row['total_scanned_wrong_warehouse_as_positive_variance_qty'];
 $total_scanned_wrong_warehouse_as_positive_variance_amount = (float)($row['total_scanned_wrong_warehouse_as_positive_variance_amount'] ?? 0);
 
 $stmt_summary_result->close();
