@@ -1288,26 +1288,123 @@ function startAudit() {
 
 
 const auditChart = new Chart(document.getElementById('auditChart'), {
+    type: 'bar',
 
-    type:'bar',
-
-    data:{
-        labels:[
+    data: {
+        labels: [
             'Wrong Warehouse',
             'Wrong Location',
             'Outbounded',
             'Missing'
         ],
-        datasets:[{
-            data:[
+
+        datasets: [{
+            label: 'Items',
+            data: [
                 <?= $wrong_warehouse_qty ?>,
                 <?= $wrong_location_qty ?>,
                 <?= $outbounded_variance_qty ?>,
                 <?= $negative_variance_qty ?>
+            ],
+
+            backgroundColor: [
+                '#f39c12', // orange
+                '#3498db', // blue
+                '#9b59b6', // purple
+                '#e74c3c'  // red
+            ],
+
+            borderColor: [
+                '#d68910',
+                '#2e86c1',
+                '#884ea0',
+                '#c0392b'
+            ],
+
+            borderWidth: 1,
+            borderRadius: 10,
+            borderSkipped: false,
+            hoverBackgroundColor: [
+                '#f5b041',
+                '#5dade2',
+                '#af7ac5',
+                '#ec7063'
             ]
         }]
-    }
+    },
 
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        animation: {
+            duration: 1200,
+            easing: 'easeOutQuart'
+        },
+
+        plugins: {
+            legend: {
+                display: false
+            },
+
+            title: {
+                display: true,
+                text: 'Audit Variance Summary',
+                font: {
+                    size: 18,
+                    weight: 'bold'
+                },
+                padding: {
+                    bottom: 20
+                }
+            },
+
+            tooltip: {
+                backgroundColor: '#212529',
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: false,
+                callbacks: {
+                    label: function(context) {
+                        return context.raw.toLocaleString() + ' item(s)';
+                    }
+                }
+            }
+        },
+
+        scales: {
+
+            y: {
+                beginAtZero: true,
+
+                ticks: {
+                    precision: 0
+                },
+
+                grid: {
+                    color: 'rgba(0,0,0,0.08)'
+                },
+
+                title: {
+                    display: true,
+                    text: 'Quantity'
+                }
+            },
+
+            x: {
+
+                grid: {
+                    display: false
+                },
+
+                ticks: {
+                    font: {
+                        weight: 'bold'
+                    }
+                }
+            }
+        }
+    }
 });
 
 function loadAuditSummary(){
