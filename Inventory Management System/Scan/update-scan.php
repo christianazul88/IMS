@@ -338,7 +338,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Insert into stock_timeline
     $timeline_title = "Audited";
     $audit_date = date("M j, Y");
-    $timeline_action = "Item was audited (date: {$audit_date}) by {$user_fullname}.";
+    $timeline_action = "Item was audited on WH: " . $warehouse_name_audit . " (date: {$audit_date}) by {$user_fullname}.";
 
     $timeline_stmt = $conn->prepare("
         INSERT INTO stock_timeline (
