@@ -1297,7 +1297,7 @@ const auditChart = new Chart(document.getElementById('auditChart'), {
             data:[
                 <?= $wrong_warehouse_qty ?>,
                 <?= $wrong_location_qty ?>,
-                <?= $outbounded_variance_qty ?>,
+                <?= $$total_scanned_outbounded_as_positive_variance_qty ?>,
                 <?= $negative_variance_qty ?>
             ]
         }]
