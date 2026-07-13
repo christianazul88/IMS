@@ -58,12 +58,47 @@
     });
 </script>
 <?php 
-    if(isset($_GET['warehouse'])){
-        $_SESSION['warehouse_outbound'] = $_GET['warehouse'];
-    } else {
+if(!isset($_SESSION['warehouse_outbound']) && strpos($warehouses, ',')!==false){
+   
+?>
+    <button class="btn btn-primary d-none" id="tobetriggered" type="button" data-bs-toggle="modal" data-bs-target="#error-modal">Launch demo modal</button>
+    <div class="modal fade" id="error-modal" tabindex="-1" role="dialog" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 500px">
+            <div class="modal-content position-relative">
+                <form action="local_config.php" method="POST">
+                    <div class="position-absolute top-0 end-0 mt-2 me-2 z-1">
+                        <!-- Remove the close button to further prevent user from closing the modal -->
+                        <button class="btn-close btn btn-sm btn-circle d-flex flex-center transition-base" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        <div class="rounded-top-3 py-3 ps-4 pe-6 bg-body-tertiary">
+                            <h4 class="mb-1" id="modalExampleDemoLabel">Select Warehouse</h4>
+                        </div>
+                        <div class="p-4 pb-0">
+                            <select class="form-select" id="warehouse" required="required" name="warehouse" required>
+                                <option value="">Select warehouse...</option>
+                                <?php echo implode("\n", $warehouse_options); ?>
+                                <?php ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal" disabled>Close</button>
+                        <button class="btn btn-primary" type="submit">Next</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
-    }
-
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Trigger the hidden button programmatically
+            document.getElementById("tobetriggered").click();
+        });
+    </script>
+<?php
+}else{
     if(strpos($warehouses, ',')!==true && !isset($_SESSION['warehouse_outbound'])){
         // Fetch warehouse hashed_id securely
         $warehouse_sql = "SELECT warehouse_name FROM warehouse WHERE hashed_id = ? LIMIT 1";
@@ -85,7 +120,7 @@
             <div class="card">
                 <!-- Card Header -->
                 <div class="card-header bg-info">
-                    <h2 class="text-white">Outbound Form </h2>
+                    <h2 class="text-white">Outbound Form <?php echo $_SESSION['warehouse_outbound'];?></h2>
                     <div class="my-3" id="barcode-form"></div>
                 </div>
                 <form action="../config/outbound.php" id="myform2" method="post">
@@ -522,3 +557,5 @@
 
         });
     </script>
+<?php
+}

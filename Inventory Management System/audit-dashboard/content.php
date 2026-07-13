@@ -391,7 +391,27 @@ $stmt_summary = "
         WHERE ita.audit_id = $audit_id
         AND ita.audit_status IN ('scanned','approved')
         AND ita.warehouse_origin != '$warehouse_id_audit'
-    ) AS total_scanned_wrong_warehouse_as_positive_variance_amount
+    ) AS total_scanned_wrong_warehouse_as_positive_variance_amount,
+
+    -- Outbounded qty
+    (
+        SELECT COUNT(*)
+        FROM items_to_audit
+        WHERE audit_id = $audit_id
+        AND audit_status = 'outbounded'
+        AND warehouse_origin = '$warehouse_id_audit'
+    ) AS total_missing_outbounded_qty,
+
+    -- Outbounded amount
+    (
+        SELECT SUM(s.capital)
+        FROM items_to_audit ita
+        LEFT JOIN stocks s 
+            ON s.unique_barcode = ita.unique_barcode
+        WHERE ita.audit_id = $audit_id
+        AND ita.audit_status = 'outbounded'
+        AND ita.warehouse_origin = '$warehouse_id_audit'
+    ) AS total_missing_outbounded_amount
 ";
 
 $stmt_summary_result = $conn->prepare($stmt_summary);
@@ -428,6 +448,10 @@ $total_scanned_outbounded_as_positive_variance_amount = (float)($row['total_scan
 // Positive Variance - Wrong Warehouse
 $wrong_warehouse_qty = $row['total_scanned_wrong_warehouse_as_positive_variance_qty'];
 $total_scanned_wrong_warehouse_as_positive_variance_amount = (float)($row['total_scanned_wrong_warehouse_as_positive_variance_amount'] ?? 0);
+
+//missing that was outbounded
+$outbounded_qty_missing = $row['total_missing_outbounded_qty'];
+$outbounded_amount_missing = $row['total_missing_outbounded_amount'];
 
 $stmt_summary_result->close();
 
@@ -530,7 +554,7 @@ $stmt->close();
                         Find Variance
                     </a>
 
-                    <a href="../Audit-Outbound/?audit_id=<?php echo $audit_id; ?>&warehouse=<?php echo $warehouse_id_audit; ?>"
+                    <a href="../Outbound-form/?audit_id=<?php echo $audit_id; ?>&warehouse=<?php echo $warehouse_id_audit; ?>"
                         class="btn btn-info btn-sm">
                         Outbound items
                     </a>
@@ -713,7 +737,7 @@ $stmt->close();
         <!-- problems requiring investigation -->
         <div class="row g-3 mb-4">
 
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Wrong/From other Warehouse(s)</small>
@@ -722,11 +746,20 @@ $stmt->close();
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
-                        <small class="text-muted">Outbounded</small>
+                        <small class="text-muted">Outbounded Scanned</small>
                         <h5><?= $total_scanned_outbounded_as_positive_variance_qty ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($total_scanned_outbounded_as_positive_variance_amount,2) ?> )</span> <?php } ?></h5>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-sucess shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Outbounded from missing</small>
+                        <h5><?= $outbounded_qty_missing ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($outbounded_amount_missing,2) ?> )</span> <?php } ?></h5>
                     </div>
                 </div>
             </div>

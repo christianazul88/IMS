@@ -77,7 +77,20 @@ if(!isset($_SESSION['warehouse_outbound']) && strpos($warehouses, ',')!==false){
                         <div class="p-4 pb-0">
                             <select class="form-select" id="warehouse" required="required" name="warehouse" required>
                                 <option value="">Select warehouse...</option>
-                                <?php echo implode("\n", $warehouse_options); ?>
+                                <?php
+                                    if(!isset($_GET['warehouse'])){
+                                        echo implode("\n", $warehouse_options); 
+                                    } else {
+                                        $audit_warehouse_id = $_GET['warehouse'];
+                                        $query = "SELECT warehouse_name FROM warehouse WHERE hashed_id = '$audit_warehouse_id' LIMIT 1";
+                                        $res = $conn->query($query);
+                                        if($res->num_rows>0){
+                                            $row = $res->fetch_assoc();
+                                            $audit_warehouse_name = $row['warehouse_name'];
+                                        }
+                                        echo "<option value='" . $audit_warehouse_name . "' selected>" . $audit_warehouse_name . "</option>";
+                                    }
+                                ?>
                                 <?php ?>
                             </select>
                         </div>
