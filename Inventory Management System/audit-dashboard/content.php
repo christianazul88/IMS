@@ -355,60 +355,60 @@ $stmt->close();
 
 <div class="audit-header mb-3">
     <div class="row align-items-center">
-        <div class="col-lg-6">
+        <div class="col-lg-6 col-md-6 col-sm-12">
             <h4 class="mb-1 fw-bold">Audit Dashboard </h4>
             <div class="small opacity-75">
                 Audit #<?= $audit['audit_num']; ?> • <?= $audit['warehouse_name']; ?>
             </div>
         </div>
 
-        <div class="col-lg-6">
+        <div class="col-lg-6 col-md-6 col-sm-12">
             <div class="action-bar">
 
                 <a href="../Choose-Area/"
-                   class="btn btn-light btn-sm <?php if( $audit_status === "completed"){ echo "d-none";}?> <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
+                   class="btn btn-light btn-sm mb-2 <?php if( $audit_status === "completed"){ echo "d-none";}?> <?php if($last_status === 'pause' || $last_status === 'end') echo "d-none"; ?>">
                     Start Scanning barcode
                 </a>
                 <a href="../Scan-Area/"
-                   class="btn btn-secondary btn-sm <?php if( $audit_status === "completed"){ echo "d-none";}?> <?php if($last_status === 'pause' ) echo "d-none"; ?>">
+                   class="btn btn-secondary btn-sm mb-2 <?php if( $audit_status === "completed"){ echo "d-none";}?> <?php if($last_status === 'pause' ) echo "d-none"; ?>">
                     Scan Barcode Area
                 </a>
                 <?php 
                 if($audit_position == 1) {
                     if($audit_status !== "completed" && $last_status === 'start' || $last_status === 'resume'){ ?>
-                    <a href="area_codes.php" class="btn btn-info btn-sm fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>"><span class="fas fa-download"></span> Area Code</a>
-                    <a href="pause_audit.php" class="btn btn-warning btn-sm fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>">Pause</a>
-                    <a href="end.php" class="btn btn-danger btn-sm fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>">End Audit</a>
+                    <a href="area_codes.php" class="btn btn-info btn-sm mb-2 fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>"><span class="fas fa-download"></span> Area Code</a>
+                    <a href="pause_audit.php" class="btn btn-warning btn-sm mb-2 fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>">Pause</a>
+                    <a href="end.php" class="btn btn-danger btn-sm mb-2 fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>">End Audit</a>
 
                 <?php } elseif($audit_status !== "completed" && $last_status === 'pause' && $audit_position == 1){ ?>
 
                     <a href="resume_audit.php" class="btn btn-success btn-sm">Resume</a>
-                    <a href="end.php" class="btn btn-danger btn-sm">End Audit</a>
+                    <a href="end.php" class="btn btn-danger btn-sm mb-2">End Audit</a>
 
                 <?php } elseif ($audit_status !== "completed" && $last_status === 'end' && $audit_position == 1){ ?>
 
                     <a href="../Variance-look/?audit_id=<?php echo $audit_id; ?>"
-                        class="btn btn-info btn-sm">
+                        class="btn btn-info btn-sm mb-2">
                         Find Variance
                     </a>
 
                     <a href="../Outbound-form/?audit_id=<?php echo $audit_id; ?>&warehouse=<?php echo $warehouse_id_audit; ?>"
-                        class="btn btn-info btn-sm">
+                        class="btn btn-info btn-sm mb-2">
                         Outbound items
                     </a>
 
                     <a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>"
-                       class="btn btn-danger btn-sm">
+                       class="btn btn-danger btn-sm mb-2">
                         Missing CSV
                     </a>
 
                     <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
-                       class="btn btn-success btn-sm">
+                       class="btn btn-success btn-sm mb-2">
                         Scanned CSV
                     </a>
 
                     <a href="generate_summary_report.php?audit_id=<?php echo $audit_id; ?>"
-                       class="btn btn-primary btn-sm">
+                       class="btn btn-primary btn-sm mb-2">
                         CSV Summary
                     </a>
 
@@ -419,17 +419,17 @@ $stmt->close();
                     } elseif($audit_status === "completed") {
                     ?>
                     <a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>"
-                       class="btn btn-danger btn-sm">
+                       class="btn btn-danger btn-sm mb-2">
                         Missing CSV
                     </a>
                     
                     <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
-                       class="btn btn-success btn-sm">
+                       class="btn btn-success btn-sm mb-2">
                         Scanned CSV
                     </a>
 
                     <a href="generate_summary_report.php?audit_id=<?php echo $audit_id; ?>"
-                       class="btn btn-primary btn-sm">
+                       class="btn btn-primary btn-sm mb-2">
                         CSV Summary
                     </a>
                     <?php
@@ -443,11 +443,11 @@ $stmt->close();
 </div>
 
 <div class="row">
-    <div class="col-12">
+    <div class="col-md-12 col-sm-12">
         <!-- //executive dashboard -->
         <div class="row g-3 mb-4">
 
-            <div class="col-md-3">
+            <div class="col-md-3 col-sm-12">
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Expected Qty</small>
@@ -458,7 +458,7 @@ $stmt->close();
                 </div>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-3 col-sm-12">
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Scanned Expected Qty</small>
@@ -472,7 +472,7 @@ $stmt->close();
 
 
 
-            <div class="col-md-3">
+            <div class="col-md-3 col-sm-12">
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Scanned Qty</small>
@@ -481,7 +481,7 @@ $stmt->close();
                 </div>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-3 col-sm-12">
                 <div class="card border-warning shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Missing Qty</small>
@@ -495,7 +495,7 @@ $stmt->close();
         </div>
     </div>
 
-    <div class="col-4">
+    <div class="col-lg-4 col-md-12 col-sm-12 col-xs-12">
         <!-- //progress bar  -->
         <div class="card shadow-sm mb-4">
             <div class="card-body">
@@ -541,11 +541,11 @@ $stmt->close();
         
     </div>
 
-    <div class="col-8">
+    <div class="col-md-8 col-sm-12">
         <!-- problems requiring investigation -->
         <div class="row g-3 mb-4">
 
-            <div class="col-md-4">
+            <div class="col-md-4 col-sm-12">
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Wrong/From other Warehouse(s)</small>
@@ -554,7 +554,7 @@ $stmt->close();
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-4 col-sm-12">
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Outbounded Scanned</small>
@@ -563,7 +563,7 @@ $stmt->close();
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-4 col-sm-12">
                 <div class="card border-sucess shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Outbounded from missing</small>
@@ -572,7 +572,7 @@ $stmt->close();
                 </div>
             </div>
 
-            <div class="col-md-12">
+            <div class="col-md-12 col-sm-12">
                 <div class="card border-warning shadow-sm">
                     <div class="card-body">
                         <div class="row">
@@ -789,7 +789,7 @@ $stmt->close();
         }
     </style>
 
-    <div class="col-12 d-flex mb-3">
+    <div class="col-md-12 col-sm-12 d-flex mb-3">
         <div class="card mb-3 h-100 w-100 shadow-sm">
             <div class="card-body">
 
@@ -874,7 +874,7 @@ $stmt->close();
     </div>
 
 
-    <div class="col-6 d-flex mb-3">
+    <div class="col-md-6 col-sm-12 d-flex mb-3">
         <div class="card mb-3 h-100 w-100 shadow-sm">
             <div class="card-body">
 
@@ -959,7 +959,7 @@ $stmt->close();
     
 
 
-    <div class="col-6">
+    <div class="col-md-6 col-sm-12">
         <div class="card shadow-sm">
             <div class="card-body">
 
