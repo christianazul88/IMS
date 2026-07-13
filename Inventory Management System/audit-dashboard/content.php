@@ -79,111 +79,7 @@ if (!$audit_log_timestamp) {
 $warehouse_id_audit = $audit['warehouse'];
 
 
-// =====================
 // AUDIT SUMMARY VALUES
-// =====================
-
-// expected values (already from audit query, but kept safe)
-$total_expected_qty = (float)$audit['total_expected_qty'];
-$total_expected_amount = (float)$audit['total_expected_amount'];
-
-if($audit_position != 1){
-    $total_expected_amount = 0;
-}
-
-// total scanned qty
-$scanned_qty_query = "
-    SELECT COUNT(*) AS total_scanned
-    FROM items_to_audit
-    WHERE audit_id = ? AND audit_status = 'approved'
-";
-$stmt = $conn->prepare($scanned_qty_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$total_qty_scanned = $stmt->get_result()->fetch_assoc()['total_scanned'] ?? 0;
-$stmt->close();
-
-
-// total outbounded qty
-$outbounded_qty_query = "
-    SELECT COUNT(*) AS total_outbounded
-    FROM items_to_audit
-    WHERE audit_id = ? AND outbounded = 'yes' AND audit_status = 'approved'
-";
-$stmt = $conn->prepare($outbounded_qty_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$total_outbounded_qty = $stmt->get_result()->fetch_assoc()['total_outbounded'] ?? 0;
-$stmt->close();
-
-
-// total scanned amount
-$scanned_amount_query = "
-    SELECT SUM(s.capital) AS total
-    FROM items_to_audit ia
-    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
-    WHERE ia.audit_id = ? AND ia.audit_status = 'approved'
-";
-$stmt = $conn->prepare($scanned_amount_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$total_amount_scanned = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
-$stmt->close();
-
-if($audit_position != 1){
-    $total_amount_scanned = 0;
-}
-
-// total outbounded amount
-$outbounded_amount_query = "
-    SELECT SUM(s.capital) AS total
-    FROM items_to_audit ia
-    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
-    WHERE ia.audit_id = ? 
-    AND ia.audit_status = 'approved' 
-    AND ia.outbounded = 'yes'
-";
-$stmt = $conn->prepare($outbounded_amount_query);
-$stmt->bind_param("i", $audit_id);
-$stmt->execute();
-$total_amount_outbounded = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
-$stmt->close();
-
-if($audit_position != 1){
-    $total_amount_outbounded = 0;
-}
-
-
-// variance
-$variance_qty = $total_expected_qty - $total_qty_scanned - $total_outbounded_qty ;
-
-
-
-$recent_scans_query = "
-    SELECT  p.description,
-            b.brand_name,
-            c.category_name,
-            il.location_name,
-            w.warehouse_name,
-            ia.outbounded,
-            ia.warehouse_origin,
-            ia.warehouse_onscanned,
-            ia.item_location_origin,
-            ia.item_location_onscanned,
-            s.capital,
-            ia.audit_status
-    FROM items_to_audit ia
-    LEFT JOIN stocks s ON s.unique_barcode = ia.unique_barcode
-    LEFT JOIN product p ON p.hashed_id = s.product_id
-    LEFT JOIN brand b ON b.hashed_id = p.brand
-    LEFT JOIN category c ON c.hashed_id = p.category
-    LEFT JOIN item_location il ON il.hashed_id = s.item_location
-    LEFT JOIN warehouse w ON w.hashed_id = s.warehouse
-    WHERE ia.audit_status = 'scanned'
-    AND ia.audit_id = '$audit_id'
-";
-
-$recent_scans_result = mysqli_query($conn, $recent_scans_query);
 
 $positive_variance_qty = 0;
 $positive_variance_amount = 0;
@@ -197,72 +93,12 @@ $wrong_location_amount = 0;
 $outbounded_variance_qty = 0;
 $outbounded_variance_amount = 0;
 
-while ($row = mysqli_fetch_assoc($recent_scans_result)) {
 
-    $capital = (float)$row['capital'];
-
-    $outbounded_yes_no = $row['outbounded'];
-
-    $warehouse_origin_id = $row['warehouse_origin'];
-    $warehouse_onscanned_id = $row['warehouse_onscanned'];
-
-    $item_location_origin_id = $row['item_location_origin'];
-    $item_location_onscanned_id = $row['item_location_onscanned'];
-
-    // if($outbounded_yes_no === "yes"){
-
-    //     $outbounded_variance_qty++;
-    //     $outbounded_variance_amount += $capital;
-
-    //     $positive_variance_qty++;
-    //     $positive_variance_amount += $capital;
-    // }
-
-    // if($warehouse_origin_id !== $warehouse_onscanned_id){
-
-    //     $wrong_warehouse_qty++;
-    //     $wrong_warehouse_amount += $capital;
-
-    //     $positive_variance_qty++;
-    //     $positive_variance_amount += $capital;
-    // }
-
-    // if(
-    //     $warehouse_origin_id === $warehouse_onscanned_id &&
-    //     $item_location_origin_id !== $item_location_onscanned_id
-    // ){
-
-    //     $wrong_location_qty++;
-    //     $wrong_location_amount += $capital;
-
-    // }
-}
 
 $negative_variance_qty = 0;
 $negative_variance_amount = 0;
 
-$missing_query = "
-SELECT s.capital
-FROM items_to_audit ia
-LEFT JOIN stocks s
-ON s.unique_barcode = ia.unique_barcode
-WHERE ia.audit_id = ?
-AND ia.audit_status = 'pending'
-";
 
-$stmt = $conn->prepare($missing_query);
-$stmt->bind_param("i",$audit_id);
-$stmt->execute();
-
-$missing_result = $stmt->get_result();
-
-while($row = $missing_result->fetch_assoc()){
-
-    // $negative_variance_qty++;
-    $negative_variance_amount += (float)$row['capital'];
-}
-
-$stmt->close();
 
 $stmt_summary = "
     SELECT
@@ -472,24 +308,23 @@ $audit_progress =
     ? ($total_expected_scanned_qty / $total_expected_qty) * 100
     : 0;
 
-// $audit_progress =
-//     $total_expected_qty > 0
-//     ? ($total_qty_scanned / $total_expected_qty) * 100
-//     : 0;
 
 
 $variance_amount = $negative_variance_amount;
 
-    if($audit_position != 1){
-        $variance_amount = 0;
-        $net_variance_amount = 0;   
-    }
+if($audit_position != 1){
+    $variance_amount = 0;
+    $net_variance_amount = 0;   
+}
 
+// ==================================================================================================
+// == UPDATE THE CURRENT AUDIT TO "COMPLETED" IF THERE WERE NO LONGER PENDING/MISSING ON THIS AUDIT==
+// ==================================================================================================
 $check_scanned_query = "
     SELECT id
     FROM items_to_audit
     WHERE audit_id = ?
-      AND audit_status != 'approved'
+      AND audit_status IN ('pending','scanned')
 ";
 
 $stmt = $conn->prepare($check_scanned_query);
@@ -512,6 +347,9 @@ if ($result->num_rows == 0) {
 }
 
 $stmt->close();
+// ===========================================================================================================
+// == END OF UPDATING THE CURRENT AUDIT TO "COMPLETED" IF THERE WERE NO LONGER PENDING/MISSING ON THIS AUDIT==
+// ===========================================================================================================
 ?>
 
 
@@ -613,7 +451,9 @@ $stmt->close();
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Expected Qty</small>
-                        <h3><?= number_format($total_expected_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($total_expected_amount,2) ?>)</span><?php } ?> </h3>
+                        <h3 id="expected_summary">
+                            <?= number_format($total_expected_qty) ?>
+                        </h3>
                     </div>
                 </div>
             </div>
@@ -622,7 +462,9 @@ $stmt->close();
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Scanned Expected Qty</small>
-                        <h3><?= number_format($total_expected_scanned_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($total_expected_scanned_amount, 2) ?>)</span> <?php } ?></h3>
+                        <h3 id="scanned_expected_summary">
+                            <?= number_format($total_expected_scanned_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($total_expected_scanned_amount, 2) ?>)</span> <?php } ?>
+                        </h3>
                         
                     </div>
                 </div>
@@ -634,7 +476,7 @@ $stmt->close();
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Scanned Qty</small>
-                        <h3><?= number_format($total_qty_scanned) ?> <?php if($audit_position == 1){?><span class="text-muted fs-11">( ₱ <?= number_format($total_scanned_amount,2) ?> )</span><?php } ?></h3>
+                        <h3 id="total_scanned_summary"><?= number_format($total_qty_scanned) ?> <?php if($audit_position == 1){?><span class="text-muted fs-11">( ₱ <?= number_format($total_scanned_amount,2) ?> )</span><?php } ?></h3>
                     </div>
                 </div>
             </div>
@@ -643,7 +485,7 @@ $stmt->close();
                 <div class="card border-warning shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Missing Qty</small>
-                        <h3><?= number_format($negative_variance_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($negative_variance_amount,2) ?>)</span> <?php } ?></h3>
+                        <h3 id="missing_summary"><?= number_format($negative_variance_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($negative_variance_amount,2) ?>)</span> <?php } ?></h3>
                     </div>
                 </div>
             </div>
@@ -662,7 +504,7 @@ $stmt->close();
 
                     <span>Audit Progress</span>
 
-                    <strong>
+                    <strong id="progress_text">
                         <?= number_format($audit_progress,2) ?>%
                     </strong>
 
@@ -670,11 +512,12 @@ $stmt->close();
 
                 <div class="progress" style="height:25px">
 
-                    <div class="progress-bar bg-success"
-                        style="width:<?= $audit_progress ?>%">
-
+                    <div
+                        id="progress_bar"
+                        class="progress-bar bg-success"
+                        style="width:<?= $audit_progress ?>%"
+                    >
                         <?= number_format($audit_progress,2) ?>%
-
                     </div>
 
                 </div>
@@ -695,42 +538,7 @@ $stmt->close();
             </div>
         </div>
 
-        <script>
-
-        new Chart(
-        document.getElementById('auditChart'),
-        {
-            type:'bar',
-
-            data:{
-                labels:[
-                    'Wrong Warehouse',
-                    'Wrong Location',
-                    'Outbounded',
-                    'Missing'
-                ],
-
-                datasets:[{
-                    data:[
-                        <?= $wrong_warehouse_qty ?>,
-                        <?= $wrong_location_qty ?>,
-                        <?= $outbounded_variance_qty ?>,
-                        <?= $negative_variance_qty ?>
-                    ]
-                }]
-            },
-
-            options:{
-                responsive:true,
-                plugins:{
-                    legend:{
-                        display:false
-                    }
-                }
-            }
-        });
-
-        </script>
+        
     </div>
 
     <div class="col-8">
@@ -741,7 +549,7 @@ $stmt->close();
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Wrong/From other Warehouse(s)</small>
-                        <h5><?= number_format($wrong_warehouse_qty,2) ?> <?php if($audit_position == 1){?><span>(₱ <?= number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2) ?> )</span><?php } ?></h5>
+                        <h5 id="wrong_wh_summary"><?= number_format($wrong_warehouse_qty,2) ?> <?php if($audit_position == 1){?><span>(₱ <?= number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2) ?> )</span><?php } ?></h5>
                     </div>
                 </div>
             </div>
@@ -750,7 +558,7 @@ $stmt->close();
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Outbounded Scanned</small>
-                        <h5><?= $total_scanned_outbounded_as_positive_variance_qty ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($total_scanned_outbounded_as_positive_variance_amount,2) ?> )</span> <?php } ?></h5>
+                        <h5 id="scanned_outbounded_summary"><?= $total_scanned_outbounded_as_positive_variance_qty ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($total_scanned_outbounded_as_positive_variance_amount,2) ?> )</span> <?php } ?></h5>
                     </div>
                 </div>
             </div>
@@ -759,7 +567,7 @@ $stmt->close();
                 <div class="card border-sucess shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Outbounded from missing</small>
-                        <h5><?= $outbounded_qty_missing ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($outbounded_amount_missing,2) ?> )</span> <?php } ?></h5>
+                        <h5 id="missing_outbounded_summary"><?= $outbounded_qty_missing ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($outbounded_amount_missing,2) ?> )</span> <?php } ?></h5>
                     </div>
                 </div>
             </div>
@@ -775,9 +583,11 @@ $stmt->close();
                                     </div>
 
                                     <div class="text-end">
-                                        <?php echo number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2);?>
-                                        + <?php echo number_format($total_scanned_outbounded_as_positive_variance_amount, 2);?> =
-                                        <?php echo number_format($positive_variance_amount, 2);?>
+                                        <small id="wrong_wh_amount"><?php echo number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2);?></small>
+                                        <small> + </small>
+                                        <small id="scanned_outbounded_amount"><?php echo number_format($total_scanned_outbounded_as_positive_variance_amount, 2);?></small> 
+                                        <small> = </small>
+                                        <small id="positive_variance_amount"><?php echo number_format($positive_variance_amount, 2);?></small>
                                     </div>
 
                                     <div class="text-start">
@@ -787,18 +597,20 @@ $stmt->close();
                                         <div class="col-sm-6 text-start">
                                             <small>Total Scanned</small>
                                         </div>
-                                        <div class="col-sm-6 text-end"><small><?php echo number_format($total_scanned_amount, 2);?></small></div>
+                                        <div class="col-sm-6 text-end"><small id="scanned_amount"><?php echo number_format($total_scanned_amount, 2);?></small></div>
                                         <div class="col-sm-6 text-start">
                                             <small>Positive Variance</small>
                                         </div>
                                         <div class="col-sm-6 text-end">
-                                            <small>- <?php echo number_format($positive_variance_amount, 2); ?></small></div> 
+                                            <small>-   </small>
+                                            <small id="positive_variance_amount"> <?php echo number_format($positive_variance_amount, 2); ?></small>
+                                        </div> 
                                         <hr>
                                         <div class="col-sm-6">
                                             <small>must be equal to 'Expected Scanned'</small>
                                         </div>
                                         <div class="col-sm-6 text-end">
-                                            <small><?php 
+                                            <small id="must_be_equal_expected_scanned_amount"><?php 
                                                 $expected_formula_amountscanned = $total_scanned_amount - $positive_variance_amount;
                                                 echo number_format($expected_formula_amountscanned, 2);
                                             ?></small>
@@ -807,45 +619,27 @@ $stmt->close();
                                             <small>Missing</small>
                                         </div>
                                         <div class="col-sm-6 text-end">
-                                            <small>+ <?php echo number_format($negative_variance_amount, 2);?></div></small>
-                                        
+                                            <small> +   </small>
+                                            <small id="missing_amount"> <?php echo number_format($negative_variance_amount, 2);?></small>
+                                        </div>
+                                        <div class="col-sm-6 text-start">
+                                            <small>Outbounded</small>
+                                        </div>
+                                        <div class="col-sm-6 text-end">
+                                            <small id="missing_outbounded_amount">0</small>
+                                        </div>
                                         <hr>
                                         <div class="col-sm-6 text-start">
                                             <small>must be equal to 'Expected'</small>
                                         </div>
                                         <div class="col-sm-6 text-end">
-                                            <small><?php 
+                                            <small id="must_be_equal_expected_amount"><?php 
                                             $expected_amount_formula = $expected_formula_amountscanned + $negative_variance_amount;
                                             echo number_format($expected_amount_formula, 2);
                                             ?></small>
                                         </div>
-                                        <div class="col-sm-6 text-start">
-                                            <small>Expected</small>
-                                        </div>
-                                        <div class="col-sm-6 text-end">
-                                            <small>/ <?php echo number_format($total_expected_amount,2);?></small>
-                                        </div>
-                                        <hr>
-                                        <?php 
-                                        $check_if_balance_amount = $expected_amount_formula / $total_expected_amount;
-                                        if($check_if_balance_amount != 1){
-                                            echo '
-                                            <div class="col-sm-6">
-                                                <small class="text-danger">Not Balanced</small>
-                                            </div>
-                                            <div class="col-sm-6">
-                                                <small class="text-danger">'. number_format($check_if_balance_amount) .'</small>
-                                            </div>';
-                                        } else {
-                                            echo '
-                                            <div class="col-sm-6">
-                                                <small class="text-success">Balanced</small>
-                                            </div>
-                                            <div class="col-sm-6 text-end">
-                                                <small class="text-success">'. number_format($check_if_balance_amount) .'</small>
-                                            </div>';
-                                        }
-                                        ?>
+                                        
+                                        
                                     </div>
                                 <?php
                                 }
@@ -857,9 +651,11 @@ $stmt->close();
                                 </div>
 
                                 <div class="text-end">
-                                    <?php echo number_format($wrong_warehouse_qty);?>
-                                    + <?php echo number_format($total_scanned_outbounded_as_positive_variance_qty);?> =
-                                    <?php echo $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty;?>
+                                    <small id="wrong_wh_qty"><?php echo number_format($wrong_warehouse_qty);?></small>
+                                    <small> + </small>
+                                    <small id="scanned_outbounded_qty"><?php echo number_format($total_scanned_outbounded_as_positive_variance_qty);?></small> 
+                                    <small> = </small>
+                                    <small id="positive_variance_qty"><?php echo $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty;?></small>
                                 </div>
 
                                 <div class="text-start">
@@ -869,18 +665,19 @@ $stmt->close();
                                     <div class="col-sm-6 text-start">
                                         <small>Total Scanned</small>
                                     </div>
-                                    <div class="col-sm-6 text-end"><small><?php echo number_format($total_qty_scanned);?></small></div>
+                                    <div class="col-sm-6 text-end"><small id="scanned_qty"><?php echo number_format($total_qty_scanned);?></small></div>
                                     <div class="col-sm-6 text-start">
                                         <small>Positive Variance</small>
                                     </div>
                                     <div class="col-sm-6 text-end">
-                                        <small>- <?php echo $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty; ?></small></div> 
+                                        <small>- </small>
+                                        <small id="positive_variance_qty"> <?php echo $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty; ?></small></div> 
                                     <hr>
                                     <div class="col-sm-6 text-start">
                                         <small>must be equal to 'Expected Scanned'</small>
                                     </div>
                                     <div class="col-sm-6 text-end">
-                                        <small><?php 
+                                        <small id="must_be_equal_expected_scanned_qty"><?php 
                                             
                                             $expected_formula_qtyscanned = $total_qty_scanned - $positive_variance_qty;
                                             echo number_format($expected_formula_qtyscanned);
@@ -890,45 +687,26 @@ $stmt->close();
                                         <small>Missing</small>
                                     </div>
                                     <div class="col-sm-6 text-end">
-                                        <small>+ <?php echo number_format($negative_variance_qty);?></div></small>
-                                    
+                                        <small>+ </small>
+                                        <small id="missing_qty"><?php echo number_format($negative_variance_qty); ?></small>
+                                    </div>
+                                    <div class="col-sm-6 text-start">
+                                        <small>Outbounded</small>
+                                    </div>
+                                    <div class="col-sm-6 text-end">
+                                        <small> + </small>
+                                        <small id="missing_outbounded_qty">0</small>
+                                    </div>
                                     <hr>
                                     <div class="col-sm-6 text-start">
                                         <small>must be equal to 'Expected'</small>
                                     </div>
                                     <div class="col-sm-6 text-end">
-                                        <small><?php 
+                                        <small id="must_be_equal_expected_qty"><?php 
                                         $expected_qty_formula = $expected_formula_qtyscanned + $negative_variance_qty;
                                         echo number_format($expected_qty_formula);
                                         ?></small>
                                     </div>
-                                    <div class="col-sm-6 text-start">
-                                        <small>Expected</small>
-                                    </div>
-                                    <div class="col-sm-6 text-end">
-                                        <small>/ <?php echo number_format($total_expected_qty);?></small>
-                                    </div>
-                                     <hr>
-                                    <?php 
-                                    $check_if_balance_qty = $expected_qty_formula / $total_expected_qty;
-                                    if($check_if_balance_qty != 1){
-                                        echo '
-                                        <div class="col-sm-6 text-start">
-                                            <small class="text-danger">Not Balanced</small>
-                                        </div>
-                                        <div class="col-sm-6">
-                                            <small class="text-danger">'. number_format($check_if_balance_amount) .'</small>
-                                        </div>';
-                                    } else {
-                                        echo '
-                                        <div class="col-sm-6 text-start">
-                                            <small class="text-success">Balanced</small>
-                                        </div>
-                                        <div class="col-sm-6 text-end">
-                                            <small class="text-success">'. number_format($check_if_balance_qty) .'</small>
-                                        </div>';
-                                    }
-                                    ?>
                                 </div>
                             </div>
                         </div>
@@ -1496,4 +1274,111 @@ function startAudit() {
 
     });
 }
+
+
+
+
+
+
+
+
+const auditChart = new Chart(document.getElementById('auditChart'), {
+
+    type:'bar',
+
+    data:{
+        labels:[
+            'Wrong Warehouse',
+            'Wrong Location',
+            'Outbounded',
+            'Missing'
+        ],
+        datasets:[{
+            data:[
+                <?= $wrong_warehouse_qty ?>,
+                <?= $wrong_location_qty ?>,
+                <?= $outbounded_variance_qty ?>,
+                <?= $negative_variance_qty ?>
+            ]
+        }]
+    }
+
+});
+
+function loadAuditSummary(){
+
+    $.ajax({
+
+        url: 'audit_summary_data.php',
+
+        data:{
+            audit_id: <?= $audit_id ?>
+        },
+
+        dataType:'json',
+
+        success:function(data){
+            // summary
+            $("#expected_summary").text(data.expected_summary);
+            $("#scanned_expected_summary").text(data.scanned_expected_summary);
+            $("#total_scanned_summary").text(data.total_scanned_summary);
+            $("#missing_summary").text(data.missing_summary);
+            $("#wrong_wh_summary").text(data.wrong_wh_summary);
+            $("#scanned_outbounded_summary").text(data.scanned_outbounded_summary);
+            $("#missing_outbounded_summary").text(data.missing_outbounded_summary);
+    
+            $("#expected_qty").text(data.total_expected_qty);
+            $("#expected_amount").text(data.total_expected_amount)
+            $("#expected_scanned_qty").text(data.expected_scanned_qty);
+            $("#expected_scanned_amount").text(data.expected_scanned_amount);
+            $("#scanned_qty").text(data.total_scanned_qty);
+            $("#scanned_amount").text(data.scanned_amount);
+            $("#missing_qty").text(data.missing_qty);
+            $("#missing_amount").text(data.missing_amount);
+            $("#wrong_wh_qty").text(data.wrong_warehouse_qty);
+            $("#wrong_wh_amount").text(data.wrong_warehouse_amount);
+            $("#scanned_outbounded_qty").text(data.scanned_outbounded_qty);
+            $("#scanned_outbounded_amount").text(data.scanned_outbounded_amount);
+            $("#missing_outbounded_qty").text(data.missing_outbounded_qty);
+            $("#missing_outbounded_amount").text(data.missing_outbounded_amount);
+            $("#positive_variance_qty").text(data.positive_variance_qty);
+            $("#positive_variance_amount").text(data.positive_variance_amount);
+
+            $("#must_be_equal_expected_scanned_amount").text(data.must_be_equal_expected_scanned_amount);
+            $("#must_be_equal_expected_amount").text(data.must_be_equal_expected_amount);
+            $("#must_be_equal_expected_scanned_qty").text(data.must_be_equal_expected_scanned_qty);
+            $("#must_be_equal_expected_qty").text(data.must_be_equal_expected_qty);
+
+
+            $("#progress_text").text(data.progress + "%");
+
+            $("#progress_bar")
+                .css("width", data.progress + "%")
+                .text(data.progress + "%");
+
+            auditChart.data.datasets[0].data = [
+
+                data.wrong_warehouse_qty,
+                data.wrong_location_qty,
+                data.outbounded_qty,
+                data.missing_qty
+
+            ];
+
+            auditChart.update();
+
+            if(data.audit_status === "completed"){
+                $(".scan-buttons").hide();
+                $(".completed-buttons").removeClass("d-none");
+            }
+
+        }
+
+    });
+
+}
+
+loadAuditSummary();
+
+setInterval(loadAuditSummary, 3000);
 </script>
