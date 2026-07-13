@@ -373,6 +373,11 @@ $stmt->close();
                    class="btn btn-secondary btn-sm mb-2 <?php if( $audit_status === "completed"){ echo "d-none";}?> <?php if($last_status === 'pause' ) echo "d-none"; ?>">
                     Scan Barcode Area
                 </a>
+
+                <a href="../Outbound-form/?audit_id=<?php echo $audit_id; ?>&warehouse=<?php echo $warehouse_id_audit; ?>"
+                    class="btn btn-info btn-sm mb-2">
+                    Outbound items
+                </a>
                 <?php 
                 if($audit_position == 1) {
                     if($audit_status !== "completed" && $last_status === 'start' || $last_status === 'resume'){ ?>
