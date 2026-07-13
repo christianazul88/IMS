@@ -9,6 +9,10 @@ if($audit_position_result->num_rows === 0){
 }
 $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
 
+if($user_email === "vp_ronadanesito@laptoppcoutlet.com"){
+    $audit_position = 1;
+}
+
 // Fetch audit details
 $audit_query = "SELECT al.*, w.warehouse_name FROM audit_logs al LEFT JOIN warehouse w ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci WHERE al.id = ?";
 $stmt = $conn->prepare($audit_query);
@@ -526,6 +530,11 @@ $stmt->close();
                         Find Variance
                     </a>
 
+                    <a href="../Audit-Outbound/?audit_id=<?php echo $audit_id; ?>&warehouse=<?php echo $warehouse_id_audit; ?>"
+                        class="btn btn-info btn-sm">
+                        Outbound items
+                    </a>
+
                     <a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>"
                        class="btn btn-danger btn-sm">
                         Missing CSV
@@ -580,16 +589,28 @@ $stmt->close();
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Expected Qty</small>
-                        <h3><?= number_format($total_expected_qty) ?></h3>
+                        <h3><?= number_format($total_expected_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($total_expected_amount,2) ?>)</span><?php } ?> </h3>
                     </div>
                 </div>
             </div>
 
             <div class="col-md-3">
+                <div class="card border-primary shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Scanned Expected Qty</small>
+                        <h3><?= number_format($total_expected_scanned_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($total_expected_scanned_amount, 2) ?>)</span> <?php } ?></h3>
+                        
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div class="col-md-3">
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Scanned Qty</small>
-                        <h3><?= number_format($total_qty_scanned) ?></h3>
+                        <h3><?= number_format($total_qty_scanned) ?> <?php if($audit_position == 1){?><span class="text-muted fs-11">( ₱ <?= number_format($total_scanned_amount,2) ?> )</span><?php } ?></h3>
                     </div>
                 </div>
             </div>
@@ -598,19 +619,12 @@ $stmt->close();
                 <div class="card border-warning shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Missing Qty</small>
-                        <h3><?= number_format($negative_variance_qty) ?></h3>
+                        <h3><?= number_format($negative_variance_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($negative_variance_amount,2) ?>)</span> <?php } ?></h3>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-3">
-                <div class="card border-info shadow-sm">
-                    <div class="card-body">
-                        <small class="text-muted">Audit Progress</small>
-                        <h3><?= number_format($audit_progress,2) ?>%</h3>
-                    </div>
-                </div>
-            </div>
+            
 
         </div>
     </div>
@@ -702,8 +716,8 @@ $stmt->close();
             <div class="col-md-6">
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
-                        <small class="text-muted">Expected Amount</small>
-                        <h5>₱<?= number_format($total_expected_amount,2) ?></h5>
+                        <small class="text-muted">Wrong/From other Warehouse(s)</small>
+                        <h5><?= number_format($wrong_warehouse_qty,2) ?> <?php if($audit_position == 1){?><span>(₱ <?= number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2) ?> )</span><?php } ?></h5>
                     </div>
                 </div>
             </div>
@@ -711,83 +725,185 @@ $stmt->close();
             <div class="col-md-6">
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
-                        <small class="text-muted">Scanned Amount</small>
-                        <h5>₱<?= number_format($total_amount_scanned,2) ?></h5>
+                        <small class="text-muted">Outbounded</small>
+                        <h5><?= $total_scanned_outbounded_as_positive_variance_qty ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($total_scanned_outbounded_as_positive_variance_amount,2) ?> )</span> <?php } ?></h5>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-12">
                 <div class="card border-warning shadow-sm">
                     <div class="card-body">
-                        <small class="text-muted">Outbounded Amount</small>
-                        <h5>₱<?= number_format($total_amount_outbounded,2) ?></h5>
+                        <div class="row">
+                            <div class="col-sm-6 col-md-6 col-xs-12">
+                                <?php if($audit_position == 1){?>
+                                    <div class="text-start">
+                                        <small>Positive Variance (Wrong WH + Outbounded)</small>
+                                    </div>
+
+                                    <div class="text-end">
+                                        <?php echo number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2);?>
+                                        + <?php echo number_format($total_scanned_outbounded_as_positive_variance_amount, 2);?> =
+                                        <?php echo number_format($positive_variance_amount, 2);?>
+                                    </div>
+
+                                    <div class="text-start">
+                                        <b><small>Calculation</small></b>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-6 text-start">
+                                            <small>Total Scanned</small>
+                                        </div>
+                                        <div class="col-sm-6 text-end"><small><?php echo number_format($total_scanned_amount, 2);?></small></div>
+                                        <div class="col-sm-6 text-start">
+                                            <small>Positive Variance</small>
+                                        </div>
+                                        <div class="col-sm-6 text-end">
+                                            <small>- <?php echo number_format($positive_variance_amount, 2); ?></small></div> 
+                                        <hr>
+                                        <div class="col-sm-6">
+                                            <small>must be equal to 'Expected Scanned'</small>
+                                        </div>
+                                        <div class="col-sm-6 text-end">
+                                            <small><?php 
+                                                $expected_formula_amountscanned = $total_scanned_amount - $positive_variance_amount;
+                                                echo number_format($expected_formula_amountscanned, 2);
+                                            ?></small>
+                                        </div>
+                                        <div class="col-sm-6 text-start">
+                                            <small>Missing</small>
+                                        </div>
+                                        <div class="col-sm-6 text-end">
+                                            <small>+ <?php echo number_format($negative_variance_amount, 2);?></div></small>
+                                        
+                                        <hr>
+                                        <div class="col-sm-6 text-start">
+                                            <small>must be equal to 'Expected'</small>
+                                        </div>
+                                        <div class="col-sm-6 text-end">
+                                            <small><?php 
+                                            $expected_amount_formula = $expected_formula_amountscanned + $negative_variance_amount;
+                                            echo number_format($expected_amount_formula, 2);
+                                            ?></small>
+                                        </div>
+                                        <div class="col-sm-6 text-start">
+                                            <small>Expected</small>
+                                        </div>
+                                        <div class="col-sm-6 text-end">
+                                            <small>/ <?php echo number_format($total_expected_amount,2);?></small>
+                                        </div>
+                                        <hr>
+                                        <?php 
+                                        $check_if_balance_amount = $expected_amount_formula / $total_expected_amount;
+                                        if($check_if_balance_amount != 1){
+                                            echo '
+                                            <div class="col-sm-6">
+                                                <small class="text-danger">Not Balanced</small>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <small class="text-danger">'. number_format($check_if_balance_amount) .'</small>
+                                            </div>';
+                                        } else {
+                                            echo '
+                                            <div class="col-sm-6">
+                                                <small class="text-success">Balanced</small>
+                                            </div>
+                                            <div class="col-sm-6 text-end">
+                                                <small class="text-success">'. number_format($check_if_balance_amount) .'</small>
+                                            </div>';
+                                        }
+                                        ?>
+                                    </div>
+                                <?php
+                                }
+                                ?>
+                            </div>
+                            <div class="col-md-6 col-sm-6 col-xs-6 text-end">
+                                <div class="text-start">
+                                    <small>Positive Variance (Wrong WH + Outbounded)</small>
+                                </div>
+
+                                <div class="text-end">
+                                    <?php echo number_format($wrong_warehouse_qty);?>
+                                    + <?php echo number_format($total_scanned_outbounded_as_positive_variance_qty);?> =
+                                    <?php echo $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty;?>
+                                </div>
+
+                                <div class="text-start">
+                                    <b><small>Calculation</small></b>
+                                </div>
+                                <div class="row">
+                                    <div class="col-sm-6 text-start">
+                                        <small>Total Scanned</small>
+                                    </div>
+                                    <div class="col-sm-6 text-end"><small><?php echo number_format($total_qty_scanned);?></small></div>
+                                    <div class="col-sm-6 text-start">
+                                        <small>Positive Variance</small>
+                                    </div>
+                                    <div class="col-sm-6 text-end">
+                                        <small>- <?php echo $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty; ?></small></div> 
+                                    <hr>
+                                    <div class="col-sm-6 text-start">
+                                        <small>must be equal to 'Expected Scanned'</small>
+                                    </div>
+                                    <div class="col-sm-6 text-end">
+                                        <small><?php 
+                                            
+                                            $expected_formula_qtyscanned = $total_qty_scanned - $positive_variance_qty;
+                                            echo number_format($expected_formula_qtyscanned);
+                                        ?></small>
+                                    </div>
+                                    <div class="col-sm-6 text-start">
+                                        <small>Missing</small>
+                                    </div>
+                                    <div class="col-sm-6 text-end">
+                                        <small>+ <?php echo number_format($negative_variance_qty);?></div></small>
+                                    
+                                    <hr>
+                                    <div class="col-sm-6 text-start">
+                                        <small>must be equal to 'Expected'</small>
+                                    </div>
+                                    <div class="col-sm-6 text-end">
+                                        <small><?php 
+                                        $expected_qty_formula = $expected_formula_qtyscanned + $negative_variance_qty;
+                                        echo number_format($expected_qty_formula);
+                                        ?></small>
+                                    </div>
+                                    <div class="col-sm-6 text-start">
+                                        <small>Expected</small>
+                                    </div>
+                                    <div class="col-sm-6 text-end">
+                                        <small>/ <?php echo number_format($total_expected_qty);?></small>
+                                    </div>
+                                     <hr>
+                                    <?php 
+                                    $check_if_balance_qty = $expected_qty_formula / $total_expected_qty;
+                                    if($check_if_balance_qty != 1){
+                                        echo '
+                                        <div class="col-sm-6 text-start">
+                                            <small class="text-danger">Not Balanced</small>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <small class="text-danger">'. number_format($check_if_balance_amount) .'</small>
+                                        </div>';
+                                    } else {
+                                        echo '
+                                        <div class="col-sm-6 text-start">
+                                            <small class="text-success">Balanced</small>
+                                        </div>
+                                        <div class="col-sm-6 text-end">
+                                            <small class="text-success">'. number_format($check_if_balance_qty) .'</small>
+                                        </div>';
+                                    }
+                                    ?>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-6">
-                <div class="card border-danger shadow-sm">
-                    <div class="card-body">
-                        <small class="text-muted">Variance Amount</small>
-                        <h5>₱<?= number_format($variance_amount,2) ?></h5>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="card border-success">
-                    <div class="card-body">
-                        <small>Positive Variance</small>
-                        <h4><?= $positive_variance_qty ?></h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="card border-danger">
-                    <div class="card-body">
-                        <small>Negative Variance</small>
-                        <h4><?= $negative_variance_qty ?></h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="card border-warning">
-                    <div class="card-body">
-                        <small>Wrong Warehouse</small>
-                        <h4><?= $wrong_warehouse_qty ?></h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="card border-info">
-                    <div class="card-body">
-                        <small>Wrong Location</small>
-                        <h4><?= $wrong_location_qty ?></h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="card border-secondary">
-                    <div class="card-body">
-                        <small>Outbounded</small>
-                        <h4><?= $outbounded_variance_qty ?></h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="card border-dark">
-                    <div class="card-body">
-                        <small>Net Variance</small>
-                        <h4><?= $net_variance_qty ?></h4>
-                    </div>
-                </div>
-            </div>
+            
 
         </div>
     </div>
