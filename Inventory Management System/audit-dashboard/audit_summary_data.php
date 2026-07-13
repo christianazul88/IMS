@@ -371,7 +371,7 @@ echo json_encode([
     'wrong_warehouse_qty' => $wrong_warehouse_qty,
     'wrong_warehouse_amount' => number_format($total_scanned_wrong_warehouse_as_positive_variance_amount,2),
 
-    'scanned_outbounded_qty' => 5,
+    'scanned_outbounded_qty' => 500,
     'scanned_outbounded_amount' => number_format($total_scanned_outbounded_as_positive_variance_amount,2),
 
     'missing_outbounded_qty' => $outbounded_qty_missing,
