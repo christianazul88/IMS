@@ -1360,7 +1360,7 @@ function loadAuditSummary(){
 
                 data.wrong_warehouse_qty,
                 data.wrong_location_qty,
-                data.outbounded_qty,
+                data.scanned_outbounded_qty,
                 data.missing_qty
 
             ];
