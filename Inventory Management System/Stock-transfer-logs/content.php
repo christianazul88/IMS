@@ -3,13 +3,28 @@
 if (isset($_SESSION['Stock_id'])) {
     unset($_SESSION['Stock_id']);
 }
-?>
 
+if(isset($_GET['rec'])){
+  $btn_receives = "btn-primary";
+  $btn_pending = "btn-outline-primary";
+  $additional_query = "AND st.status = 'received' AND st.date_out >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+} else {
+  $btn_receives = "btn-outline-primary";
+  $btn_pending = "btn-primary";
+  $additional_query = "AND st.status = 'pending'";
+}
+?>
+<div class="text-start p-3">
+    <a href="../Stock-transfer-logs/" type="button" class="btn <?php echo $btn_pending;?> btn-sm">Pending(s)</a>
+    <a href="../Stock-transfer-logs/?rec=0" type="button" class="btn <?php echo $btn_receives;?> btn-sm">Received</a>
+</div>
 <div class="card">
   <div class="card-header bg-success">
     <h2 class="text-dark">Stock Transfer Logs</h2>
   </div>
   <div class="card-body overflow-hidden py-6 px-0">
+
+    
     <div id="tableExample4" data-list='{"valueNames":["Stock_no","batch","status","from_wh","from_name","date_sent","remarks_sender","to_wh","date_rec","receiver_name","remarks_rec"]}'>
      
       
@@ -57,7 +72,8 @@ if (isset($_SESSION['Stock_id'])) {
                                     st.from_warehouse IN ($imploded_warehouse_ids)
                                     OR st.to_warehouse IN ($imploded_warehouse_ids)
                                 )
-                                AND st.date_out >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+                                -- AND st.date_out >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+                                $additional_query
                             GROUP BY st.id
                             ORDER BY st.id DESC
                         ";
