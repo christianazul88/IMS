@@ -4,19 +4,37 @@ if (isset($_SESSION['Stock_id'])) {
     unset($_SESSION['Stock_id']);
 }
 
-if(isset($_GET['rec'])){
-  $btn_receives = "btn-primary";
+if(isset($_GET['rec']) && $_GET['rec'] == 30){
+  $btn_receives30 = "btn-primary";
   $btn_pending = "btn-outline-primary";
+  $btn_receives60 ="btn-outline-primary";
+  $btn_receivesall ="btn-outline-primary";
   $additional_query = "AND st.status = 'received' AND st.date_out >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+} elseif(isset($_GET['rec']) && $_GET['rec'] == 60){
+  $btn_receives30 = "btn-outline-primary";
+  $btn_pending = "btn-outline-primary";
+  $btn_receives60 ="btn-primary";
+  $btn_receivesall ="btn-outline-primary";
+  $additional_query = "AND st.status = 'received' AND st.date_out >= DATE_SUB(NOW(), INTERVAL 60 DAY)";
+} elseif(isset($_GET['rec']) && $_GET['rec'] === "all"){
+  $btn_receives30 = "btn-outline-primary";
+  $btn_pending = "btn-outline-primary";
+    $btn_receives60 ="btn-outline-primary";
+  $btn_receivesall ="btn-primary";
+  $additional_query = "AND st.status = 'received'";
 } else {
-  $btn_receives = "btn-outline-primary";
+  $btn_receives30 = "btn-outline-primary";
   $btn_pending = "btn-primary";
+  $btn_receives60 ="btn-outline-primary";
+  $btn_receivesall ="btn-outline-primary";
   $additional_query = "AND st.status = 'pending'";
 }
 ?>
 <div class="text-start p-3">
     <a href="../Stock-transfer-logs/" type="button" class="btn <?php echo $btn_pending;?> btn-sm">Pending(s)</a>
-    <a href="../Stock-transfer-logs/?rec=0" type="button" class="btn <?php echo $btn_receives;?> btn-sm">Received</a>
+    <a href="../Stock-transfer-logs/?rec=30" type="button" class="btn <?php echo $btn_receives30;?> btn-sm">Received (last 30 days)</a>
+    <a href="../Stock-transfer-logs/?rec=60" type="button" class="btn <?php echo $btn_receives60;?> btn-sm">Received (last 60 days)</a>
+    <a href="../Stock-transfer-logs/?rec=all" type="button" class="btn <?php echo $btn_receivesall;?> btn-sm">Received (all)</a>
 </div>
 <div class="card">
   <div class="card-header bg-success">
