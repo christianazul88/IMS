@@ -297,6 +297,29 @@ $outbounded_amount_missing = $row['total_missing_outbounded_amount'];
 
 $stmt_summary_result->close();
 
+if($audit_position != 1){
+// Expected
+$total_expected_amount = 0;
+
+// Scanned
+$total_scanned_amount = 0;
+
+// Expected Scanned
+$total_expected_scanned_amount = 0;
+
+// Missing
+$negative_variance_amount = 0;
+
+// Positive Variance - Outbounded
+$total_scanned_outbounded_as_positive_variance_amount = 0;
+
+// Positive Variance - Wrong Warehouse
+$total_scanned_wrong_warehouse_as_positive_variance_amount = 0;
+
+//missing that was outbounded
+$outbounded_amount_missing = 0;
+}
+
 $outbounded_variance_qty = $total_scanned_outbounded_as_positive_variance_amount;
 $positive_variance_qty = $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty;
 $positive_variance_amount = $total_scanned_wrong_warehouse_as_positive_variance_amount + $total_scanned_outbounded_as_positive_variance_amount;
@@ -340,6 +363,8 @@ $must_be_equal_expected_amount = $must_be_equal_expected_scanned_amount + $negat
 
 $must_be_equal_expected_scanned_qty = $total_qty_scanned - $positive_variance_qty;
 $must_be_equal_expected_qty = $must_be_equal_expected_scanned_qty + $negative_variance_qty + $outbounded_qty_missing;
+
+
 
 echo json_encode([
     'expected_summary' => $expected_summary,

@@ -379,6 +379,7 @@ if(isset($_GET['type'])){
             }
 
             $stmt_update->close();
+            header("Location: ../item-destination/");
         }
     }
 }
