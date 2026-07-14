@@ -282,19 +282,8 @@
                             <article class="card mb-3 overflow-hidden">
                                 <div class="card-body p-0">
                                     <div class="row g-0">
-                                        <div class="col-md-4 col-lg-3">
-                                            <div class="hoverbox h-md-100">
-                                                <a class="text-decoration-none" 
-                                                    href="${item.product_img || '../../assets/img/def_img.png'}" 
-                                                    data-gallery="gallery-2" 
-                                                    data-glightbox>
-                                                    <img class="h-100 w-100 object-fit-cover" 
-                                                        src="${item.product_img || 'def_img.png'}" 
-                                                        alt="${item.product_name || 'No Image'}" />
-                                                </a>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-8 col-lg-9 p-x1">
+                                        
+                                        <div class="col-md-12 col-lg-12 p-x1">
                                             <div class="row g-0 h-100">
                                                 <div class="col-lg-8 col-xxl-9 d-flex flex-column pe-x1">
                                                     <div class="d-flex gap-2 flex-wrap mb-3">
