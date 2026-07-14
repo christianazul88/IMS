@@ -417,6 +417,8 @@ $stmt->close();
                         CSV Summary
                     </a>
 
+                    <a href="complete.php" class="btn btn-danger btn-sm mb-2">Complete Audit</a>
+
                     
 
 
