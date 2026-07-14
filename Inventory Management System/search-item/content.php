@@ -202,7 +202,7 @@
 
             $total_rows = $product_row_count + $outbound_row_count + $stock_transfer_row_count;
             // echo $total_rows;
-        }
+        
     ?>
 
 
@@ -720,5 +720,6 @@
 
         </div>';
     }
+        }
     ?>
 </div>
