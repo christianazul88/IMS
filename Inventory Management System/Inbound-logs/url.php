@@ -8,6 +8,8 @@ include "../config/database.php";
 include "../config/on_session.php";
 require_once '../../vendor/autoload.php'; // mPDF
 
+$logo = '../../assets/img/logo/LPO Emblem.png';
+
 use Picqer\Barcode\BarcodeGeneratorPNG;
 
 if (isset($_GET['id'])) {
@@ -114,8 +116,47 @@ if (isset($_GET['id'])) {
         <body>
             <div class="container">
                 <div class="header">
-                    <h2>Inbound Document</h2>
-                    <p><strong>Reference No:</strong> <?php echo $unique_key; ?></p>
+                    <table width="100%">
+                        <tr>
+                            <td width="90">
+                                <img src="<?= $logo ?>" style="width:75px;">
+                            </td>
+
+                            <td style="text-align:center;">
+                                <div class="company">
+                                    <strong style="font-size:22px;">
+                                        Laptop PC Outlet
+                                    </strong><br>
+
+                                    <span style="font-size:12px;color:#666;">
+                                        Inventory Management System
+                                    </span>
+
+                                    <h2 style="margin-top:10px;">
+                                        INBOUND RECEIVING DOCUMENT
+                                    </h2>
+                                </div>
+                            </td>
+
+                            <td width="180" style="text-align:right;">
+                                <table class="info-box">
+                                    <tr>
+                                        <td><b>Reference No.</b></td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><?= $unique_key ?></td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><?= $date_received ?></td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <hr>
                 </div>
                 <h5>Sender Details</h5>
                 <p><strong>Name:</strong> <?php echo $inbound_supplier_name; ?></p>
