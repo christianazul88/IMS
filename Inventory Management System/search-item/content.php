@@ -8,7 +8,7 @@
                 </h4>
 
                 <p class="text-muted mb-4">
-                    Search using barcode, product name, brand, category, warehouse, customer or outbound number.
+                    Search using barcode, product name, customer or outbound number.
                 </p>
 
                 <form action="index.php" method="POST">
