@@ -375,7 +375,7 @@ $stmt->close();
                 </a>
 
                 <a href="../Outbound-form/?audit_id=<?php echo $audit_id; ?>&warehouse=<?php echo $warehouse_id_audit; ?>"
-                    class="btn btn-info btn-sm mb-2">
+                    class="btn btn-info btn-sm mb-2 <?php if( $audit_status === "completed"){ echo "d-none";}?>">
                     Outbound items
                 </a>
                 <?php 
@@ -425,6 +425,10 @@ $stmt->close();
                 <?php 
                     } elseif($audit_status === "completed") {
                     ?>
+                    <a href="generate_outbounded.php?audit_id=<?php echo $audit_id; ?>"
+                        class="btn btn-warning btn-sm mb-2">
+                    Outbounded CSV
+                    </a>
                     <a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>"
                        class="btn btn-danger btn-sm mb-2">
                         Missing CSV
