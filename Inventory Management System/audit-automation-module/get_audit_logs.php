@@ -12,7 +12,7 @@ $offset = ($page - 1) * $limit;
 $where = '';
 if (!empty($search)) {
     $search = $conn->real_escape_string($search);
-    if($user_email === "vp_ronadanesito@laptoppcoutlet.com"){
+    if($user_email === "vp_ronadanesito@laptoppcoutlet.com" || $user_email === "administrator@admin.admin"){
         $where = "WHERE (al.audit_num LIKE '%$search%' OR w.warehouse_name LIKE '%$search%' OR CONCAT(u.user_fname, ' ', u.user_lname) LIKE '%$search%' OR CONCAT(u2.user_fname, ' ', u2.user_lname) LIKE '%$search%' OR al.audit_status LIKE '%$search%')";
     } else {
         $where = "AND (al.audit_num LIKE '%$search%' OR w.warehouse_name LIKE '%$search%' OR CONCAT(u.user_fname, ' ', u.user_lname) LIKE '%$search%' OR CONCAT(u2.user_fname, ' ', u2.user_lname) LIKE '%$search%' OR al.audit_status LIKE '%$search%')";
@@ -26,7 +26,7 @@ $count_result = $conn->query($count_query);
 $total = $count_result->fetch_assoc()['total'];
 
 // Get data
-if($user_email === "vp_ronadanesito@laptoppcoutlet.com"){
+if($user_email === "vp_ronadanesito@laptoppcoutlet.com" || $user_email === "administrator@admin.admin"){
     $data_query = "SELECT al.*, u.user_fname, u.user_lname, u2.user_fname as updater_fname, u2.user_lname as updater_lname, w.warehouse_name FROM audit_logs al LEFT JOIN users u ON al.created_by = u.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN users u2 ON al.updated_by = u2.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN warehouse w ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci $where ORDER BY al.id DESC LIMIT $limit OFFSET $offset";
 } else {
     $data_query = "SELECT al.*, u.user_fname, u.user_lname, u2.user_fname as updater_fname, u2.user_lname as updater_lname, w.warehouse_name FROM audit_logs al LEFT JOIN users u ON al.created_by = u.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN users u2 ON al.updated_by = u2.hashed_id COLLATE utf8mb4_unicode_ci LEFT JOIN warehouse w ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci  WHERE al.warehouse IN ($user_warehouse_id) $where ORDER BY al.id DESC LIMIT $limit OFFSET $offset";
