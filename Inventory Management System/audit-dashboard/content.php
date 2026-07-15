@@ -4,14 +4,14 @@ $audit_id = $_SESSION['audit_id'];
 $audit_position_query = "SELECT audit_position FROM audit_users WHERE hashed_id = '$user_id' AND audit_id = '$audit_id'";
 $audit_position_result = $conn->query($audit_position_query);
 if($audit_position_result->num_rows === 0){
-    if($user_email !== "vp_ronadanesito@laptoppcoutlet.com" || $user_email !== "administrator@admin.admin"){
+    if($user_email !== "vp_ronadanesito@laptoppcoutlet.com" && $user_email !== "administrator@admin.admin"){
         echo "<div class='alert alert-danger'>You are not assigned to this audit.</div>";
         exit;
     }
 }
 $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
 
-if($user_email === "vp_ronadanesito@laptoppcoutlet.com" || $user_email === "administrator@admin.admin"){
+if($user_email === "vp_ronadanesito@laptoppcoutlet.com" && $user_email === "administrator@admin.admin"){
     $audit_position = 1;
 }
 
