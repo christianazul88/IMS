@@ -11,7 +11,7 @@ if($audit_position_result->num_rows === 0){
 }
 $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
 
-if($user_email === "vp_ronadanesito@laptoppcoutlet.com" && $user_email === "administrator@admin.admin"){
+if($user_email === "vp_ronadanesito@laptoppcoutlet.com" || $user_email === "administrator@admin.admin"){
     $audit_position = 1;
 }
 
