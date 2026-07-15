@@ -43,7 +43,7 @@ if (!empty($batch_code)) {
         ) ol ON ol.unique_barcode = s.unique_barcode 
         WHERE s.batch_code = ? AND s.product_id = ? AND s.warehouse = ? 
         $search_sql
-        ORDER BY s.barcode_extension, s.item_status ASC 
+        ORDER BY s.item_status ASC 
         LIMIT ?, ?";
 
     $params[] = $offset;
