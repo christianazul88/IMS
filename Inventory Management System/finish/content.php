@@ -180,7 +180,7 @@ if($status === "for_approval"){
         WHERE ia.audit_id = ?
         AND ia.audit_assignment_id = ?
         AND ia.user_id = ?
-        AND ia.audit_status = 'approved'
+        AND ia.audit_status IN ('approved','scanned')
         ORDER BY ia.scanned_date ASC
     ";
 }
