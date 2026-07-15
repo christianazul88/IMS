@@ -173,7 +173,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         FROM items_to_audit
         WHERE audit_id = ?
         AND unique_barcode = ?
-        AND (audit_status = 'scanned' OR audit_status = 'approved')
+        AND audit_status IN ('scanned','approved','outbounded')
     ";
 
 
