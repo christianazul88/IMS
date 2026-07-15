@@ -2,6 +2,7 @@
 $audit_id = $_SESSION['audit_id'];
 $selected_area = $_GET['area'];
 $staff_id = $_GET['user_id'] ?? $user_id;
+$audit_assignment_id = $_GET['aa'] ?? null;
 
 // echo $staff_id;
 
@@ -55,14 +56,16 @@ if ($audit['audit_status'] == 'pending') {
 // =========================
 // ASSIGNMENT
 // =========================
-$audit_assignment_query = "SELECT id, warehouse FROM audit_assignments WHERE item_location = ? AND audit_id = ? LIMIT 1";
-$stmt = $conn->prepare($audit_assignment_query);
-$stmt->bind_param("ii", $selected_area, $audit_id);
-$stmt->execute();
-$assignment_data = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+if($audit_assignment_id === null){
+    $audit_assignment_query = "SELECT id, warehouse FROM audit_assignments WHERE item_location = ? AND audit_id = ? LIMIT 1";
+    $stmt = $conn->prepare($audit_assignment_query);
+    $stmt->bind_param("ii", $selected_area, $audit_id);
+    $stmt->execute();
+    $assignment_data = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 
-$audit_assignment_id = $assignment_data['id'] ?? null;
+    $audit_assignment_id = $assignment_data['id'] ?? null;
+}
 $warehouse_audit_id = $assignment_data['warehouse'] ?? null;
 // echo $audit_assignment_id;
 

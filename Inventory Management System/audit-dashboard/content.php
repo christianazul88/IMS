@@ -993,7 +993,8 @@ $stmt->close();
                         aas.audit_assignments_id,
                         il.id AS location_id,
                         il.location_name,
-                        aas.id AS fi
+                        aas.id AS fi,
+                        aa.id AS audit_assignment_id
                     FROM audit_assignment_staffs aas
                     LEFT JOIN users u
                         ON u.hashed_id = aas.user_id
@@ -1076,7 +1077,7 @@ $stmt->close();
 
                                     <?php if ($staff['staff_status'] === 'for_approval' || $staff['staff_status'] === 'approved' || $staff['staff_status'] === 'rejected') : ?>
 
-                                        <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>"
+                                        <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>&aa=<?= $staff['audit_assignment_id'] ?>"
                                         class="btn btn-success btn-sm">
                                             View
                                         </a>
