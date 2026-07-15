@@ -90,7 +90,7 @@ $morethan_3_months_display = '
             </div>
             <div class="col-auto d-flex align-items-center">
                 '
-                . ($morethan_3_months > 0 ? '<a class="fs-10 fw-medium text-warning-emphasis" href="../Extended-Shelf-Items/">View products
+                . ($morethan_3_months > 0 ? '<a class="fs-10 fw-medium text-warning-emphasis" href="csv.php">View products
                     <i class="fas fa-chevron-right ms-1 fs-11"></i>
                 </a>' : '') .
                 '
@@ -98,6 +98,30 @@ $morethan_3_months_display = '
             </div>
         </div>
     </li>';
+
+
+
+// $morethan_3_months_display = '
+//     <li class="list-group-item mb-0 rounded-0 py-3 px-x1 list-group-item-' . ($morethan_3_months > 0 ? 'warning' : 'success') . ' border-x-0 border-top-0">
+//         <div class="row flex-between-center">
+//             <div class="col">
+//                 <div class="d-flex">
+//                     <div class="fas fa-circle mt-1 fs-11"></div>
+//                     <p class="fs-10 ps-2 mb-0"><strong>' . 
+//                         ($morethan_3_months > 0 ? $morethan_3_months . ' products' : 'No products') . 
+//                     '</strong> has been staying in your inventory for more than 3 months.</p>
+//                 </div>
+//             </div>
+//             <div class="col-auto d-flex align-items-center">
+//                 '
+//                 . ($morethan_3_months > 0 ? '<a class="fs-10 fw-medium text-warning-emphasis" href="../Extended-Shelf-Items/">View products
+//                     <i class="fas fa-chevron-right ms-1 fs-11"></i>
+//                 </a>' : '') .
+//                 '
+                
+//             </div>
+//         </div>
+//     </li>';
 
 $under_safety = 0;
 $under_safety_query = "SELECT `safety`, hashed_id AS product_id FROM product";
