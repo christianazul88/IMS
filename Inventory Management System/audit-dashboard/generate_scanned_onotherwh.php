@@ -34,6 +34,7 @@ if (!$audit) {
 }
 
 $warehouse_id_audit = $audit['warehouse'] ?? null;
+$audit_number = $audit['audit_num'] ?? 0;
 /*
 |--------------------------------------------------------------------------
 | CSV HEADERS
@@ -71,6 +72,7 @@ fputcsv($output, []);
 */
 
 fputcsv($output, [
+    "Audit #",
     "Unique Barcode",
     "Description",
     "Category",
@@ -166,6 +168,7 @@ $stmt->execute();
 */
 
 $stmt->bind_result(
+    $audit_number,
     $unique_barcode,
     $description,
     $category_name,
