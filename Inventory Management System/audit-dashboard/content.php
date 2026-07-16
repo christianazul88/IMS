@@ -409,6 +409,11 @@ $stmt->close();
                         Missing CSV
                     </a>
 
+                    <a href="generate_scanned_onotherwh.php?audit_id=<?php echo $audit_id; ?>"
+                       class="btn btn-danger btn-sm mb-2">
+                        Scanned on other audit
+                    </a>
+
                     <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
                        class="btn btn-success btn-sm mb-2">
                         Scanned CSV
@@ -435,6 +440,11 @@ $stmt->close();
                        class="btn btn-danger btn-sm mb-2">
                         Missing CSV
                     </a>
+
+                    <a href="generate_scanned_onotherwh.php?audit_id=<?php echo $audit_id; ?>"
+                       class="btn btn-danger btn-sm mb-2">
+                        Scanned on other audit
+                    </a>
                     
                     <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"
                        class="btn btn-success btn-sm mb-2">
@@ -445,6 +455,8 @@ $stmt->close();
                        class="btn btn-primary btn-sm mb-2">
                         CSV Summary
                     </a>
+
+                    
                     <?php
                     }
                 }

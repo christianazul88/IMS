@@ -165,7 +165,40 @@ if(isset($_GET['rec']) && $_GET['rec'] == 30){
             } else {
             ?>
             <tr class="text-center">
-              <td class="py-6" colspan="10">
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
+                <h4>No Data yet</h4>
+              </td>
+              <td class="align-middle">
                 <h4>No Data yet</h4>
               </td>
             </tr>
