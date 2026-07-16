@@ -8,186 +8,127 @@ ini_set('pcre.backtrack_limit', '10000000');
 include "../config/database.php";
 include "../config/on_session.php";
 
-/* -----------------------------
-   Sanitize Inputs
------------------------------- */
-$from = htmlspecialchars($_GET['from'] ?? '');
-$to = htmlspecialchars($_GET['to'] ?? '');
-$raw_category = $_GET['category'] ?? '';
-$warehouse_transaction = htmlspecialchars($_GET['wh'] ?? '');
+// Prevent timeout for large exports
+set_time_limit(0);
 
-$categories = explode(',', $_GET['category'] ?? '');
-$escaped = array_map(fn($cat) => "'" . trim(htmlspecialchars($cat, ENT_QUOTES)) . "'", $categories);
-$imploded_category = implode(',', $escaped);
-
-/* -----------------------------
-   Warehouse Filters
------------------------------- */
-if (empty($raw_category) && empty($warehouse_transaction)) {
-    $category_additional_query = "AND ol.warehouse IN ($user_warehouse_id)";
-    $item_additional_query = "AND ol.warehouse IN ($user_warehouse_id)";
-} elseif (!empty($raw_category) && !empty($warehouse_transaction)) {
-    $category_additional_query = "AND c.hashed_id IN ($raw_category) AND ol.warehouse = '$warehouse_transaction'";
-    $item_additional_query = "AND ol.warehouse = '$warehouse_transaction'";
-} elseif (empty($raw_category) && !empty($warehouse_transaction)) {
-    $category_additional_query = "AND ol.warehouse = '$warehouse_transaction'";
-    $item_additional_query = "AND ol.warehouse = '$warehouse_transaction'";
+// Disable output buffering
+while (ob_get_level()) {
+    ob_end_clean();
 }
 
-/* -----------------------------
-   Start CSV Export
------------------------------- */
-if ($from && $to) {
+$startDate = $_GET['startdate'];
+$endDate = $_GET['enddate'];
+$additional_query = $_SESSION['transaction_overview_additional'];
 
-    $fileName = "Transaction Overview - $from to $to.csv";
+$filename = "Transaction Overview Report as of " . date("Y-m-d_H-i-s") . ".csv";
 
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="' . $fileName . '"');
-    header('Pragma: no-cache');
-    header('Expires: 0');
+// Download headers
+header('Content-Type: text/csv');
+header("Content-Disposition: attachment; filename=\"$filename\"");
+header('Pragma: no-cache');
+header('Expires: 0');
 
-    $output = fopen('php://output', 'w');
+// Open output stream
+$output = fopen('php://output', 'w');
 
-    /* CSV Header Row */
-    fputcsv($output, [
-        '#',
-        'Classification',
-        'Category',
-        'Order #',
-        'Outbound #',
-        'Customer',
-        'Outbound Date',
-        'Supplier',
-        'Local/Import',
-        'Description',
-        'Brand',
-        'Barcode',
-        'Batch',
-        'Staff',
-        'Status',
-        'Unit Cost',
-        'Gross Sale',
-        'Net Income'
-    ]);
+// CSV Header
+fputcsv($output, [
+    'Classification',
+    'Category',
+    'Order No.',
+    'Outbound No.',
+    'Customer',
+    'Date Sent',
+    'Supplier',
+    'Local/International',
+    'Warehouse',
+    'Description',
+    'Brand',
+    'Barcode',
+    'Batch Code',
+    'Prepared By',
+    'Status',
+    'Capital',
+    'Sold Price'
+]);
 
-    $num = 1;
+$query = "
+SELECT
+    class.classification_name,
+    c.category_name,
+    ol.order_num,
+    ol.hashed_id AS outbound_num,
+    ol.customer_fullname,
+    ol.date_sent,
+    sup.supplier_name,
+    sup.local_international,
+    w.warehouse_name,
+    p.description,
+    b.brand_name,
+    s.unique_barcode,
+    s.batch_code,
+    u.user_fname,
+    u.user_lname,
+    oc.status AS outbound_status,
+    s.capital,
+    oc.sold_price
+FROM outbound_content oc
+INNER JOIN stocks s
+    ON s.unique_barcode = oc.unique_barcode
+LEFT JOIN outbound_logs ol
+    ON ol.hashed_id = oc.hashed_id
+LEFT JOIN product p
+    ON p.hashed_id = s.product_id
+LEFT JOIN brand b
+    ON b.hashed_id = p.brand
+LEFT JOIN category c
+    ON c.hashed_id = p.category
+LEFT JOIN classification class
+    ON class.hashed_id = c.classification_id
+LEFT JOIN users u
+    ON u.hashed_id = ol.user_id
+LEFT JOIN warehouse w
+    ON w.hashed_id = ol.warehouse
+LEFT JOIN supplier sup
+    ON sup.hashed_id = s.supplier
+WHERE
+    ol.date_sent BETWEEN '$startDate' AND '$endDate'
+    $additional_query
+    ORDER BY ol.warehouse DESC
+";
 
-    /* -----------------------------
-       Category Query
-    ------------------------------ */
-    $category_query = "
-        SELECT 
-            c.hashed_id AS category_id,
-            c.category_name,
-            cl.classification_name
-        FROM category c
-        LEFT JOIN product p ON p.category = c.hashed_id
-        LEFT JOIN stocks s ON s.product_id = p.hashed_id
-        LEFT JOIN outbound_content oc ON oc.unique_barcode = s.unique_barcode
-        LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
-        LEFT JOIN classification cl ON cl.hashed_id = c.classification_id
-        WHERE
-            s.item_status != 8
-            AND DATE(ol.date_sent) BETWEEN '$from' AND '$to'
-            $category_additional_query
-        GROUP BY c.category_name
-    ";
+$result = $conn->query($query);
 
-    $category_result = $conn->query($category_query);
-
-    if ($category_result && $category_result->num_rows > 0) {
-
-        while ($cat = $category_result->fetch_assoc()) {
-
-            $category_id = $cat['category_id'];
-            $category_name = $cat['category_name'];
-            $classification_name = $cat['classification_name'];
-
-            /* -----------------------------
-               Item Query Per Category
-            ------------------------------ */
-            $item_query = "
-                SELECT
-                    oc.unique_barcode,
-                    oc.sold_price,
-                    ol.order_num,
-                    oc.hashed_id AS outbound_num,
-                    ol.customer_fullname,
-                    ol.date_sent,
-                    sup.supplier_name,
-                    sup.local_international,
-                    p.description,
-                    b.brand_name,
-                    s.batch_code,
-                    s.capital,
-                    u.user_fname,
-                    u.user_lname,
-                    oc.status AS outbound_status
-                FROM outbound_content oc
-                LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
-                LEFT JOIN stocks s ON s.unique_barcode = oc.unique_barcode
-                LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
-                LEFT JOIN product p ON p.hashed_id = s.product_id
-                LEFT JOIN brand b ON b.hashed_id = p.brand
-                LEFT JOIN users u ON u.hashed_id = ol.user_id
-                WHERE 
-                    p.category = '$category_id'
-                    AND s.item_status != 8
-                    AND DATE(ol.date_sent) BETWEEN '$from' AND '$to'
-                    $item_additional_query
-                ORDER BY u.user_fname, oc.status ASC
-            ";
-
-            $item_res = $conn->query($item_query);
-
-            if ($item_res && $item_res->num_rows > 0) {
-
-                while ($row = $item_res->fetch_assoc()) {
-
-                    $net_income = $row['sold_price'] - $row['capital'];
-                    $staff_fullname = $row['user_fname'] . " " . $row['user_lname'];
-
-                    /* Clean status text */
-                    switch ($row['outbound_status']) {
-                        case 0: $status = 'Paid'; break;
-                        case 1: $status = 'Returned'; break;
-                        case 2: $status = 'Voided'; break;
-                        case 6: $status = 'Outbounded'; break;
-                        default: $status = 'Unknown';
-                    }
-
-                    fputcsv($output, [
-                        $num,
-                        $classification_name,
-                        $category_name,
-                        '"-' . $row['order_num'] . '-"',
-                        '"-' . $row['outbound_num'] . '-"',
-                        $row['customer_fullname'],
-                        $row['date_sent'],
-                        $row['supplier_name'],
-                        $row['local_international'],
-                        $row['description'],
-                        $row['brand_name'],
-                        $row['unique_barcode'],
-                        $row['batch_code'],
-                        $staff_fullname,
-                        $status,
-                        $row['capital'],
-                        $row['sold_price'],
-                        $net_income
-                    ]);
-
-                    $num++;
-                }
-            }
-        }
+while ($row = $result->fetch_assoc()) {
+    /* Clean status text */
+    switch ($row['outbound_status']) {
+        case 0: $status = 'Paid'; break;
+        case 1: $status = 'Returned'; break;
+        case 2: $status = 'Voided'; break;
+        case 6: $status = 'Outbounded'; break;
+        default: $status = 'Unknown';
     }
 
-    fclose($output);
-    exit;
+    fputcsv($output, [
+        $row['classification_name'],
+        $row['category_name'],
+        $row['order_num'],
+        $row['outbound_num'],
+        $row['customer_fullname'],
+        $row['date_sent'],
+        $row['supplier_name'],
+        $row['local_international'],
+        $row['warehouse_name'],
+        $row['description'],
+        $row['brand_name'],
+        $row['unique_barcode'],
+        $row['batch_code'],
+        $row['user_fname'] . ' ' . $row['user_lname'],
+        $status,
+        $row['capital'],
+        $row['sold_price']
+    ]);
 }
 
-/* If no date provided */
-echo "Invalid date range.";
+fclose($output);
 exit;
-?>
