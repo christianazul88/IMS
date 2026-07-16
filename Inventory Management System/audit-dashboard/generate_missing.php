@@ -75,7 +75,8 @@ fputcsv($output, [
     "Category",
     "Brand",
     "Supplier",
-    "System Warehouse",
+    "Current Warehouse(Based on database)",
+    "System Audit Warehouse(Based on when the audit was started)",
     "Scanned Warehouse",
     "System Location",
     "Scanned Location",
@@ -99,7 +100,7 @@ $query = "
         b.brand_name,
         
         sup.supplier_name,
-
+        w_current.warehouse_name AS current_warehouse,
         w_system.warehouse_name AS system_warehouse,
         w_scan.warehouse_name AS scanned_warehouse,
 
@@ -129,6 +130,9 @@ $query = "
 
     LEFT JOIN brand b
         ON b.hashed_id = p.brand
+
+    LEFT JOIN warehouse w_current 
+        ON w_current.hashed_id = s.warehouse
 
     /* SYSTEM WAREHOUSE (avoid double warehouse table scan patterns) */
     LEFT JOIN warehouse w_system
@@ -167,6 +171,7 @@ $stmt->bind_result(
     $category_name,
     $brand_name,
     $supplier_name,
+    $current_warehouse,
     $system_warehouse,
     $scanned_warehouse,
     $system_location,
@@ -200,6 +205,7 @@ while ($stmt->fetch()) {
         $category_name,
         $brand_name,
         $supplier_name,
+        $current_warehouse,
         $system_warehouse,
         $scanned_warehouse,
         $system_location,
