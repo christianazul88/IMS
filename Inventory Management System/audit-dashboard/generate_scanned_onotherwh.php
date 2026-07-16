@@ -168,7 +168,6 @@ $stmt->execute();
 */
 
 $stmt->bind_result(
-    $audit_number,
     $unique_barcode,
     $description,
     $category_name,
@@ -202,6 +201,7 @@ while ($stmt->fetch()) {
     }
 
     fputcsv($output, [
+        $audit_number,
         $unique_barcode,
         $description,
         $category_name,
