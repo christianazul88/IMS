@@ -133,7 +133,7 @@ $query = "
 
     /* SYSTEM WAREHOUSE (avoid double warehouse table scan patterns) */
     LEFT JOIN warehouse w_system
-        ON w_system.hashed_id = s.warehouse
+        ON w_system.hashed_id = ita.warehouse_origin
 
     LEFT JOIN warehouse w_scan
         ON w_scan.hashed_id = ita.warehouse_onscanned

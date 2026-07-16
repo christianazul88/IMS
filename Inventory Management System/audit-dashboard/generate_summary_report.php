@@ -387,7 +387,7 @@ $query = "
     LEFT JOIN category c ON c.hashed_id = p.category
     LEFT JOIN brand b ON b.hashed_id = p.brand
 
-    LEFT JOIN warehouse w_system ON w_system.hashed_id = s.warehouse
+    LEFT JOIN warehouse w_system ON w_system.hashed_id = ita.warehouse_origin
     LEFT JOIN warehouse w_scan ON w_scan.hashed_id = ita.warehouse_onscanned
 
     LEFT JOIN item_location il_system ON il_system.id = s.item_location
