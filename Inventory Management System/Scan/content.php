@@ -35,9 +35,13 @@ if ($audit['audit_status'] == 'pending') {
 
 $warehouse_id_audit = $audit['warehouse'];
 
-if ($_POST['area'] === 'others') {
-
-    $location_combo = $_POST['area_code'] . "-" . $_POST['rack'] . "-" . $_POST['level'] . "-" . $_POST['box_num'];
+if ((isset($_POST['area']) && $_POST['area'] === 'others') || (isset($_GET['area']) && $_GET['area'] == 'others')) {
+    if(isset($_GET['loc_combo'])){
+        $location_combo = $_GET['loc_combo'];
+    } else {
+        $location_combo = $_POST['area_code'] . "-" . $_POST['rack'] . "-" . $_POST['level'] . "-" . $_POST['box_num'];
+    }
+    
 
     $location_name = trim($location_combo);
 
