@@ -202,6 +202,12 @@ $letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
                             <option value="R10">R10</option>
                             <option value="R11">R11</option>
                             <option value="R12">R12</option>
+                            <option value="WS1">WS1</option>
+                            <option value="WS2">WS2</option>
+                            <option value="WS3">WS3</option>
+                            <option value="WS4">WS4</option>
+                            <option value="WS5">WS5</option>
+                            <option value="WS6">WS6</option>
                         </select>
                     </div>
                     <div class="col-3">
