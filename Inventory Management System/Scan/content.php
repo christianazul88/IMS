@@ -335,7 +335,7 @@ if (!$audit_log_timestamp) {
             </div>
             <div class="col-2 text-end">
                 <button class="btn btn-light fs-11" type="button" data-bs-toggle="modal" data-bs-target="#error-modal">Update Location</button>
-                <button class="btn btn-info fs-11" type="button" data-bs-toggle="modal" data-bs-target="#batch-modal" disabled>Batch Scan</button>
+                <button class="btn btn-info fs-11" type="button" data-bs-toggle="modal" data-bs-target="#batch-modal">Batch Scan</button>
             </div>
         </div>
         
@@ -649,6 +649,121 @@ $(document).ready(function(){
 
     });
 
+
+
+    document.getElementById('batch-scan').addEventListener('submit', async function(e) {
+
+        e.preventDefault();
+
+        const form = this;
+        const formData = new FormData(form);
+
+        const parentBarcode = document.getElementById('parent-barcode').value.trim();
+        const fromSequence = document.getElementById('from_sequence').value.trim();
+        const toSequence = document.getElementById('to_sequence').value.trim();
+
+        if (!parentBarcode) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Parent/Mother barcode is required!',
+                text: 'Please enter a valid parent/mother barcode'
+            });
+            return;
+        }
+
+        if(!fromSequence){
+            Swal.fire({
+                icon: 'warning',
+                title: 'Starting sequence is required!',
+                text: 'Please enter a starting sequence'
+            });
+            return;
+        }
+
+        if(!toSequence){
+            Swal.fire({
+                icon: 'warning',
+                title: 'Ending sequence is required!',
+                text: 'Please enter an ending sequence'
+            });
+            return;
+        }
+
+        // First confirmation
+        const firstConfirmation = await Swal.fire({
+            title: 'Batch Scan Confirmation',
+            html: `
+                You are about to mark ${parentBarcode}-${fromSequence} <br><br>
+                up to ${toSequence} as scanned. 
+                This may affect audit records.
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes',
+            cancelButtonText: 'Cancel',
+            allowOutsideClick: false
+        });
+
+        if (!firstConfirmation.isConfirmed) {
+            return;
+        }
+
+        // Second confirmation
+        const secondConfirmation = await Swal.fire({
+            title: 'Are you absolutely sure?',
+            html: `
+                any outbounded items from this batch will be returned automatically. 
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes',
+            cancelButtonText: 'No'
+        });
+
+        if (!secondConfirmation.isConfirmed) {
+            return;
+        }
+
+        Swal.fire({
+            title: 'Submitting form...',
+            text: 'Please wait.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.text();
+            loadReceipt();
+
+            Swal.fire({
+                icon: response.ok ? 'success' : 'error',
+                title: response.ok ? 'Batch scanned successfully' : 'failed to submit form',
+                html: result
+            });
+
+        
+
+        } catch (error) {
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Unable to communicate with the server.'
+            });
+
+            console.error(error);
+        }
+
+    });
+
 });
 
 </script>
@@ -764,115 +879,5 @@ document.getElementById('update-location-form').addEventListener('submit', async
 
 
 <script>
-document.getElementById('batch-scan').addEventListener('submit', async function(e) {
 
-    e.preventDefault();
-
-    const form = this;
-    const formData = new FormData(form);
-
-    const parentBarcode = document.getElementById('parent-barcode').value.trim();
-    const fromSequence = document.getElementById('from_sequence').value.trim();
-    const toSequence = document.getElementById('to_sequence').value.trim();
-
-    if (!parentBarcode) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Parent/Mother barcode is required!',
-            text: 'Please enter a valid parent/mother barcode'
-        });
-        return;
-    }
-
-    if(!fromSequence){
-        Swal.fire({
-            icon: 'warning',
-            title: 'Starting sequence is required!',
-            text: 'Please enter a starting sequence'
-        });
-        return;
-    }
-
-    if(!toSequence){
-        Swal.fire({
-            icon: 'warning',
-            title: 'Ending sequence is required!',
-            text: 'Please enter an ending sequence'
-        });
-        return;
-    }
-
-    // First confirmation
-    const firstConfirmation = await Swal.fire({
-        title: 'Batch Scan Confirmation',
-        html: `
-            You are about to mark ${parentBarcode}-${fromSequence} <br><br>
-            up to ${toSequence} as scanned. 
-            This may affect audit records.
-        `,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'Cancel',
-        allowOutsideClick: false
-    });
-
-    if (!firstConfirmation.isConfirmed) {
-        return;
-    }
-
-    // Second confirmation
-    const secondConfirmation = await Swal.fire({
-        title: 'Are you absolutely sure?',
-        html: `
-            any outbounded items from this batch will be returned automatically. 
-        `,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'No'
-    });
-
-    if (!secondConfirmation.isConfirmed) {
-        return;
-    }
-
-    Swal.fire({
-        title: 'Submitting form...',
-        text: 'Please wait.',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
-    try {
-
-        const response = await fetch(form.action, {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.text();
-
-        Swal.fire({
-            icon: response.ok ? 'success' : 'error',
-            title: response.ok ? 'Batch scanned successfully' : 'failed to submit form',
-            html: result
-        });
-
-       
-
-    } catch (error) {
-
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Unable to communicate with the server.'
-        });
-
-        console.error(error);
-    }
-
-});
 </script>

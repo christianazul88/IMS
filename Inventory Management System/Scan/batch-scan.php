@@ -76,7 +76,323 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         die("No barcode provided.");
     }
 
-    $barcode = trim($_POST['parent-barcode']);
+    $parent_barcode = trim($_POST['parent-barcode']); // eg: CMOS
+    $start_sequence = $_POST['from_sequence']; // eg: 1
+    $end_sequence = $_POST['to_sequence']; // eg:5
+
+    $barcodes = [];
+
+    for ($i = $start_sequence; $i <= $end_sequence; $i++) {
+        $barcodes[] = $parent_barcode . "-" . $i;
+    }
+
+    $selected_area = $_SESSION['selected_area'];
+
+    $audit_assignment_query = "SELECT id FROM audit_assignments WHERE item_location = ? AND audit_id = ? ORDER BY id DESC LIMIT 1";
+
+    $stmt = $conn->prepare($audit_assignment_query);
+    if (!$stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
+
+    $stmt->bind_param("ii", $selected_area, $audit_id);
+    $stmt->execute();
+
+    $result = $stmt->get_result();
+    $assignment_data = $result->fetch_assoc();
+
+    $stmt->close();
+
+    $audit_assignment_id = $assignment_data['id'] ?? null;
+
+    // Display the generated barcodes
+    foreach ($barcodes as $barcode) {
+        
+
+        if (empty($barcode)) {
+            die("Barcode is empty.");
+        }
+
+        
+        
+
+        // =========================================================
+        // GET BARCODE DETAILS FROM DATABASE
+        // =========================================================
+        $stmt = $conn->prepare("
+            SELECT 
+                item_location,
+                supplier,
+                item_status,
+                warehouse
+            FROM stocks
+            WHERE unique_barcode = ?
+            LIMIT 1
+        ");
+
+        $stmt->bind_param("s", $barcode);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+
+        if ($result->num_rows === 0) {
+            die("Barcode not found in stocks.");
+        }
+
+        $stock_data = $result->fetch_assoc();
+
+        // Assign each column to its own variable
+        $stock_item_location = $stock_data['item_location'];
+        $stock_supplier      = $stock_data['supplier'];
+        $stock_item_status   = $stock_data['item_status'];
+        $stock_warehouse     = $stock_data['warehouse'];
+        // $additional_query = "";
+        $outbounded_option = "no";
+
+        
+        // if($selected_area !== $stock_item_location){
+        //     $additional_query .= ", item_location_origin = '$stock_item_location', item_location_onscanned = '$selected_area'";
+        // } 
+
+        // Check if barcode is already scanned in items_to_audit
+        $already_scanned = false;
+        $location_onscan = NULL;
+
+        // check if na audit na yung item
+        // $check_if_audited_query = "
+        //     SELECT audit_id 
+        //     FROM items_to_audit
+        //     WHERE scanned_date >= NOW() - INTERVAL 30 DAY
+        //     AND unique_barcode = ?
+        //     AND (audit_status = 'scanned' OR audit_status = 'approved')
+        //     LIMIT 1
+        // ";
+
+        // $stmt_checkaudit = $conn->prepare($check_if_audited_query);
+        // $stmt_checkaudit ->bind_param("s", $barcode);
+        // $stmt_checkaudit->execute();
+
+        // $result = $stmt_checkaudit->get_result();
+
+        // if($row = $result->fetch_assoc()) {
+        //     $already_scanned = true;
+        //     $audit_id_onscanned = $row['audit_id'];
+        // }
+
+        // $stmt_checkaudit->close();
+
+        // if($already_scanned) {
+        //     die("Barcode already audited on Audit # " . $audit_id_onscanned);
+        // }
+
+        // -----check if scanned na on the same audit
+        $check_scanned_query = "
+            SELECT id, item_location_onscanned
+            FROM items_to_audit
+            WHERE audit_id = ?
+            AND unique_barcode = ?
+            AND audit_status IN ('scanned','approved','outbounded')
+        ";
+
+
+        $stmt_check = $conn->prepare($check_scanned_query);
+        $stmt_check->bind_param("is", $audit_id, $barcode);
+        $stmt_check->execute();
+
+        $result = $stmt_check->get_result();
+
+        if ($row = $result->fetch_assoc()) {
+            $already_scanned = true;
+            $location_onscan = $row['item_location_onscanned'];
+        }
+
+        $stmt_check->close();
+
+        if ($already_scanned) {
+            $stmt_location = $conn->prepare("SELECT location_name FROM item_location WHERE id = ?");
+            $stmt_location->bind_param("i", $location_onscan);
+            $stmt_location->execute();
+            $location_result = $stmt_location->get_result();
+            $location_name = $location_result->fetch_assoc()['location_name'];
+            die("Barcode already scanned. Location: " . $location_name);
+        }
+
+        $needsInsert = false;
+
+        if ($stock_item_status != 0) {
+            $outbounded_option = "yes";
+            $needsInsert = true;
+        }
+
+        if ($stock_warehouse !== $warehouse_id_audit) {
+            $needsInsert = true;
+        }
+
+        // If barcode doesn't exist in items_to_audit yet, create it
+        $check_existing_query = "
+            SELECT id
+            FROM items_to_audit
+            WHERE audit_id = ?
+            AND unique_barcode = ?
+            LIMIT 1
+        ";
+
+        $stmt_existing = $conn->prepare($check_existing_query);
+        $stmt_existing->bind_param("is", $audit_id, $barcode);
+        $stmt_existing->execute();
+        $stmt_existing->store_result();
+
+        $exists = $stmt_existing->num_rows > 0;
+
+        $stmt_existing->close();
+
+        if (!$exists) {
+
+            $check_existing_barcode_query = "
+                SELECT id, audit_id, warehouse_origin
+                FROM items_to_audit
+                WHERE unique_barcode = ?
+                AND audit_status = 'pending'
+                ORDER BY id DESC
+                LIMIT 1
+            ";
+
+            $stmt_on_other_audit = $conn->prepare($check_existing_barcode_query);
+            $stmt_on_other_audit->bind_param("s", $barcode);
+            $stmt_on_other_audit->execute();
+            // $stmt_on_other_audit->get_result();
+
+            $result = $stmt_on_other_audit->get_result();
+
+            // $stmt_on_other_audit->close();
+
+            if($result->num_rows == 0){
+
+                $insert_items_to_audit = "
+                    INSERT INTO items_to_audit (
+                        audit_id,
+                        unique_barcode,
+                        warehouse_origin,
+                        item_location_origin,
+                        audit_status
+                    )
+                    VALUES (?, ?, ?, ?, 'pending')
+                ";
+
+                $stmt_items = $conn->prepare($insert_items_to_audit);
+                $stmt_items->bind_param(
+                    "issi",
+                    $audit_id,
+                    $barcode,
+                    $warehouse_id_audit,
+                    $selected_area
+                );
+                $stmt_items->execute();
+                $stmt_items->close();
+
+            } else {
+                $row = $result->fetch_assoc();
+                $id_of_barcode = $row['id'];
+
+
+                $previous_audit_id = $row['audit_id'];
+                $update_to_current_audit = "
+                    UPDATE items_to_audit
+                    SET
+                        audit_assignment_id = '$audit_assignment_id',
+                        user_id = '$user_id',
+                        audit_status = 'scanned',
+                        scanned_date = NOW(),
+                        item_location_onscanned = '$selected_area',
+                        outbounded = '$outbounded_option',
+                        warehouse_onscanned = '$warehouse_id_audit',
+                        audit_id = '$audit_id'
+
+                    WHERE audit_id = '$previous_audit_id'
+                    AND id = '$id_of_barcode'
+                ";
+
+                $stmt_update_prevaudit = $conn->prepare($update_to_current_audit);
+
+                if (!$stmt_update_prevaudit) {
+                    die("Prepare failed: " . $conn->error);
+                }
+
+                if(!$stmt_update_prevaudit->execute()) {
+                    die("Prepare failed: " . $conn->error);
+                }
+            }
+
+
+            
+        }
+
+        $update_items_to_audit = "
+            UPDATE items_to_audit
+            SET 
+                audit_assignment_id = '$audit_assignment_id',
+                user_id = '$user_id',
+                audit_status = 'scanned',
+                scanned_date = NOW(), 
+                item_location_origin = '$stock_item_location', 
+                item_location_onscanned = '$selected_area', 
+                outbounded = '$outbounded_option', 
+                warehouse_onscanned = '$warehouse_id_audit'
+
+            WHERE audit_id = '$audit_id'
+            AND unique_barcode = '$barcode'
+        ";
+
+        $stmt_update = $conn->prepare($update_items_to_audit);
+
+        if (!$stmt_update) {
+            die("Prepare failed: " . $conn->error);
+        }
+
+        if (!$stmt_update->execute()) {
+            die("Update failed: " . $stmt_update->error);
+        }
+
+        // Insert into stock_timeline
+        $timeline_title = "Audited";
+        $audit_date = date("M j, Y");
+        $timeline_action = "Item was audited on WH: " . $warehouse_name_audit . " (date: {$audit_date}) by {$user_fullname}.";
+
+        $timeline_stmt = $conn->prepare("
+            INSERT INTO stock_timeline (
+                unique_barcode,
+                title,
+                action,
+                date,
+                user_id
+            ) VALUES (?, ?, ?, NOW(), ?)
+        ");
+
+        if (!$timeline_stmt) {
+            die("Timeline prepare failed: " . $conn->error);
+        }
+
+        $timeline_stmt->bind_param(
+            "sssi",
+            $barcode,
+            $timeline_title,
+            $timeline_action,
+            $user_id
+        );
+
+        if (!$timeline_stmt->execute()) {
+            die("Timeline insert failed: " . $timeline_stmt->error);
+        }
+
+        $timeline_stmt->close();
+
+        
+        echo "Scan successful for barcode: " . htmlspecialchars($barcode) . "<br>";
+        $stmt_update->close();
+
+
+
+    }
 
     if (empty($barcode)) {
         die("Barcode is empty.");

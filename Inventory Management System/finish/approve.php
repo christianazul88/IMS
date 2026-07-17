@@ -54,17 +54,9 @@ foreach ($barcodes as $row) {
         $outbounded = true;
     }
     
-    if($current_warehouse_id === $onscanned_warehouse_id){
-        $belong_to_other_warehouse = false;
-    } else {
-        $belong_to_other_warehouse = true;
-    }
     
-    if($current_location_id === $onscanned_location_id){
-        $belong_to_other_location = false;
-    } else {
-        $belong_to_other_location = true;
-    }
+    
+    
     
 
     $update_items_to_audit_query = "
@@ -301,33 +293,29 @@ foreach ($barcodes as $row) {
     }
 
 
-    if($current_warehouse_id !== $onscanned_warehouse_id){
-        $belong_to_other_warehouse = true;
+    $belong_to_other_warehouse = true;
 
-        $update_stock_wh_id = "
-            UPDATE stocks 
-            SET warehouse = ? 
-            WHERE unique_barcode = ?";
-        $stmt = $conn->prepare($update_stock_wh_id);
-        $stmt->bind_param("ss", $onscanned_warehouse_id, $unique_barcode);
-        $stmt->execute();
-        $stmt->close();
+    $update_stock_wh_id = "
+        UPDATE stocks 
+        SET warehouse = ? 
+        WHERE unique_barcode = ?";
+    $stmt = $conn->prepare($update_stock_wh_id);
+    $stmt->bind_param("ss", $onscanned_warehouse_id, $unique_barcode);
+    $stmt->execute();
+    $stmt->close();
 
-    }
 
-    if($current_location_id !== $onscanned_location_id){
-        $belong_to_other_location = true;
+    $belong_to_other_location = true;
 
-        $update_stock_location_id = "
-            UPDATE stocks 
-            SET item_location = ? 
-            WHERE unique_barcode = ?";
-        $stmt = $conn->prepare($update_stock_location_id);
-        $stmt->bind_param("ss", $onscanned_location_id, $unique_barcode);
-        $stmt->execute();
-        $stmt->close();
+    $update_stock_location_id = "
+        UPDATE stocks 
+        SET item_location = ? 
+        WHERE unique_barcode = ?";
+    $stmt = $conn->prepare($update_stock_location_id);
+    $stmt->bind_param("is", $onscanned_location_id, $unique_barcode);
+    $stmt->execute();
+    $stmt->close();
 
-    }
 
 }
 
