@@ -1370,7 +1370,7 @@ const auditChart = new Chart(document.getElementById('auditChart'), {
     data: {
         labels: [
             'Wrong Warehouse',
-            'Wrong Location',
+            'Scanned',
             'Outbounded',
             'Missing'
         ],
@@ -1538,7 +1538,7 @@ function loadAuditSummary(){
             auditChart.data.datasets[0].data = [
 
                 data.wrong_warehouse_qty,
-                data.wrong_location_qty,
+                data.expected_scanned_qty,
                 data.scanned_outbounded_qty,
                 data.missing_qty
 
