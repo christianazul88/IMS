@@ -874,3 +874,5 @@ document.addEventListener('click', async function (e) {
 });
 
 </script>
+<?php
+unset($_SESSION['NEW_LOCATION_NAME']);  

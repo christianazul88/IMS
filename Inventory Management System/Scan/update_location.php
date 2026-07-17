@@ -9,6 +9,8 @@ include "../config/on_session.php";
 $location_id = $_POST['location_id'] ?? '';
 $location_name = trim($_POST['location_name'] ?? '');
 
+$_SESSION['NEW_LOCATION_NAME'] = $location_name;
+
 if (empty($location_id)) {
     http_response_code(400);
     exit("Location ID is required.");

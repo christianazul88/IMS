@@ -1103,6 +1103,62 @@ $stmt->close();
                                 </td>
                             </tr>
                             <?php
+                                    } else {
+                            ?>
+                            <!-- for idle -->
+                             <tr>
+                                <td>
+                                    <div class="fw-medium">
+                                        <?php if($staff['staff_status'] === 'for_approval'){ echo "<span class='d-none'>0</span>";}?>
+                                        <?= htmlspecialchars($full_name) ?>
+                                    </div>
+                                    <small class="text-muted">
+                                        <?= htmlspecialchars($staff['location_name']) ?>
+                                    </small>
+                                </td>
+
+                                <td>
+                                    <?php
+                                    if ($staff['staff_status'] === 'for_approval') {
+
+                                        echo '<span class="badge bg-warning text-dark">For Approval</span>';
+
+                                    } elseif ($staff['staff_status'] === 'approved') {
+
+                                        echo '<span class="badge bg-success">Approved</span>';  
+
+                                    } elseif ($staff['staff_status'] === 'declined') {
+
+                                        echo '<span class="badge bg-danger">Declined</span>';
+
+                                    } elseif ($staff['staff_status'] === 'rejected') {
+
+                                        echo '<span class="badge bg-danger">Rejected</span>';
+                                    } elseif ($staff['staff_status'] === 'idle') {
+    
+                                            echo '<span class="badge bg-secondary">Idle</span>';
+                                    } else {
+
+                                        echo '<span class="badge bg-secondary">'
+                                            . htmlspecialchars($staff['staff_status'])
+                                            . '</span>';
+
+                                    }
+                                    ?>
+                                </td>
+
+                                <td class="text-end">
+
+                                        <a href="../Scan/?area=others&loc_combo=<?= $staff['location_name']; ?>"
+                                        class="btn btn-success btn-sm">
+                                            View
+                                        </a>
+
+
+                                </td>
+                            </tr>
+                            <?php
+                            
                                     }
                                 }
                             } else {

@@ -35,9 +35,14 @@ if ($audit['audit_status'] == 'pending') {
 
 $warehouse_id_audit = $audit['warehouse'];
 
-if ($_POST['area'] === 'others') {
-
-    $location_combo = $_POST['area_code'] . "-" . $_POST['rack'] . "-" . $_POST['level'] . "-" . $_POST['box_num'];
+if ((isset($_POST['area']) && $_POST['area'] === 'others') || (isset($_GET['area']) && $_GET['area'] == 'others')) {
+    if(isset($_SESSION['NEW_LOCATION_NAME'])){
+        $location_combo = $_SESSION['NEW_LOCATION_NAME'];
+    }elseif(isset($_GET['loc_combo'])){
+        $location_combo = $_GET['loc_combo'];
+    } else {
+        $location_combo = $_POST['area_code'] . "-" . $_POST['rack'] . "-" . $_POST['level'] . "-" . $_POST['box_num'];
+    }
 
     $location_name = trim($location_combo);
 
@@ -326,7 +331,7 @@ if (!$audit_log_timestamp) {
         <div class="row">
             <div class="col-10">
                 <h5 class="card-title">Audit Dashboard</h5>
-                <p class="card-text">Audit #<?php echo $audit['audit_num']; ?> - for area <?php echo $selected_area_name; ?></p>
+                <p class="card-text" id="title">Audit #<?php echo $audit['audit_num']; ?> - for area <?php echo $selected_area_name; ?></p>
             </div>
             <div class="col-2 text-end">
                 <button class="btn btn-light fs-11" type="button" data-bs-toggle="modal" data-bs-target="#error-modal">Update Location</button>
@@ -737,6 +742,7 @@ document.getElementById('update-location-form').addEventListener('submit', async
         // Optional: update title in modal
         document.querySelector('#modalExampleDemoLabel').innerHTML =
             `Update Location/Area Name of ${newLocation}`;
+        document.querySelector('#title').innerHTML = `Audit # - for area ${newLocation}`;
 
     } catch (error) {
 
