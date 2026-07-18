@@ -1006,7 +1006,7 @@ $stmt->close();
                         il.id AS location_id,
                         il.location_name,
                         aas.id AS fi,
-                        aa.id AS aa_audit_assignment_id
+                        aa.id AS audit_assignment_id
                     FROM audit_assignment_staffs aas
                     LEFT JOIN users u
                         ON u.hashed_id = aas.user_id
@@ -1050,7 +1050,7 @@ $stmt->close();
                                                 COUNT(id) AS qty
                                             FROM items_to_audit
                                             WHERE audit_id = '$audit_id'
-                                            AND audit_assignment_id = " . $staff['aa_audit_assignments_id'] . "
+                                            AND audit_assignment_id = " . $staff['audit_assignments_id'] . "
                                             AND user_id = '" . $staff['user_id'] . "'";
                                             $result = $conn->query($check_qty_query);
                                             if($result->num_rows>0){
@@ -1103,7 +1103,7 @@ $stmt->close();
                                                     <td class="text-end">
                                                         <?php if($staff['staff_status'] === 'for_approval' || $staff['staff_status'] === 'approved' || $staff['staff_status'] === 'rejected'){ ?>
 
-                                                            <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>&aa=<?= $staff['aa_audit_assignment_id'] ?>"
+                                                            <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>&aa=<?= $staff['audit_assignment_id'] ?>"
                                                             class="btn btn-success btn-sm">
                                                                 View
                                                             </a>
