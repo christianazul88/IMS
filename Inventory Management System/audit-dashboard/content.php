@@ -1104,7 +1104,7 @@ $stmt->close();
                             </tr>
                             <?php
                                     } else {
-                                        if($user_id === $staff['user_id']){
+                                        // if($user_id === $staff['user_id']){
                                             $check_qty_query = "SELECT
                                                 COUNT(id) AS qty
                                             FROM items_to_audit
@@ -1170,7 +1170,7 @@ $stmt->close();
                                                 </tr>
                                                 <?php
                                             }
-                                        }           
+                                        // }           
                                     }
                                 }
                             } else {
