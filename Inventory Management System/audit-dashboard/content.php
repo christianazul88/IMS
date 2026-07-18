@@ -998,8 +998,8 @@ $stmt->close();
                 <?php
                 $additional_query = "";
 
-                if($audit_position != 1){
-                    
+                if($audit_position !== 1){
+                    $additional_query .= "AND aas.user_id = '$user_id'";
                 }
                 $audit_assignment_staffs_query = "
                     SELECT 
@@ -1020,6 +1020,7 @@ $stmt->close();
                     LEFT JOIN item_location il
                         ON il.id = aa.item_location
                     WHERE aa.audit_id = ?
+                    $additional_query
                     ORDER BY aas.id ASC
                     LIMIT 100
                 ";
