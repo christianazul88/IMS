@@ -88,6 +88,13 @@ $warehouse_name_audit = $audit['warehouse_name'];
 
 <?php
 
+$success = [];
+$errors = [];
+$warnings = [];
+
+
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
 
     $file = $_FILES['csv_file']['tmp_name'];
@@ -289,7 +296,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 // ==============================================================================================
 
                 if (empty($barcode)) {
-                    echo "Barcode is empty.<br>";
+                    $errors[] = [
+                        'barcode' => '-',
+                        'message' => 'Empty barcode.'
+                    ];
                 }
 
                 
@@ -317,7 +327,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 $result = $stmt->get_result();
 
                 if ($result->num_rows === 0) {
-                    echo "Barcode " . $barcode . " not found in stocks.<br>";
+                    $errors[] = [
+                        'barcode' => $barcode,
+                        'message' => 'Barcode not found in stocks.'
+                    ];
                     continue;
                 }
 
@@ -396,7 +409,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                     $stmt_location->execute();
                     $location_result = $stmt_location->get_result();
                     $location_name = $location_result->fetch_assoc()['location_name'];
-                    echo "Barcode " . $barcode . " already scanned. Location: " . $location_name . "<br>";
+                    $warnings[] = [
+                        'barcode' => $barcode,
+                        'message' => 'Already scanned',
+                        'location' => $location_name
+                    ];
                     continue;
 
                 }
@@ -571,7 +588,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 $timeline_stmt->close();
 
                 
-                echo "Scan successful for barcode: " . htmlspecialchars($barcode) . "<br>";
+                $success[] = [
+                    'barcode' => $barcode,
+                    'location' => $selected_area_name
+                ];
                 $stmt_update->close();
 
                 // ==============================================================================================
@@ -580,8 +600,204 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 // ==============================================================================================
                 // ==============================================================================================
             }
-            echo "<br><hr>";
+            // echo "<br><hr>";
         }
+        ?>
+
+
+        <div class="card shadow mt-4 border-0">
+
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-clipboard-check me-2"></i>
+                    Upload Results
+                </h5>
+
+                <div>
+                    <span class="badge bg-success">
+                        <?= count($success) ?> Success
+                    </span>
+
+                    <span class="badge bg-warning text-dark">
+                        <?= count($warnings) ?> Warnings
+                    </span>
+
+                    <span class="badge bg-danger">
+                        <?= count($errors) ?> Errors
+                    </span>
+                </div>
+            </div>
+
+            <div class="card-body">
+
+                <?php if(count($success)){ ?>
+
+                    <div class="alert alert-success">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            Successfully Imported
+                        </h6>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-success table-striped align-middle">
+                                <thead>
+                                <tr>
+                                    <th width="40">#</th>
+                                    <th>Barcode</th>
+                                    <th>Assigned Location</th>
+                                    <th>Status</th>
+                                </tr>
+                                </thead>
+
+                                <tbody>
+
+                                <?php foreach($success as $i=>$row){ ?>
+
+                                    <tr>
+                                        <td><?= $i+1 ?></td>
+
+                                        <td>
+                                            <code><?= htmlspecialchars($row['barcode']) ?></code>
+                                        </td>
+
+                                        <td>
+                                            <?= htmlspecialchars($row['location']) ?>
+                                        </td>
+
+                                        <td>
+                                            <span class="badge bg-success">
+                                                Imported
+                                            </span>
+                                        </td>
+                                    </tr>
+
+                                <?php } ?>
+
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+
+                <?php } ?>
+
+
+                <?php if(count($warnings)){ ?>
+
+                    <div class="alert alert-warning">
+
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            Already Scanned
+                        </h6>
+
+                        <div class="table-responsive">
+
+                            <table class="table table-sm table-warning table-striped">
+
+                                <thead>
+
+                                <tr>
+                                    <th width="40">#</th>
+                                    <th>Barcode</th>
+                                    <th>Status</th>
+                                    <th>Current Location</th>
+                                </tr>
+
+                                </thead>
+
+                                <tbody>
+
+                                <?php foreach($warnings as $i=>$row){ ?>
+
+                                    <tr>
+
+                                        <td><?= $i+1 ?></td>
+
+                                        <td>
+                                            <code><?= htmlspecialchars($row['barcode']) ?></code>
+                                        </td>
+
+                                        <td>
+                                            <span class="badge bg-warning text-dark">
+                                                Already Scanned
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <?= htmlspecialchars($row['location']) ?>
+                                        </td>
+
+                                    </tr>
+
+                                <?php } ?>
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                <?php } ?>
+
+
+                <?php if(count($errors)){ ?>
+
+                    <div class="alert alert-danger">
+
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-x-circle-fill me-1"></i>
+                            Failed Imports
+                        </h6>
+
+                        <div class="table-responsive">
+
+                            <table class="table table-sm table-danger table-striped">
+
+                                <thead>
+
+                                <tr>
+                                    <th width="40">#</th>
+                                    <th>Barcode</th>
+                                    <th>Reason</th>
+                                </tr>
+
+                                </thead>
+
+                                <tbody>
+
+                                <?php foreach($errors as $i=>$row){ ?>
+
+                                    <tr>
+
+                                        <td><?= $i+1 ?></td>
+
+                                        <td>
+                                            <code><?= htmlspecialchars($row['barcode']) ?></code>
+                                        </td>
+
+                                        <td><?= htmlspecialchars($row['message']) ?></td>
+
+                                    </tr>
+
+                                <?php } ?>
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                <?php } ?>
+
+            </div>
+
+        </div>
+        <?php
         
     } else {
         echo "Unable to open CSV file.";
