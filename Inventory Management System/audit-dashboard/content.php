@@ -1042,68 +1042,9 @@ $stmt->close();
                                 while ($staff = $audit_assignment_staffs_result->fetch_assoc()) {
 
                                     $full_name = $staff['user_fname'] . ' ' . $staff['user_lname'];
-                                    if ($staff['staff_status'] !== 'idle') {
-                            ?>
-                            <tr>
-                                <td>
-                                    <div class="fw-medium">
-                                        <?php if($staff['staff_status'] === 'for_approval'){ echo "<span class='d-none'>0</span>";}?>
-                                        <?= htmlspecialchars($full_name) ?>
-                                    </div>
-                                    <small class="text-muted">
-                                        <?= htmlspecialchars($staff['location_name']) ?>
-                                    </small>
-                                </td>
-
-                                <td>
-                                    <?php
-                                    if ($staff['staff_status'] === 'for_approval') {
-
-                                        echo '<span class="badge bg-warning text-dark">For Approval</span>';
-
-                                    } elseif ($staff['staff_status'] === 'approved') {
-
-                                        echo '<span class="badge bg-success">Approved</span>';  
-
-                                    } elseif ($staff['staff_status'] === 'declined') {
-
-                                        echo '<span class="badge bg-danger">Declined</span>';
-
-                                    } elseif ($staff['staff_status'] === 'rejected') {
-
-                                        echo '<span class="badge bg-danger">Rejected</span>';
-                                    } elseif ($staff['staff_status'] === 'idle') {
-    
-                                            echo '<span class="badge bg-secondary">Idle</span>';
-                                    } else {
-
-                                        echo '<span class="badge bg-secondary">'
-                                            . htmlspecialchars($staff['staff_status'])
-                                            . '</span>';
-
-                                    }
-                                    ?>
-                                </td>
-
-                                <td class="text-end">
-
-                                    <?php if ($staff['staff_status'] === 'for_approval' || $staff['staff_status'] === 'approved' || $staff['staff_status'] === 'rejected') : ?>
-
-                                        <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>&aa=<?= $staff['audit_assignment_id'] ?>"
-                                        class="btn btn-success btn-sm">
-                                            View
-                                        </a>
-
-                                    <?php else : ?>
-
-                                        <span class="text-muted small">No action</span>
-
-                                    <?php endif; ?>
-
-                                </td>
-                            </tr>
-                            <?php
-                                    } else {
+                                    // if ($staff['staff_status'] !== 'idle') {
+                        
+                                    // } else {
                                         // if($user_id === $staff['user_id']){
                                             $check_qty_query = "SELECT
                                                 COUNT(id) AS qty
@@ -1133,22 +1074,22 @@ $stmt->close();
                                                         <?php
                                                         if ($staff['staff_status'] === 'for_approval') {
 
-                                                            echo '<span class="badge bg-warning text-dark">For Approval</span>';
+                                                            echo '<span class="badge bg-warning text-dark">For Approval (' . $idle_qty . ')</span>';
 
                                                         } elseif ($staff['staff_status'] === 'approved') {
 
-                                                            echo '<span class="badge bg-success">Approved</span>';  
+                                                            echo '<span class="badge bg-success">Approved (' . $idle_qty . ')</span>';  
 
                                                         } elseif ($staff['staff_status'] === 'declined') {
 
-                                                            echo '<span class="badge bg-danger">Declined</span>';
+                                                            echo '<span class="badge bg-danger">Declined (' . $idle_qty . ')</span>';
 
                                                         } elseif ($staff['staff_status'] === 'rejected') {
 
-                                                            echo '<span class="badge bg-danger">Rejected</span>';
+                                                            echo '<span class="badge bg-danger">Rejected (' . $idle_qty . ')</span>';
                                                         } elseif ($staff['staff_status'] === 'idle') {
                         
-                                                                echo '<span class="badge bg-secondary">Idle(' . $idle_qty . ')</span>';
+                                                                echo '<span class="badge bg-secondary">Idle (' . $idle_qty . ')</span>';
                                                         } else {
 
                                                             echo '<span class="badge bg-secondary">'
@@ -1173,7 +1114,7 @@ $stmt->close();
                                                 }
                                             }
                                         // }           
-                                    }
+                                    // }
                                 }
                             } else {
                             ?>
