@@ -1101,7 +1101,13 @@ $stmt->close();
                                                     </td>
 
                                                     <td class="text-end">
-                                                        <?php if($user_id === $staff['user_id']){?>    
+                                                        <?php if($staff['staff_status'] === 'for_approval' || $staff['staff_status'] === 'approved' || $staff['staff_status'] === 'rejected'){ ?>
+
+                                                            <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>&aa=<?= $staff['audit_assignment_id'] ?>"
+                                                            class="btn btn-success btn-sm">
+                                                                View
+                                                            </a>
+                                                        <?php } elseif($user_id === $staff['user_id'] && $staff['staff_status'] === 'idle'){?>    
                                                             <a href="../Scan/?area=others&loc_combo=<?= $staff['location_name']; ?>"
                                                             class="btn btn-success btn-sm">
                                                                 View
