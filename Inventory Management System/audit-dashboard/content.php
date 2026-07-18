@@ -1115,6 +1115,7 @@ $stmt->close();
                                             if($result->num_rows>0){
                                                 $row=$result->fetch_assoc();
                                                 $idle_qty = $row['qty'];
+                                                if($idle_qty != 0){
                                                 ?>
                                                 <!-- for idle -->
                                                 <tr>
@@ -1159,16 +1160,17 @@ $stmt->close();
                                                     </td>
 
                                                     <td class="text-end">
-
+                                                        <?php if($user_id === $staff['user_id']){?>    
                                                             <a href="../Scan/?area=others&loc_combo=<?= $staff['location_name']; ?>"
                                                             class="btn btn-success btn-sm">
                                                                 View
                                                             </a>
-
+                                                        <?php } ?>
 
                                                     </td>
                                                 </tr>
                                                 <?php
+                                                }
                                             }
                                         // }           
                                     }
