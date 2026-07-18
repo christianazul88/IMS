@@ -1103,7 +1103,7 @@ $stmt->close();
                                                     <td class="text-end">
                                                         <?php if($staff['staff_status'] === 'for_approval' || $staff['staff_status'] === 'approved' || $staff['staff_status'] === 'rejected'){ ?>
 
-                                                            <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>&aa=<?= $staff['audit_assignment_id'] ?>"
+                                                            <a href="../finish/?area=<?= $staff['location_id']; ?>&user_id=<?= $staff['user_id']; ?>&fi=<?= $staff['fi']; ?>&aa=<?= $staff['audit_assignments_id'] ?>"
                                                             class="btn btn-success btn-sm">
                                                                 View
                                                             </a>
