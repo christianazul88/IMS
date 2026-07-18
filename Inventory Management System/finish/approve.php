@@ -24,7 +24,7 @@ $barcode_query = "
 ";
 
 $stmt = $conn->prepare($barcode_query);
-$stmt->bind_param("iii", $audit_id, $audit_assignment_id, $staff_id);
+$stmt->bind_param("iis", $audit_id, $audit_assignment_id, $staff_id);
 $stmt->execute();
 
 $result = $stmt->get_result();
