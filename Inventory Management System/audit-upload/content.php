@@ -250,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                         user_id,
                         status
                     )
-                    VALUES (?, ?, 'idle')
+                    VALUES (?, ?, 'for_approval')
                 ");
                 $stmt->bind_param(
                     "is",
@@ -263,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 $audit_assignment_staff_id = $existing_staff['id'];
                 $update_assignment_query = "
                     UPDATE audit_assignment_staffs
-                    SET status = 'idle'
+                    SET status = 'for_approval'
                     WHERE id = ?
                 ";
 
@@ -460,7 +460,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                                 item_location_origin,
                                 audit_status
                             )
-                            VALUES (?, ?, ?, ?, 'pending')
+                            VALUES (?, ?, ?, ?, 'scanned')
                         ";
 
                         $stmt_items = $conn->prepare($insert_items_to_audit);
@@ -557,7 +557,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 }
 
                 $timeline_stmt->bind_param(
-                    "sssi",
+                    "ssss",
                     $barcode,
                     $timeline_title,
                     $timeline_action,
