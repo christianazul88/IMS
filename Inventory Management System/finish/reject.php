@@ -76,7 +76,7 @@ $update_audit_assignment_staffs = "
 ";
 
 $stmt = $conn->prepare($update_audit_assignment_staffs);
-$stmt->bind_param("ii", $audit_assignment_id, $staff_id);
+$stmt->bind_param("is", $audit_assignment_id, $staff_id);
 $stmt->execute();
 $stmt->close();
 
