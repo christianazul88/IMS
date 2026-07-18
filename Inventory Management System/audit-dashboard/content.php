@@ -1006,7 +1006,7 @@ $stmt->close();
                         il.id AS location_id,
                         il.location_name,
                         aas.id AS fi,
-                        aa.id AS audit_assignment_id
+                        aa.id AS aa_audit_assignment_id
                     FROM audit_assignment_staffs aas
                     LEFT JOIN users u
                         ON u.hashed_id = aas.user_id
