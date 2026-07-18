@@ -383,6 +383,7 @@ $stmt->close();
                 <?php 
                 if($audit_position == 1) {
                     if($audit_status !== "completed" && $last_status === 'start' || $last_status === 'resume'){ ?>
+                    <a href="../audit-upload/" class="btn btn-outline-secondary fs-11 mb-2">CSV import</a>
                     <a href="area_codes.php" class="btn btn-info btn-sm mb-2 fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>"><span class="fas fa-download"></span> Area Code</a>
                     <a href="pause_audit.php" class="btn btn-warning btn-sm mb-2 fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>">Pause</a>
                     <a href="end.php" class="btn btn-danger btn-sm mb-2 fs-11 <?php if( $audit_status === "completed"){ echo "d-none";}?>">End Audit</a>
