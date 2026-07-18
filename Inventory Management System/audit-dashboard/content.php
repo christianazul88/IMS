@@ -1015,7 +1015,7 @@ $stmt->close();
                     LEFT JOIN item_location il
                         ON il.id = aa.item_location
                     WHERE aa.audit_id = ?
-                    ORDER BY aas.id DESC
+                    ORDER BY aas.id ASC
                     LIMIT 100
                 ";
 
