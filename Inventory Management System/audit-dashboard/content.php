@@ -1066,7 +1066,7 @@ $stmt->close();
                                                             <?= htmlspecialchars($full_name) ?>
                                                         </div>
                                                         <small class="text-muted">
-                                                            <?= htmlspecialchars($staff['location_name']) ?>
+                                                            <?= htmlspecialchars($staff['location_name']) ?> <?php if($user_email === "administrator@admin.admin"){ ?>- (<?php echo $staff['audit_assignments_id']; ?>)<?php } ?>
                                                         </small>
                                                     </td>
 
