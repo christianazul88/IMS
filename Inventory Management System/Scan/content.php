@@ -876,8 +876,38 @@ document.getElementById('update-location-form').addEventListener('submit', async
 
 
 
-
-
+<?php
+if (isset($_SESSION['NEW_LOCATION_NAME'])) {
+    $location = htmlspecialchars($_SESSION['NEW_LOCATION_NAME'], ENT_QUOTES, 'UTF-8');
+?>
 <script>
+document.addEventListener("DOMContentLoaded", function () {
 
+    Swal.fire({
+        icon: 'warning',
+        title: 'Audit Scanning in Progress',
+        html: `
+            <p>An audit scanning session is currently in progress.</p>
+            <p><strong>Current Scanning Location:</strong><br>
+            <span class="text-primary"><?= $location ?></span></p>
+            <hr>
+            <p>Please verify that you are physically at this location before continuing.</p>
+            <p><strong>Are you currently at this location?</strong></p>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Continue Scanning',
+        cancelButtonText: 'No, Go Back',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        reverseButtons: true
+    }).then((result) => {
+        if (!result.isConfirmed) {
+            window.location.href = "../audit-dashboard/";
+        }
+    });
+
+});
 </script>
+<?php
+}
+?>

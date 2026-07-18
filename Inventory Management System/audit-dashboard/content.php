@@ -996,6 +996,11 @@ $stmt->close();
                 </div>
 
                 <?php
+                $additional_query = "";
+
+                if($audit_position != 1){
+                    
+                }
                 $audit_assignment_staffs_query = "
                     SELECT 
                         u.user_fname,
