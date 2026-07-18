@@ -1104,61 +1104,73 @@ $stmt->close();
                             </tr>
                             <?php
                                     } else {
-                            ?>
-                            <!-- for idle -->
-                             <tr>
-                                <td>
-                                    <div class="fw-medium">
-                                        <?php if($staff['staff_status'] === 'for_approval'){ echo "<span class='d-none'>0</span>";}?>
-                                        <?= htmlspecialchars($full_name) ?>
-                                    </div>
-                                    <small class="text-muted">
-                                        <?= htmlspecialchars($staff['location_name']) ?>
-                                    </small>
-                                </td>
+                                        if($user_id === $staff['user_id']){
+                                            $check_qty_query = "SELECT
+                                                COUNT(id) AS qty
+                                            FROM items_to_audit
+                                            WHERE audit_id = '$audit_id'
+                                            AND audit_assignment_id = " . $staff['audit_assignments_id'] . "
+                                            AND user_id = '" . $staff['user_id'] . "'";
+                                            $result = $conn->query($check_qty_query);
+                                            if($result->num_rows>0){
+                                                $row=$result->fetch_assoc();
+                                                $idle_qty = $row['qty'];
+                                                ?>
+                                                <!-- for idle -->
+                                                <tr>
+                                                    <td>
+                                                        <div class="fw-medium">
+                                                            <?php if($staff['staff_status'] === 'for_approval'){ echo "<span class='d-none'>0</span>";}?>
+                                                            <?= htmlspecialchars($full_name) ?>
+                                                        </div>
+                                                        <small class="text-muted">
+                                                            <?= htmlspecialchars($staff['location_name']) ?>
+                                                        </small>
+                                                    </td>
 
-                                <td>
-                                    <?php
-                                    if ($staff['staff_status'] === 'for_approval') {
+                                                    <td>
+                                                        <?php
+                                                        if ($staff['staff_status'] === 'for_approval') {
 
-                                        echo '<span class="badge bg-warning text-dark">For Approval</span>';
+                                                            echo '<span class="badge bg-warning text-dark">For Approval</span>';
 
-                                    } elseif ($staff['staff_status'] === 'approved') {
+                                                        } elseif ($staff['staff_status'] === 'approved') {
 
-                                        echo '<span class="badge bg-success">Approved</span>';  
+                                                            echo '<span class="badge bg-success">Approved</span>';  
 
-                                    } elseif ($staff['staff_status'] === 'declined') {
+                                                        } elseif ($staff['staff_status'] === 'declined') {
 
-                                        echo '<span class="badge bg-danger">Declined</span>';
+                                                            echo '<span class="badge bg-danger">Declined</span>';
 
-                                    } elseif ($staff['staff_status'] === 'rejected') {
+                                                        } elseif ($staff['staff_status'] === 'rejected') {
 
-                                        echo '<span class="badge bg-danger">Rejected</span>';
-                                    } elseif ($staff['staff_status'] === 'idle') {
-    
-                                            echo '<span class="badge bg-secondary">Idle</span>';
-                                    } else {
+                                                            echo '<span class="badge bg-danger">Rejected</span>';
+                                                        } elseif ($staff['staff_status'] === 'idle') {
+                        
+                                                                echo '<span class="badge bg-secondary">Idle(' . $idle_qty . ')</span>';
+                                                        } else {
 
-                                        echo '<span class="badge bg-secondary">'
-                                            . htmlspecialchars($staff['staff_status'])
-                                            . '</span>';
+                                                            echo '<span class="badge bg-secondary">'
+                                                                . htmlspecialchars($staff['staff_status'])
+                                                                . '</span>';
 
-                                    }
-                                    ?>
-                                </td>
+                                                        }
+                                                        ?>
+                                                    </td>
 
-                                <td class="text-end">
+                                                    <td class="text-end">
 
-                                        <a href="../Scan/?area=others&loc_combo=<?= $staff['location_name']; ?>"
-                                        class="btn btn-success btn-sm">
-                                            View
-                                        </a>
+                                                            <a href="../Scan/?area=others&loc_combo=<?= $staff['location_name']; ?>"
+                                                            class="btn btn-success btn-sm">
+                                                                View
+                                                            </a>
 
 
-                                </td>
-                            </tr>
-                            <?php
-                            
+                                                    </td>
+                                                </tr>
+                                                <?php
+                                            }
+                                        }           
                                     }
                                 }
                             } else {
