@@ -504,7 +504,9 @@ $stmt->close();
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Scanned Qty</small>
+                        <?php if($audit_position == 1){?> <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"><?php } ?>
                         <h3 id="total_scanned_summary"><?= number_format($total_qty_scanned) ?> <?php if($audit_position == 1){?><span class="text-muted fs-11">( ₱ <?= number_format($total_scanned_amount,2) ?> )</span><?php } ?></h3>
+                        <?php if($audit_position == 1){?> </a><?php } ?>
                     </div>
                 </div>
             </div>
