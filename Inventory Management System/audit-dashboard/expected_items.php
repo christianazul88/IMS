@@ -152,6 +152,7 @@ if(isset($_GET['wh'])){
         WHERE ita.audit_id = ?
 
             AND ita.warehouse_origin = ?
+            AND ita.outbounded = 'no'
 
         ORDER BY ita.audit_status;
     ";
