@@ -250,6 +250,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if($result->num_rows == 0){
 
+            $insert_warehouse = NULL;
+
+            if($stock_warehouse === $warehouse_id_audit){
+                $stock_transfer_query = "
+                    SELECT
+                        st.from_warehouse
+                    FROM stock_transfer st
+                    LEFT JOIN stock_transfer_content stc
+                        ON stc.st_id = st.id
+                    WHERE stc.unique_barcode = '$barcode'
+                    AND st.to_warehouse = '$warehouse_id_audit'
+                    ORDER BY st.id DESC
+                    LIMIT 1
+                ";
+                $stock_transfer_result = $conn->query($stock_transfer_query);
+                if($stock_transfer_result->num_rows>0){
+                    $row=$stock_transfer_result->fetch_assoc();
+                    $insert_warehouse = $row['from_warehouse'];
+                } else {
+                    $insert_warehouse = '59e19706d51d39f66711c2653cd7eb1291c94d9b55eb14bda74ce4dc636d015a';
+                }
+            }
+
             $insert_items_to_audit = "
                 INSERT INTO items_to_audit (
                     audit_id,
@@ -266,7 +289,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 "issi",
                 $audit_id,
                 $barcode,
-                $warehouse_id_audit,
+                $insert_warehouse,
                 $selected_area
             );
             $stmt_items->execute();
@@ -355,7 +378,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     $timeline_stmt->bind_param(
-        "sssi",
+        "ssss",
         $barcode,
         $timeline_title,
         $timeline_action,
