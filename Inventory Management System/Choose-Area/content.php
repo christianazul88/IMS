@@ -128,7 +128,41 @@ $letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 
 
+if(isset($_SESSION['NEW_LOCATION_NAME'])){
+?>
+<div class="card border-warning shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex align-items-start">
+            <div class="me-3">
+                <i class="bi bi-exclamation-triangle-fill text-warning fs-1"></i>
+            </div>
 
+            <div class="flex-grow-1">
+                <h5 class="card-title text-warning fw-bold mb-2">
+                    Unfinished Scan Detected
+                </h5>
+
+                <p class="card-text text-muted mb-3">
+                    The system detected that you have an <strong>unfinished scanning session</strong>.
+                    Please complete your current scan before starting a new one.
+                </p>
+
+                <ol class="text-muted mb-3 ps-3">
+                    <li>Go back to the <strong>Audit Dashboard</strong>.</li>
+                    <li>Select the item location you are currently scanning.<br>(on audit assignments select the idle)</li>
+                    <li>Continue scanning until the audit is completed.</li>
+                </ol>
+
+                <a href="../audit-dashboard/" class="btn btn-warning">
+                    <i class="bi bi-arrow-left-circle me-1"></i>
+                    Return to Audit Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<?php
+} else {
 
 
 
@@ -284,3 +318,5 @@ document.getElementById('area').addEventListener('change', function () {
     }
 });
 </script>
+<?php
+}
