@@ -1071,7 +1071,7 @@ $stmt->close();
                                             if($result->num_rows>0){
                                                 $row=$result->fetch_assoc();
                                                 $idle_qty = $row['qty'];
-                                                if($idle_qty != 0){
+                                                // if($idle_qty != 0){
                                                 ?>
                                                 <!-- for idle -->
                                                 <tr>
@@ -1132,7 +1132,7 @@ $stmt->close();
                                                     </td>
                                                 </tr>
                                                 <?php
-                                                }
+                                                // }
                                             }
                                         // }           
                                     // }

@@ -45,6 +45,7 @@ if ((isset($_POST['area']) && $_POST['area'] === 'others') || (isset($_GET['area
     }
 
     $location_name = trim($location_combo);
+    
 
     if ($location_name == '') {
         die('Location name is required.');
@@ -909,5 +910,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 <?php
+    $_SESSION['NEW_LOCATION_NAME'] = $location_name;
 }
 ?>

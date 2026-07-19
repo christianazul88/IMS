@@ -151,6 +151,7 @@ if(isset($_SESSION['NEW_LOCATION_NAME'])){
                     <li>Go back to the <strong>Audit Dashboard</strong>.</li>
                     <li>Select the item location you are currently scanning.<br>(on audit assignments select the idle)</li>
                     <li>Continue scanning until the audit is completed.</li>
+                    <li>If you are not currently scanning, click this <a href="end.php">link</a> to start a new scanning session.</li>
                 </ol>
 
                 <a href="../audit-dashboard/" class="btn btn-warning">
