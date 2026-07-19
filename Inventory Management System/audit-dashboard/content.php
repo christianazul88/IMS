@@ -477,9 +477,11 @@ $stmt->close();
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Expected Qty</small>
+                        <?php if($audit_position == 1){?><a href="expected_items.php?wh=<?php echo $warehouse_id_audit;?>"> <?php } ?>
                         <h3 id="expected_summary">
                             <?= number_format($total_expected_qty) ?>
                         </h3>
+                        <?php if($audit_position == 1){?></a><?php } ?>
                     </div>
                 </div>
             </div>
@@ -511,7 +513,9 @@ $stmt->close();
                 <div class="card border-warning shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Missing Qty</small>
+                        <?php if($audit_position == 1){?> <a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>"><?php } ?>
                         <h3 id="missing_summary"><?= number_format($negative_variance_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($negative_variance_amount,2) ?>)</span> <?php } ?></h3>
+                        <?php if($audit_position == 1){?> </a><?php } ?>
                     </div>
                 </div>
             </div>

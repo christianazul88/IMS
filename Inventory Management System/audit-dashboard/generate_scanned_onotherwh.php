@@ -58,7 +58,7 @@ $output = fopen("php://output", "w");
 |--------------------------------------------------------------------------
 */
 
-fputcsv($output, ["AUDIT DETAILED REPORT"]);
+fputcsv($output, ["AUDIT DETAILED REPORT FOR ITEMS THAT WAS SCANNED ON OTHER WAREHOUSE"]);
 fputcsv($output, ["Audit Number", $audit['audit_num']]);
 fputcsv($output, ["Warehouse", $audit['warehouse_name']]);
 fputcsv($output, ["Schedule Date", $audit['schedule_date']]);
