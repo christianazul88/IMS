@@ -581,7 +581,9 @@ $stmt->close();
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Wrong/From other Warehouse(s)</small>
+                        <?php if($audit_position == 1){?> <a href="generate_wrong_wh_report.php?audit_id=<?php echo $audit_id; ?>"><?php } ?>
                         <h5 id="wrong_wh_summary"><?= number_format($wrong_warehouse_qty,2) ?> <?php if($audit_position == 1){?><span>(₱ <?= number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2) ?> )</span><?php } ?></h5>
+                        <?php if($audit_position == 1){?> </a><?php } ?>
                     </div>
                 </div>
             </div>
