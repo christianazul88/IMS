@@ -1531,5 +1531,5 @@ function loadAuditSummary(){
 
 loadAuditSummary();
 
-setInterval(loadAuditSummary, 30000);
+setInterval(loadAuditSummary, 8898);
 </script>

@@ -1,4 +1,11 @@
 <?php
+error_reporting(E_ALL);
+ini_set('max_execution_time', 300);
+ini_set('memory_limit', '4G');
+ini_set('display_errors', 1);
+ini_set('pcre.backtrack_limit', '10000000');
+
+
 $audit_id = $_SESSION['audit_id'];
 
 // Fetch audit details
