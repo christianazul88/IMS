@@ -127,6 +127,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 warehouse
             FROM stocks
             WHERE unique_barcode = ?
+            AND item_status = 0
             LIMIT 1
         ");
 
