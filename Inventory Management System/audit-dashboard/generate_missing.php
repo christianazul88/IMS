@@ -151,6 +151,8 @@ $query = "
     WHERE ita.audit_id = ?
 
         AND ita.audit_status = 'pending'
+        AND ita.warehouse_origin = '$warehouse_id_audit'
+        AND ita.outbounded = 'no'
 
     ORDER BY ita.audit_status;
 ";
