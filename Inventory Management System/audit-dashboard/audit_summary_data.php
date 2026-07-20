@@ -260,7 +260,25 @@ $stmt_summary = "
         WHERE ita.audit_id = $audit_id
         AND ita.audit_status = 'outbounded'
         AND ita.warehouse_origin = '$warehouse_id_audit'
-    ) AS total_missing_outbounded_amount
+    ) AS total_missing_outbounded_amount,
+
+    -- Scanned on other warehouse QTY
+    (
+        SELECT COUNT(*)
+        FROM items_to_audit
+        WHERE audit_id = $audit_id
+        AND audit_status = 'scanned_on_other'
+    ) AS audited_on_other_wh_qty,
+
+    -- Scanned on other warehouse amount
+    (
+        SELECT SUM(s.capital)
+        FROM items_to_audit ita
+        LEFT JOIN stocks s
+            ON s.unique_barcode = ita.unique_barcode
+        WHERE audit_id = $audit_id
+        AND audit_status = 'scanned_on_other'
+    ) AS audited_on_other_wh_amount
 ";
 
 $stmt_summary_result = $conn->prepare($stmt_summary);
@@ -301,6 +319,9 @@ $total_scanned_wrong_warehouse_as_positive_variance_amount = (float)($row['total
 //missing that was outbounded
 $outbounded_qty_missing = $row['total_missing_outbounded_qty'];
 $outbounded_amount_missing = $row['total_missing_outbounded_amount'];
+
+$audited_on_other_wh_qty = $row['audited_on_other_wh_qty'];
+$audited_on_other_wh_amount = $row['audited_on_other_wh_amount'];
 
 $stmt_summary_result->close();
 
@@ -355,24 +376,24 @@ if($audit_position != 1){
     $net_variance_amount = 0;   
 }
 
-$expected_summary = $total_expected_qty. ' (₱ ' . number_format($total_expected_amount,2) . ')';
+$expected_summary = number_format($total_expected_qty). ' (₱ ' . number_format($total_expected_amount,2) . ')';
 // $scanned_summary_expected = $total_expected_scanned_qty . ' (₱ ' . number_format($total_expected_scanned_amount, 2) . ')';
 $requested_total_expected_scanned_qty = $total_expected_scanned_qty + $outbounded_qty_missing;
 $requested_total_expected_scanned_amount = $total_expected_scanned_amount + $outbounded_amount_missing;
-$scanned_summary_expected = $requested_total_expected_scanned_qty . ' (₱ ' . number_format($requested_total_expected_scanned_amount, 2) . ')';
+$scanned_summary_expected = number_format($requested_total_expected_scanned_qty) . ' (₱ ' . number_format($requested_total_expected_scanned_amount, 2) . ')';
 
 
-$total_scanned_summary = $total_qty_scanned . ' (₱ ' . number_format($total_scanned_amount,2) . ')';
-$missing_summary = $negative_variance_qty . ' (₱ ' . number_format($negative_variance_amount,2) . ')';
-$wrong_wh_summary = $wrong_warehouse_qty . ' (₱ ' . number_format($total_scanned_wrong_warehouse_as_positive_variance_amount,2) . ')';
-$scanned_outbounded_summary = $total_scanned_outbounded_as_positive_variance_qty . ' (₱ ' . number_format($total_scanned_outbounded_as_positive_variance_amount,2) . ')';
-$missing_outbounded_summary = $outbounded_qty_missing . ' (₱ ' . number_format($outbounded_amount_missing,2) . ')';
+$total_scanned_summary = number_format($total_qty_scanned) . ' (₱ ' . number_format($total_scanned_amount,2) . ')';
+$missing_summary = number_format($negative_variance_qty) . ' (₱ ' . number_format($negative_variance_amount,2) . ')';
+$wrong_wh_summary = number_format($wrong_warehouse_qty) . ' (₱ ' . number_format($total_scanned_wrong_warehouse_as_positive_variance_amount,2) . ')';
+$scanned_outbounded_summary = number_format($total_scanned_outbounded_as_positive_variance_qty) . ' (₱ ' . number_format($total_scanned_outbounded_as_positive_variance_amount,2) . ')';
+$missing_outbounded_summary = number_format($outbounded_qty_missing) . ' (₱ ' . number_format($outbounded_amount_missing,2) . ')';
 
 $must_be_equal_expected_scanned_amount = $total_scanned_amount - $positive_variance_amount;
-$must_be_equal_expected_amount = $must_be_equal_expected_scanned_amount + $negative_variance_amount + $outbounded_amount_missing;
+$must_be_equal_expected_amount = $must_be_equal_expected_scanned_amount + $negative_variance_amount + $outbounded_amount_missing + $audited_on_other_wh_amount;
 
 $must_be_equal_expected_scanned_qty = $total_qty_scanned - $positive_variance_qty;
-$must_be_equal_expected_qty = $must_be_equal_expected_scanned_qty + $negative_variance_qty + $outbounded_qty_missing;
+$must_be_equal_expected_qty = $must_be_equal_expected_scanned_qty + $negative_variance_qty + $outbounded_qty_missing + $audited_on_other_wh_qty;
 
 
 
@@ -391,22 +412,22 @@ echo json_encode([
     'must_be_equal_expected_qty' => $must_be_equal_expected_qty,
 
 
-    'total_expected_qty' => $total_expected_qty,
+    'total_expected_qty' => number_format($total_expected_qty),
     'total_expected_amount' => number_format($total_expected_amount,2),
 
-    'expected_scanned_qty' => $total_expected_scanned_qty,
+    'expected_scanned_qty' => number_format($total_expected_scanned_qty),
     'expected_scanned_amount' => number_format($total_expected_scanned_amount,2),
 
-    'total_scanned_qty' => $total_qty_scanned,
+    'total_scanned_qty' => number_format($total_qty_scanned),
     'scanned_amount' => number_format($total_scanned_amount,2),
 
-    'missing_qty' => $negative_variance_qty,
+    'missing_qty' => number_format($negative_variance_qty),
     'missing_amount' => number_format($negative_variance_amount,2),
 
-    'wrong_warehouse_qty' => $wrong_warehouse_qty,
+    'wrong_warehouse_qty' => number_format($wrong_warehouse_qty),
     'wrong_warehouse_amount' => number_format($total_scanned_wrong_warehouse_as_positive_variance_amount,2),
 
-    'scanned_outbounded_qty' => $total_scanned_outbounded_as_positive_variance_qty,
+    'scanned_outbounded_qty' => number_format($total_scanned_outbounded_as_positive_variance_qty),
     'scanned_outbounded_amount' => number_format($total_scanned_outbounded_as_positive_variance_amount,2),
 
     'missing_outbounded_qty' => $outbounded_qty_missing,
@@ -414,6 +435,11 @@ echo json_encode([
 
     'positive_variance_qty' => $positive_variance_qty,
     'positive_variance_amount' => $positive_variance_amount,
+
+    'audited_on_other_wh_qty' => $audited_on_other_wh_qty,
+    'audited_on_other_wh_amount' => $audited_on_other_wh_amount,
+
+    'audited_on_other_wh' => number_format($audited_on_other_wh_qty) . " (₱ " . number_format($audited_on_other_wh_amount,2) . ")",
 
     'progress' => round($audit_progress,2),
 

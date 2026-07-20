@@ -577,7 +577,7 @@ $stmt->close();
         <!-- problems requiring investigation -->
         <div class="row g-3 mb-4">
 
-            <div class="col-md-4 col-sm-12">
+            <div class="col-md-3 col-sm-12">
                 <div class="card border-primary shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Wrong/From other Warehouse(s)</small>
@@ -588,7 +588,7 @@ $stmt->close();
                 </div>
             </div>
 
-            <div class="col-md-4 col-sm-12">
+            <div class="col-md-3 col-sm-12">
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Outbounded Scanned</small>
@@ -597,11 +597,20 @@ $stmt->close();
                 </div>
             </div>
 
-            <div class="col-md-4 col-sm-12">
+            <div class="col-md-3 col-sm-12">
                 <div class="card border-sucess shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Outbounded from missing</small>
                         <h5 id="missing_outbounded_summary"><?= $outbounded_qty_missing ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($outbounded_amount_missing,2) ?> )</span> <?php } ?></h5>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 col-sm-12">
+                <div class="card border-success shadow-sm">
+                    <div class="card-body">
+                        <small class="text-muted">Audited on other Warehouse</small>
+                        <h5 id="audited_on_other_wh"></h5>
                     </div>
                 </div>
             </div>
@@ -1498,6 +1507,9 @@ function loadAuditSummary(){
             $("#missing_outbounded_amount").text(data.missing_outbounded_amount);
             $("#positive_variance_qty").text(data.positive_variance_qty);
             $("#positive_variance_amount").text(data.positive_variance_amount);
+            $("#audited_on_other_wh_qty").text(data.audited_on_other_wh_qty);
+            $("#audited_on_other_wh_amount").text(data.audited_on_other_wh_amount);
+            $("#audited_on_other_wh").text(data.audited_on_other_wh);
 
             $("#must_be_equal_expected_scanned_amount").text(data.must_be_equal_expected_scanned_amount);
             $("#must_be_equal_expected_amount").text(data.must_be_equal_expected_amount);
