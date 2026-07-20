@@ -412,22 +412,22 @@ echo json_encode([
     'must_be_equal_expected_qty' => $must_be_equal_expected_qty,
 
 
-    'total_expected_qty' => number_format($total_expected_qty),
+    'total_expected_qty' => $total_expected_qty,
     'total_expected_amount' => number_format($total_expected_amount,2),
 
-    'expected_scanned_qty' => number_format($total_expected_scanned_qty),
+    'expected_scanned_qty' => $total_expected_scanned_qty,
     'expected_scanned_amount' => number_format($total_expected_scanned_amount,2),
 
-    'total_scanned_qty' => number_format($total_qty_scanned),
+    'total_scanned_qty' => $total_qty_scanned,
     'scanned_amount' => number_format($total_scanned_amount,2),
 
-    'missing_qty' => number_format($negative_variance_qty),
+    'missing_qty' => $negative_variance_qty,
     'missing_amount' => number_format($negative_variance_amount,2),
 
-    'wrong_warehouse_qty' => number_format($wrong_warehouse_qty),
+    'wrong_warehouse_qty' => $wrong_warehouse_qty,
     'wrong_warehouse_amount' => number_format($total_scanned_wrong_warehouse_as_positive_variance_amount,2),
 
-    'scanned_outbounded_qty' => number_format($total_scanned_outbounded_as_positive_variance_qty),
+    'scanned_outbounded_qty' => $total_scanned_outbounded_as_positive_variance_qty,
     'scanned_outbounded_amount' => number_format($total_scanned_outbounded_as_positive_variance_amount,2),
 
     'missing_outbounded_qty' => $outbounded_qty_missing,
