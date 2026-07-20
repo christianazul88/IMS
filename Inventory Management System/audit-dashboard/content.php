@@ -610,9 +610,15 @@ $stmt->close();
                 <div class="card border-success shadow-sm">
                     <div class="card-body">
                         <small class="text-muted">Audited on other Warehouse</small>
-                        <?php if($audit_position == 1) { echo '<a href="generate_soow.php?audit_id=' . $audit_id . '">'} ?>
+                        <?php if ($audit_position == 1): ?>
+                            <a href="generate_soow.php?audit_id=<?= $audit_id ?>">
+                        <?php endif; ?>
+
                         <h5 id="audited_on_other_wh"></h5>
-                        <?php if($audit_position == 1) { echo '</a>'} ?>
+
+                        <?php if ($audit_position == 1): ?>
+                            </a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
