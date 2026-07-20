@@ -32,7 +32,7 @@ $stmt->close();
 if (!$audit) {
     die("Audit not found.");
 }
-
+$warehouse_id_audit = $audit['warehouse'];
 /*
 |--------------------------------------------------------------------------
 | CSV HEADERS
