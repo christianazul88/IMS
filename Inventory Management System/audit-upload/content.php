@@ -532,12 +532,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                             SET
                                 audit_assignment_id = '$audit_assignment_id',
                                 user_id = '$staff_id',
-                                audit_status = 'scanned',
+                                audit_status = 'scanned_on_other',
                                 scanned_date = NOW(),
                                 item_location_onscanned = '$selected_area',
                                 outbounded = '$outbounded_option',
-                                warehouse_onscanned = '$warehouse_id_audit',
-                                audit_id = '$audit_id'
+                                warehouse_onscanned = '$warehouse_id_audit'
 
                             WHERE audit_id = '$previous_audit_id'
                             AND id = '$id_of_barcode'
@@ -552,6 +551,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                         if(!$stmt_update_prevaudit->execute()) {
                             die("Prepare failed: " . $conn->error);
                         }
+
+
+                        //insert to current audit
+                        $insert_warehouse = NULL;
+
+                        if($stock_warehouse === $warehouse_id_audit){
+                            $stock_transfer_query = "
+                                SELECT
+                                    st.from_warehouse
+                                FROM stock_transfer st
+                                LEFT JOIN stock_transfer_content stc
+                                    ON stc.st_id = st.id
+                                WHERE stc.unique_barcode = '$barcode'
+                                AND st.to_warehouse = '$warehouse_id_audit'
+                                ORDER BY st.id DESC
+                                LIMIT 1
+                            ";
+                            $stock_transfer_result = $conn->query($stock_transfer_query);
+                            if($stock_transfer_result->num_rows>0){
+                                $row=$stock_transfer_result->fetch_assoc();
+                                $insert_warehouse = $row['from_warehouse'];
+                            } else {
+                                $insert_warehouse = '59e19706d51d39f66711c2653cd7eb1291c94d9b55eb14bda74ce4dc636d015a';
+                            }
+                        }
+
+                        $insert_items_to_audit = "
+                            INSERT INTO items_to_audit (
+                                audit_id,
+                                unique_barcode,
+                                warehouse_origin,
+                                item_location_origin,
+                                audit_status
+                            )
+                            VALUES (?, ?, ?, ?, 'pending')
+                        ";
+
+                        $stmt_items = $conn->prepare($insert_items_to_audit);
+                        $stmt_items->bind_param(
+                            "issi",
+                            $audit_id,
+                            $barcode,
+                            $insert_warehouse,
+                            $selected_area
+                        );
+                        $stmt_items->execute();
+                        $stmt_items->close();
                     }
 
 
