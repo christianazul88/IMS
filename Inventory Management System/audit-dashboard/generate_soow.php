@@ -154,7 +154,7 @@ $query = "
 ";
 
 $stmt = $conn->prepare($query);
-$stmt->bind_param("is", $audit_id, $warehouse_id_audit);
+$stmt->bind_param("i", $audit_id);
 $stmt->execute();
 
 /*
