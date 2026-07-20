@@ -56,7 +56,7 @@
 <div class="container py-5">
 
     <div class="text-center mb-5">
-        <h2 class="fw-bold">Galit ka pa rin ba?</h2>
+        <h2 class="fw-bold">Testing</h2>
         <p class="text-muted">
             Pindutin at i-hold ng 2 segundo ang iyong sagot.
         </p>
@@ -73,8 +73,9 @@
             </svg>
 
             <button class="btn btn-success rounded-circle hold-btn"
+                    data-icon="success"
                     data-message="🥰 Yehey! Hindi na siya galit.">
-                Hindi na<br>galit
+                No<br>hindi
             </button>
 
         </div>
@@ -88,8 +89,9 @@
             </svg>
 
             <button class="btn btn-danger rounded-circle hold-btn"
+                    data-icon="error"
                     data-message="😅 Ay hala... galit pa rin pala.">
-                Galit<br>pa rin
+                Yes<br>oo
             </button>
 
         </div>
@@ -132,7 +134,12 @@
                     clearInterval(timer);
                     holding=false;
 
-                    alert(button.dataset.message);
+                    // alert(button.dataset.message);
+                    Swal.fire({
+                        icon: button.dataset.icon,
+                        title: button.dataset.message,
+                        html: button.dataset.message
+                    });
 
                     progress.style.strokeDashoffset=CIRCUMFERENCE;
 

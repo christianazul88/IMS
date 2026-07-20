@@ -46,18 +46,31 @@
                     <!-- Warehouse Select -->
                         <select name="warehouse" id="warehouse" class="form-select form-select-sm">
                             <!-- <option value="">All Warehouses</option> -->
-                            <?php 
-                            foreach ($user_warehouse_ids as $id) {
-                                $id = trim($id);
-                                $warehouse_info_query = "SELECT * FROM warehouse WHERE hashed_id = '$id'";
-                                $warehouse_info_result = mysqli_query($conn, $warehouse_info_query);
+                            <?php
+
+                            $warehouse_info_query = "
+                                    SELECT DISTINCT
+                                        w.hashed_id,
+                                        w.warehouse_name
+                                    FROM warehouse w
+                                    INNER JOIN stocks s
+                                        ON s.warehouse = w.hashed_id
+                                    WHERE s.item_status = 0
+                                    AND w.hashed_id IN ($user_warehouse_id)
+                                    ORDER BY w.warehouse_name
+                                ";
+
+                                $warehouse_info_result = $conn->query($warehouse_info_query);
+
                                 if ($warehouse_info_result->num_rows > 0) {
-                                    $row = $warehouse_info_result->fetch_assoc();
-                                    $tab_warehouse_name = $row['warehouse_name'];
-                                    echo '<option value="' . $id . '">' . $tab_warehouse_name . '</option>';
+                                    while ($row = $warehouse_info_result->fetch_assoc()) {
+                                        $tab_warehouse_name = $row['warehouse_name'];
+                                        $id = $row['hashed_id'];
+
+                                        echo '<option value="' . $id . '">' . $tab_warehouse_name . ' </option>';
+                                    }
                                 }
-                            }
-                            ?>
+                                ?>
                         </select>
                     </div>
                 </form>
