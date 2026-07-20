@@ -26,17 +26,13 @@
 
         <div class="content-box">
 
-            <h1>Your Title</h1>
+            <h1>Prove mo muna na ikaw si Lori.</h1>
 
             <hr>
 
             <div id="content">
 
-                <!-- PUT EVERYTHING HERE -->
-
-                <p>
-                    This is your content section.
-                </p>
+                
 
             </div>
 
