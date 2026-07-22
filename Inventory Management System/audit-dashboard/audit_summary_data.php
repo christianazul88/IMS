@@ -251,6 +251,7 @@ $stmt_summary = "
         WHERE audit_id = $audit_id
         AND audit_status = 'outbounded'
         AND warehouse_origin = '$warehouse_id_audit'
+        AND outbounded = 'no'
     ) AS total_missing_outbounded_qty,
 
     -- Outbounded amount
@@ -262,6 +263,7 @@ $stmt_summary = "
         WHERE ita.audit_id = $audit_id
         AND ita.audit_status = 'outbounded'
         AND ita.warehouse_origin = '$warehouse_id_audit'
+        AND ita.outbounded = 'no'
     ) AS total_missing_outbounded_amount,
 
     -- Scanned on other warehouse QTY
@@ -355,7 +357,7 @@ $positive_variance_qty = $wrong_warehouse_qty + $total_scanned_outbounded_as_pos
 $positive_variance_amount = $total_scanned_wrong_warehouse_as_positive_variance_amount + $total_scanned_outbounded_as_positive_variance_amount;
 
 
-$total_expected_scanned_qty_with_outbounded_missing = $total_expected_scanned_qty + $outbounded_qty_missing;
+$total_expected_scanned_qty_with_outbounded_missing = $total_expected_scanned_qty + $outbounded_qty_missing + $audited_on_other_wh_qty;
 $net_variance_qty =
     $positive_variance_qty -
     $negative_variance_qty;
@@ -379,10 +381,10 @@ if($audit_position != 1){
 }
 
 $expected_summary = number_format($total_expected_qty). ' (₱ ' . number_format($total_expected_amount,2) . ')';
-$scanned_summary_expected = $total_expected_scanned_qty . ' (₱ ' . number_format($total_expected_scanned_amount, 2) . ')';
-$requested_total_expected_scanned_qty = $total_expected_scanned_qty + $outbounded_qty_missing;
-$requested_total_expected_scanned_amount = $total_expected_scanned_amount + $outbounded_amount_missing;
-// $scanned_summary_expected = number_format($requested_total_expected_scanned_qty) . ' (₱ ' . number_format($requested_total_expected_scanned_amount, 2) . ')';
+// $scanned_summary_expected = $total_expected_scanned_qty . ' (₱ ' . number_format($total_expected_scanned_amount, 2) . ')';
+$requested_total_expected_scanned_qty = $total_expected_scanned_qty + $outbounded_qty_missing + $audited_on_other_wh_qty;
+$requested_total_expected_scanned_amount = $total_expected_scanned_amount + $outbounded_amount_missing + $audited_on_other_wh_amount;
+$scanned_summary_expected = number_format($requested_total_expected_scanned_qty) . ' (₱ ' . number_format($requested_total_expected_scanned_amount, 2) . ')';
 
 
 $total_scanned_summary = number_format($total_qty_scanned) . ' (₱ ' . number_format($total_scanned_amount,2) . ')';
