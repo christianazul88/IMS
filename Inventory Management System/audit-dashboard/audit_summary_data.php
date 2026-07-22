@@ -141,7 +141,7 @@ $stmt_summary = "
         SELECT COUNT(*)
         FROM items_to_audit
         WHERE audit_id = $audit_id
-        AND audit_status IN ('scanned','approved')
+        AND audit_status IN ('scanned','approved', 'outbounded','scanned_on_other')
     ) AS total_scanned,
 
     -- Total Scanned Amount
@@ -151,7 +151,7 @@ $stmt_summary = "
         LEFT JOIN stocks s
             ON s.unique_barcode = ita.unique_barcode
         WHERE ita.audit_id = $audit_id
-        AND ita.audit_status IN ('scanned','approved')
+        AND ita.audit_status IN ('scanned','approved', 'outbounded','scanned_on_other')
     ) AS total_scanned_amount,
 
     -- Total Expected Scanned QTY
