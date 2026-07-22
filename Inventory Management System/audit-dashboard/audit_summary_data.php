@@ -379,10 +379,10 @@ if($audit_position != 1){
 }
 
 $expected_summary = number_format($total_expected_qty). ' (₱ ' . number_format($total_expected_amount,2) . ')';
-// $scanned_summary_expected = $total_expected_scanned_qty . ' (₱ ' . number_format($total_expected_scanned_amount, 2) . ')';
+$scanned_summary_expected = $total_expected_scanned_qty . ' (₱ ' . number_format($total_expected_scanned_amount, 2) . ')';
 $requested_total_expected_scanned_qty = $total_expected_scanned_qty + $outbounded_qty_missing;
 $requested_total_expected_scanned_amount = $total_expected_scanned_amount + $outbounded_amount_missing;
-$scanned_summary_expected = number_format($requested_total_expected_scanned_qty) . ' (₱ ' . number_format($requested_total_expected_scanned_amount, 2) . ')';
+// $scanned_summary_expected = number_format($requested_total_expected_scanned_qty) . ' (₱ ' . number_format($requested_total_expected_scanned_amount, 2) . ')';
 
 
 $total_scanned_summary = number_format($total_qty_scanned) . ' (₱ ' . number_format($total_scanned_amount,2) . ')';
