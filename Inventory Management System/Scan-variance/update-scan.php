@@ -184,6 +184,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (!$exists) {
         echo "Item dont exist on missing items: " . htmlspecialchars($barcode);
         $stmt_update->close();
+    } else {
+        $outbounded_option = "no";
     }
 
     $update_items_to_audit = "
@@ -196,7 +198,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             item_location_origin = '$stock_item_location', 
             item_location_onscanned = '$selected_area', 
             outbounded = '$outbounded_option', 
-            warehouse_origin = '$stock_warehouse', 
             warehouse_onscanned = '$warehouse_id_audit'
 
         WHERE audit_id = '$audit_id'
