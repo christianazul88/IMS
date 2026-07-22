@@ -173,7 +173,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         FROM items_to_audit
         WHERE audit_id = ?
         AND unique_barcode = ?
-        AND audit_status IN ('scanned','approved','outbounded')
+        AND audit_status IN ('scanned','approved','outbounded','scanned_on_other')
     ";
 
 
@@ -376,6 +376,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
         
+    } else {
+        $outbounded_option = "no";
     }
 
     $update_items_to_audit = "

@@ -393,7 +393,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                     FROM items_to_audit
                     WHERE audit_id = ?
                     AND unique_barcode = ?
-                    AND audit_status IN ('scanned','approved','outbounded')
+                    AND audit_status IN ('scanned','approved','outbounded','scanned_on_other')
                 ";
 
 
@@ -602,6 +602,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
 
 
                     
+                } else {
+                    $outbounded_option = "no";
                 }
 
                 $update_items_to_audit = "

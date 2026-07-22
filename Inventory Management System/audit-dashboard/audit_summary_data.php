@@ -161,6 +161,7 @@ $stmt_summary = "
         WHERE audit_id = $audit_id
         AND audit_status IN ('scanned','approved')
         AND warehouse_origin = '$warehouse_id_audit'
+        AND warehouse_onscanned = '$warehouse_id_audit'
         AND outbounded = 'no'
     ) AS total_expected_scanned_qty,
 
@@ -172,6 +173,7 @@ $stmt_summary = "
             ON s.unique_barcode = ita.unique_barcode
         WHERE ita.audit_id = $audit_id
         AND ita.warehouse_origin = '$warehouse_id_audit'
+        AND ita.warehouse_onscanned = '$warehouse_id_audit'
         AND ita.audit_status IN ('scanned','approved')
         AND ita.outbounded = 'no'
     ) AS total_expected_scanned_amount,
