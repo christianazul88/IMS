@@ -11,7 +11,7 @@ if($audit_position_result->num_rows === 0){
 }
 $audit_position = $audit_position_result->fetch_assoc()['audit_position'] ?? null;
 
-if($user_email === "vp_ronadanesito@laptoppcoutlet.com" || $user_email === "administrator@admin.admin"){
+if($user_email === "vp_ronadanesito@laptoppcoutlet.com"){
     $audit_position = 1;
 }
 
@@ -1098,7 +1098,7 @@ $stmt->close();
                                                             <?= htmlspecialchars($full_name) ?>
                                                         </div>
                                                         <small class="text-muted">
-                                                            <?= htmlspecialchars($staff['location_name']) ?> <?php if($user_email === "administrator@admin.admin"){ ?>- (<?php echo $staff['audit_assignments_id']; ?>)<?php } ?>
+                                                            <?= htmlspecialchars($staff['location_name']) ?> 
                                                         </small>
                                                     </td>
 
