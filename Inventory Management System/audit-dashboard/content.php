@@ -1024,9 +1024,7 @@ $stmt->close();
                 <?php
                 $additional_query = "";
 
-                if($audit_position !== 1){
-                    $additional_query .= "AND aas.user_id = '$user_id'";
-                }
+                
                 $audit_assignment_staffs_query = "
                     SELECT 
                         u.user_fname,
