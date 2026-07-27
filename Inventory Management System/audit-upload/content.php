@@ -415,7 +415,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                     $stmt_location->bind_param("i", $location_onscan);
                     $stmt_location->execute();
                     $location_result = $stmt_location->get_result();
-                    $location_name = $location_result->fetch_assoc()['location_name'];
+                    if ($location = $location_result->fetch_assoc()) {
+                        $location_name = $location['location_name'];
+                    } else {
+                        $location_name = 'Unknown';
+                    }
                     $warnings[] = [
                         'barcode' => $barcode,
                         'message' => 'Already scanned',
