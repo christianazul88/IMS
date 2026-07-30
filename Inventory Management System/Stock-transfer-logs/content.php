@@ -9,33 +9,80 @@ if(isset($_GET['rec']) && $_GET['rec'] == 30){
   $btn_pending = "btn-outline-primary";
   $btn_receives60 ="btn-outline-primary";
   $btn_receivesall ="btn-outline-primary";
-  $additional_query = "AND st.status = 'received' AND st.date_out >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+  $additional_query = "AND st.status = 'received' AND st.date_received >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+  $btn_sent30 = "btn-outline-info";
+  $btn_sent60 = "btn-outline-info";
+  $btn_sentall = "btn-outline-info";
 } elseif(isset($_GET['rec']) && $_GET['rec'] == 60){
   $btn_receives30 = "btn-outline-primary";
   $btn_pending = "btn-outline-primary";
   $btn_receives60 ="btn-primary";
   $btn_receivesall ="btn-outline-primary";
-  $additional_query = "AND st.status = 'received' AND st.date_out >= DATE_SUB(NOW(), INTERVAL 60 DAY)";
+  $additional_query = "AND st.status = 'received' AND st.date_received >= DATE_SUB(NOW(), INTERVAL 60 DAY)";
+  $btn_sent30 = "btn-outline-info";
+  $btn_sent60 = "btn-outline-info";
+  $btn_sentall = "btn-outline-info";
 } elseif(isset($_GET['rec']) && $_GET['rec'] === "all"){
   $btn_receives30 = "btn-outline-primary";
   $btn_pending = "btn-outline-primary";
-    $btn_receives60 ="btn-outline-primary";
+  $btn_receives60 ="btn-outline-primary";
   $btn_receivesall ="btn-primary";
   $additional_query = "AND st.status = 'received'";
+  $btn_sent30 = "btn-outline-info";
+  $btn_sent60 = "btn-outline-info";
+  $btn_sentall = "btn-outline-info";
+} elseif(isset($_GET['sent']) && $_GET['sent'] == 30){
+  $btn_receives30 = "btn-outline-primary";
+  $btn_pending = "btn-outline-primary";
+  $btn_receives60 ="btn-outline-primary";
+  $btn_receivesall ="btn-outline-primary";
+  $additional_query = " AND st.date_out >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+  $btn_sent30 = "btn-info";
+  $btn_sent60 = "btn-outline-info";
+  $btn_sentall = "btn-outline-info";
+} elseif(isset($_GET['sent']) && $_GET['sent'] == 60){
+  $btn_receives30 = "btn-outline-primary";
+  $btn_pending = "btn-outline-primary";
+  $btn_receives60 ="btn-outline-primary";
+  $btn_receivesall ="btn-outline-primary";
+  $additional_query = " AND st.date_out >= DATE_SUB(NOW(), INTERVAL 60 DAY)";
+  $btn_sent30 = "btn-outline-info";
+  $btn_sent60 = "btn-info";
+  $btn_sentall = "btn-outline-info";
+} elseif(isset($_GET['sent']) && $_GET['sent'] === "all"){
+  $btn_receives30 = "btn-outline-primary";
+  $btn_pending = "btn-outline-primary";
+  $btn_receives60 ="btn-outline-primary";
+  $btn_receivesall ="btn-outline-primary";
+  $additional_query = "";
+  $btn_sent30 = "btn-outline-info";
+  $btn_sent60 = "btn-outline-info";
+  $btn_sentall = "btn-info";
 } else {
   $btn_receives30 = "btn-outline-primary";
   $btn_pending = "btn-primary";
   $btn_receives60 ="btn-outline-primary";
   $btn_receivesall ="btn-outline-primary";
   $additional_query = "AND st.status = 'pending'";
+  $btn_sent30 = "btn-outline-info";
+  $btn_sent60 = "btn-outline-info";
+  $btn_sentall = "btn-outline-info";
 }
 ?>
-<div class="text-start p-3">
-    <a href="../Stock-transfer-logs/" type="button" class="btn <?php echo $btn_pending;?> btn-sm">Pending(s)</a>
-    <a href="../Stock-transfer-logs/?rec=30" type="button" class="btn <?php echo $btn_receives30;?> btn-sm">Received (last 30 days)</a>
-    <a href="../Stock-transfer-logs/?rec=60" type="button" class="btn <?php echo $btn_receives60;?> btn-sm">Received (last 60 days)</a>
-    <a href="../Stock-transfer-logs/?rec=all" type="button" class="btn <?php echo $btn_receivesall;?> btn-sm">Received (all)</a>
+<div class="row">
+  <div class="col-6 text-start p-3 mb-3">
+      <a href="../Stock-transfer-logs/" type="button" class="btn <?php echo $btn_pending;?> btn-sm">Pending to receive</a>
+      <a href="../Stock-transfer-logs/?rec=30" type="button" class="btn <?php echo $btn_receives30;?> btn-sm">Received (last 30 days)</a>
+      <a href="../Stock-transfer-logs/?rec=60" type="button" class="btn <?php echo $btn_receives60;?> btn-sm">Received (last 60 days)</a>
+      <a href="../Stock-transfer-logs/?rec=all" type="button" class="btn <?php echo $btn_receivesall;?> btn-sm">Received (all)</a>
+  </div>
+  <div class="col-6 text-end p-3 mb-3">
+      <a href="../Stock-transfer-logs/?sent=30" type="button" class="btn <?php echo $btn_sent30;?> btn-sm">Sent last 30 days</a>
+      <a href="../Stock-transfer-logs/?sent=60" type="button" class="btn <?php echo $btn_sent60;?> btn-sm">Sent last 60 days</a>
+      <a href="../Stock-transfer-logs/?sent=all" type="button" class="btn <?php echo $btn_sentall;?> btn-sm">Sent(all)</a>
+  </div>
 </div>
+
 <div class="card">
   <div class="card-header bg-success">
     <h2 class="text-dark">Stock Transfer Logs</h2>
@@ -72,7 +119,8 @@ if(isset($_GET['rec']) && $_GET['rec'] == 30){
             $quoted_warehouse_ids = array_map(fn($id) => "'" . trim($id) . "'", $user_warehouse_ids);
             $imploded_warehouse_ids = implode(",", $quoted_warehouse_ids);
 
-            $Stock_sql = "
+            if(isset($_GET['rec'])){
+              $Stock_sql = "
                             SELECT
                                 st.*,
                                 fw.warehouse_name AS from_warehouse_name,
@@ -86,15 +134,58 @@ if(isset($_GET['rec']) && $_GET['rec'] == 30){
                             LEFT JOIN users fu ON st.from_userid = fu.hashed_id
                             LEFT JOIN users ru ON st.received_userid = ru.hashed_id
                             WHERE
-                                (
-                                    st.from_warehouse IN ($imploded_warehouse_ids)
-                                    OR st.to_warehouse IN ($imploded_warehouse_ids)
-                                )
+                                
+                                st.to_warehouse IN ($imploded_warehouse_ids)
                                 -- AND st.date_out >= DATE_SUB(NOW(), INTERVAL 1 DAY)
                                 $additional_query
                             GROUP BY st.id
                             ORDER BY st.id DESC
                         ";
+            } elseif(isset($_GET['sent'])){
+              $Stock_sql = "
+                            SELECT
+                                st.*,
+                                fw.warehouse_name AS from_warehouse_name,
+                                tw.warehouse_name AS to_warehouse_name,
+                                CONCAT(fu.user_fname, ' ', fu.user_lname) AS from_fullname,
+                                CONCAT(ru.user_fname, ' ', ru.user_lname) AS receiver_fullname
+                            FROM stock_transfer st
+                            INNER JOIN stock_transfer_content stc ON stc.st_id = st.id
+                            LEFT JOIN warehouse fw ON st.from_warehouse = fw.hashed_id
+                            LEFT JOIN warehouse tw ON st.to_warehouse = tw.hashed_id
+                            LEFT JOIN users fu ON st.from_userid = fu.hashed_id
+                            LEFT JOIN users ru ON st.received_userid = ru.hashed_id
+                            WHERE
+                                st.from_warehouse IN ($imploded_warehouse_ids)
+                                -- AND st.date_out >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+                                $additional_query
+                            GROUP BY st.id
+                            ORDER BY st.id DESC
+                        ";
+            } else {
+              $Stock_sql = "
+                            SELECT
+                                st.*,
+                                fw.warehouse_name AS from_warehouse_name,
+                                tw.warehouse_name AS to_warehouse_name,
+                                CONCAT(fu.user_fname, ' ', fu.user_lname) AS from_fullname,
+                                CONCAT(ru.user_fname, ' ', ru.user_lname) AS receiver_fullname
+                            FROM stock_transfer st
+                            INNER JOIN stock_transfer_content stc ON stc.st_id = st.id
+                            LEFT JOIN warehouse fw ON st.from_warehouse = fw.hashed_id
+                            LEFT JOIN warehouse tw ON st.to_warehouse = tw.hashed_id
+                            LEFT JOIN users fu ON st.from_userid = fu.hashed_id
+                            LEFT JOIN users ru ON st.received_userid = ru.hashed_id
+                            WHERE
+                                st.to_warehouse IN ($imploded_warehouse_ids)
+                                -- AND st.date_out >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+                                $additional_query
+                            GROUP BY st.id
+                            ORDER BY st.id DESC
+                        ";
+            }
+
+            
 
 
             $Stock_res = $conn->query($Stock_sql);
@@ -166,40 +257,40 @@ if(isset($_GET['rec']) && $_GET['rec'] == 30){
             ?>
             <tr class="text-center">
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
               <td class="align-middle">
-                <h4>No Data yet</h4>
+                <h4>Nothing to receive yet</h4>
               </td>
             </tr>
             <?php 
@@ -225,6 +316,8 @@ if(isset($_GET['rec']) && $_GET['rec'] == 30){
     </div>
   </div>
 </div>
+
+<script src="auto_receive.js"></script>
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {

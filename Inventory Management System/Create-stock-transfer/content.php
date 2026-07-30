@@ -98,7 +98,9 @@ if(!isset($_SESSION['warehouse_for_transfer'])){
 
                     // Create a comma-separated string of quoted IDs
                     $imploded_warehouse_ids = implode(",", $quoted_warehouse_ids);
-                    $to_query = "SELECT hashed_id, warehouse_name FROM warehouse ORDER BY warehouse_name ASC";
+
+
+                    $to_query = "SELECT hashed_id, warehouse_name FROM warehouse WHERE hashed_id IN ($user_warehouse_id) ORDER BY warehouse_name ASC";
                     $to_res = $conn->query($to_query);
                     if($to_res->num_rows>0){
                         while($row=$to_res->fetch_assoc()){
@@ -107,6 +109,7 @@ if(!isset($_SESSION['warehouse_for_transfer'])){
                         }
                         }
                     }
+                    
                     ?>
                     </select>
                 </div>
