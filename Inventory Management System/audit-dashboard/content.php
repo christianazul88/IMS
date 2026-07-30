@@ -840,7 +840,7 @@ $stmt->close();
         }
     </style>
 
-    <div class="col-md-12 col-sm-12 d-flex mb-3">
+    <div class="col-md-9 col-sm-12 d-flex mb-3">
         <div class="card mb-3 h-100 w-100 shadow-sm">
             <div class="card-body">
 
@@ -920,6 +920,62 @@ $stmt->close();
                     </div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 col-sm-12 d-flex mb-3">
+        <div class="card mb-3 h-100">
+            <div class="card-header">
+                <h5 class="text-muted fs-11">Barcodes moved to another warehouse since the audit started</h5>
+                <hr>
+            </div>
+            <div class="card-body">
+                <div class="table-scroll">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover table-modern align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Barcode</th>
+                                    <th>On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                $naligaw_query = "
+                                    SELECT
+                                        ita.unique_barcode,
+                                        w.warehouse_name
+                                    FROM items_to_audit ita
+                                    LEFT JOIN stocks s
+                                        ON s.unique_barcode = ita.unique_barcode
+                                    LEFT JOIN warehouse w
+                                        ON w.hashed_id = s.warehouse
+                                    WHERE ita.audit_status = 'pending'
+                                    AND s.warehouse != '$warehouse_id_audit'
+                                    AND ita.audit_id = '$audit_id'
+                                ";
+                                $naligaw_res = $conn->query($naligaw_query);
+                                if($naligaw_res->num_rows>0){
+                                    while($row=$naligaw_res->fetch_assoc()){
+                                        $naligaw_na_barcode = $row['unique_barcode'];
+                                        $on = $row['warehouse_name'];
+
+                                        echo '<tr>
+                                            <td class="text-light">' . $naligaw_na_barcode . '</td>
+                                            <td class="text-light">' . $on . '</td>
+                                        </tr>';
+                                    }
+                                } else {
+                                    echo '<tr>
+                                        <td class="text-light" colspan="2">None yet.</td>
+                                    </tr>';
+                                }
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
