@@ -3,6 +3,12 @@
 include "../config/database.php";
 include "../config/on_session.php";
 
+// Force CSV download
+$filename = "outbounded_barcodes_" . date("Ymd_His") . ".csv";
+
+header('Content-Type: text/csv');
+header('Content-Disposition: attachment; filename="' . $filename . '"');
+
 $audit_id = $_SESSION['audit_id'];
 
 // --- Permission check (now using a prepared statement) ---
@@ -91,29 +97,70 @@ if (!$audit_log_timestamp) {
 $warehouse_id_audit = $audit['warehouse'];
 $warehouse_name_audit = $audit['warehouse_name'];
 
+// CSV Header
+fputcsv($output, [
+    "Audit ID",
+    "Barcode",
+    "Order Number",
+    "Item Status"
+]);
+
 $query_pending_items = "
-                    SELECT 
-                        ita.audit_id,
-                        ita.unique_barcode, 
-                        s.item_status
-                    FROM items_to_audit ita
-                    INNER JOIN stocks s 
-                        ON s.unique_barcode = ita.unique_barcode
-                    LEFT JOIN audit_logs al
-                        ON al.id = ita.audit_id
-                    WHERE ita.audit_status = 'pending'
-                        AND al.audit_status != 'completed'
-                        ";
+    SELECT 
+        ita.audit_id,
+        ita.unique_barcode, 
+        s.item_status,
+        ol.order_num
+    FROM items_to_audit ita
+    INNER JOIN stocks s 
+        ON s.unique_barcode = ita.unique_barcode
+    LEFT JOIN audit_logs al
+        ON al.id = ita.audit_id
+    LEFT JOIN outbound_content oc
+        ON oc.unique_barcode = ita.unique_barcode
+    LEFT JOIN outbound_logs ol
+        ON ol.hashed_id = oc.hashed_id
+    WHERE ita.audit_status = 'pending'
+      AND al.audit_status != 'completed'
+      AND s.item_status != 0
+";
+
 $result_pending_items = $conn->query($query_pending_items);
-if($result_pending_items->num_rows>0){
-    while($row=$result_pending_items->fetch_assoc()){
-        $query_audit_id = $row['audit_id'];
-        $query_barcode = $row['unique_barcode'];
+
+if ($result_pending_items->num_rows > 0) {
+
+    while ($row = $result_pending_items->fetch_assoc()) {
+
+        $query_audit_id    = $row['audit_id'];
+        $barcode           = $row['unique_barcode'];
         $query_availability = $row['item_status'];
+        $order_number      = $row['order_num'] ?? 'NA';
 
+        if ($query_availability == 1 || $query_availability == 6) {
 
-        
+            // Save to CSV
+            fputcsv($output, [
+                $query_audit_id,
+                $barcode,
+                $order_number,
+                $query_availability
+            ]);
 
+            // Update database
+            $stmt = $conn->prepare("
+                UPDATE items_to_audit
+                SET audit_status = 'outbounded',
+                    order_num = ?
+                WHERE unique_barcode = ?
+                  AND audit_status = 'pending'
+            ");
 
+            $stmt->bind_param("ss", $order_number, $barcode);
+            $stmt->execute();
+            $stmt->close();
+        }
     }
 }
+
+fclose($output);
+exit;

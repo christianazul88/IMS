@@ -116,22 +116,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param("si", $product_quantity_after, $outbound_content_id);
             $stmt->execute();
 
-            //check if is in ongoing audit
-            if(isset($_SESSION['audit_id'])){
-                $audit_id = $_SESSION['audit_id'];
+           
 
-                $check_audit_items = "SELECT id FROM items_to_audit WHERE audit_id = ? AND unique_barcode = ? ORDER BY id DESC LIMIT 1";
-                $stmt = $conn->prepare($check_audit_items);
-                $stmt->bind_param("is", $audit_id, $barcode);
+            $check_audit_items = "SELECT id FROM items_to_audit WHERE unique_barcode = ? AND audit_status = 'pending' ORDER BY id DESC LIMIT 1";
+            $stmt = $conn->prepare($check_audit_items);
+            $stmt->bind_param("s", $barcode);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            if($result->num_rows>0){
+                $update_audit_item = "UPDATE items_to_audit SET audit_status = 'outbounded', order_num = ? WHERE unique_barcode = ?";
+                $stmt = $conn->prepare($update_audit_item);
+                $stmt->bind_param("ss", $orderNo, $barcode);
                 $stmt->execute();
-                $result = $stmt->get_result();
-
-                if($result->num_rows>0){
-                    $update_audit_item = "UPDATE items_to_audit SET audit_status = 'outbounded' WHERE audit_id = ? AND unique_barcode = ?";
-                    $stmt = $conn->prepare($update_audit_item);
-                    $stmt->bind_param("is", $audit_id, $barcode);
-                    $stmt->execute();
-                }
             }
         }
 
