@@ -1,3 +1,34 @@
+<style>
+    .setting-toggle {
+  position: fixed;
+  top: 98%;
+  right: 1.25rem;
+  transform: translateY(-50%);
+  width: 56px;
+  height: 56px;
+  z-index: 1030;
+  text-decoration: none;
+}
+.setting-toggle .card-body {
+  width: 100%;
+  height: 100%;
+  padding: 0 !important;
+}
+.setting-toggle:hover { transform: translateY(-50%) scale(1.06); }
+
+#notif-text {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  padding: 0 !important;
+  border-radius: 50%;
+  font-size: 0; /* keeps "notification" text in the DOM for your $(this).text() check, just hides it visually */
+  line-height: 0;
+}
+</style>
+
 <div class="offcanvas offcanvas-end settings-panel border-0" id="settings-offcanvas" tabindex="-1" aria-labelledby="settings-offcanvas">
   <div class="offcanvas-header settings-panel-header justify-content-between bg-shape" id="notif-header">
     <div class="z-1 py-1">
@@ -11,6 +42,7 @@
       <button class="btn-close z-1 mt-0" type="button" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
   </div>
+  
 
   <div class="offcanvas-body scrollbar-overlay px-x1 h-100" id="themeController">
     <div id="notification-area">
@@ -19,7 +51,7 @@
   </div>
 </div>
 
-<a class="card setting-toggle" href="#settings-offcanvas" data-bs-toggle="offcanvas">
+<!-- <a class="card setting-toggle" href="#settings-offcanvas" data-bs-toggle="offcanvas">
   <div class="card-body d-flex align-items-center py-md-2 px-2 py-1">
     <div class="bg-primary-subtle position-relative rounded-start" style="height:34px;width:28px">
       <div class="settings-popover">
@@ -37,6 +69,13 @@
 
     <small class="text-uppercase fw-bold py-2 pe-2 ps-1 rounded-end bg-primary-subtle" id="notif-text">notification</small>
   </div>
+</a> -->
+
+<a class="card setting-toggle rounded-circle shadow" href="#settings-offcanvas" data-bs-toggle="offcanvas">
+    <div class="card-body d-flex align-items-center justify-content-center position-relative bg-primary rounded-circle">
+        <span class="far fa-bell text-white fs-6"></span>
+        <small class="position-absolute bg-primary-subtle" id="notif-text">notification</small>
+    </div>
 </a>
 
 

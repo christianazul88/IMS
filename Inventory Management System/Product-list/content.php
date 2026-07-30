@@ -3,8 +3,9 @@
     <h4>Product list</h4>
   </div>
 
-  <div class="col-lg-12 text-end px-3">
-    <button class="btn btn-primary py-0 me-auto" type="button" data-bs-toggle="modal" data-bs-target="#create-modal">Create</button>
+  <div class="col-lg-12 text-end px-3 mb-3">
+    <a href="../create-product" class="btn btn-primary py-0 me-auto">Create</a>
+    <!-- <button class="btn btn-primary py-0 me-auto" type="button" data-bs-toggle="modal" data-bs-target="#create-modal">Create</button> -->
   </div>
 
   <div class="col-lg-12">

@@ -10,6 +10,57 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $parentBarcode = $_POST['parent_barcode'] ?? '';
     $safety = $_POST['safety'];
 
+    $voltage  = $_POST['volt'] ?? '';
+    $amperage = $_POST['amp'] ?? '';
+    $pin_size = $_POST['pin'] ?? '';
+ 
+    /**
+     * Makes sure a lookup table exists, then inserts the given value
+     * into it only if that value isn't already present.
+     *
+     * @param mysqli $conn
+     * @param string $tableName   e.g. 'voltage'
+     * @param string $columnName  e.g. 'volt_value'
+     * @param string $value       the value coming from the form
+     */
+    function ensureLookupValue($conn, $tableName, $columnName, $value) {
+        // Nothing to store if the field was left empty
+        if ($value === null || $value === '') {
+            return;
+        }
+ 
+        // Create the table if it doesn't exist yet
+        $createSql = "CREATE TABLE IF NOT EXISTS `$tableName` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `$columnName` VARCHAR(20) NULL
+        )";
+        $conn->query($createSql);
+ 
+        // Check whether the value already exists
+        $checkSql = "SELECT `id` FROM `$tableName` WHERE `$columnName` = ? LIMIT 1";
+        $stmt = $conn->prepare($checkSql);
+        $stmt->bind_param("s", $value);
+        $stmt->execute();
+        $stmt->store_result();
+        $alreadyExists = $stmt->num_rows > 0;
+        $stmt->close();
+ 
+        // Only insert if it doesn't exist yet
+        if (!$alreadyExists) {
+            $insertSql = "INSERT INTO `$tableName` (`$columnName`) VALUES (?)";
+            $insertStmt = $conn->prepare($insertSql);
+            $insertStmt->bind_param("s", $value);
+            $insertStmt->execute();
+            $insertStmt->close();
+        }
+    }
+ 
+    // Apply the same "create table if needed, insert if new" logic
+    // for each of the three lookup fields.
+    ensureLookupValue($conn, 'voltage', 'volt_value', $voltage);
+    ensureLookupValue($conn, 'amperage', 'amp_value', $amperage);
+    ensureLookupValue($conn, 'pin', 'pin_size_value', $pin_size);
+
     function generateUniqueBarcode($conn) {
         do {
             $barcode = str_pad(rand(0, 9999999), 7, '0', STR_PAD_LEFT);
