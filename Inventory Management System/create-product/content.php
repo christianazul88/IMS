@@ -129,8 +129,12 @@
         </div>
         <div class="pf-label-caption">This updates live as you choose category, brand, and electrical specs below — it's exactly what prints on the shelf tag.</div>
       </div>
+      <small class="pf-barcode-msg" id="duplicate-message" style="display:block;">This item name + brand combination already exists.</small>
+      
+      </div>
       <input type="hidden" id="item_name" name="product_description">
 
+      
       <div class="pf-section">
         <div class="pf-section-label">Photo (optional)</div>
         <div class="pf-dropzone" id="pf_dropzone">
@@ -267,7 +271,7 @@
 
     <div class="pf-footer">
       <button type="button" class="btn-pf-secondary">Cancel</button>
-      <button type="submit" class="btn-pf-primary">Save product</button>
+      <button type="submit" class="btn-pf-primary" id="submit-btn">Save product</button>
     </div>
   </div>
 </div>
@@ -278,6 +282,9 @@
   const categorySelect = document.getElementById('category');
   const itemNameField = document.getElementById('item_name');
   const itemNameDisplay = document.getElementById('item_name_display');
+  const brandSelect = document.getElementById('brand');
+  const duplicateMsg = document.getElementById('duplicate-message');
+  const submitBtn = document.getElementById('submit-btn');
 
   const fields = ['volt', 'amp', 'pin'].map(prefix => ({
     select: document.getElementById(prefix + '_select'),
@@ -299,11 +306,44 @@
   });
 
   categorySelect.addEventListener('change', updateItemName);
+  brandSelect.addEventListener('change', updateItemName); // brand affects the check too
 
   function valueFor(select, input) {
     if (select.value === 'new') return input.value.trim();
-    if (select.value === 'NA') return 'NA';
-    return '';
+    if (select.value === '') return ''; // placeholder or "Not available"
+    return select.value; // an existing voltage/amp/pin value was picked
+  }
+
+  let debounceTimer; // shared across calls now
+
+  function checkDuplicate() {
+    clearTimeout(debounceTimer);
+    const description = itemNameField.value.trim();
+    const brand = brandSelect.value;
+
+    if (!description || !brand) {
+      duplicateMsg.style.display = 'none';
+      submitBtn.disabled = false;
+      return;
+    }
+
+    debounceTimer = setTimeout(() => {
+      const body = new URLSearchParams({ product_description: description, brand });
+      fetch('check_duplicate.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      })
+        .then(res => res.json())
+        .then(data => {
+          duplicateMsg.style.display = data.exists ? 'block' : 'none';
+          submitBtn.disabled = data.exists;
+        })
+        .catch(() => {
+          duplicateMsg.style.display = 'none';
+          submitBtn.disabled = false;
+        });
+    }, 350);
   }
 
   function updateItemName() {
@@ -325,6 +365,8 @@
       itemNameDisplay.textContent = 'Select a category to begin';
       itemNameDisplay.classList.add('is-empty');
     }
+
+    checkDuplicate();
   }
 
   const dropzone = document.getElementById('pf_dropzone');
