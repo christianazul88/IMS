@@ -127,14 +127,14 @@
           <div class="eyebrow">Item name preview</div>
           <div class="name is-empty" id="item_name_display">Select a category to begin</div>
         </div>
-        <div class="pf-label-caption">This updates live as you choose category, brand, and electrical specs below — it's exactly what prints on the shelf tag.</div>
+        <div class="pf-label-caption">This updates live as you choose category, brand, and specs below — it's exactly what prints on the shelf tag.</div>
       </div>
       <small class="pf-barcode-msg" id="duplicate-message" style="display:block;">This item name + brand combination already exists.</small>
-      
+
       </div>
       <input type="hidden" id="item_name" name="product_description">
 
-      
+
       <div class="pf-section">
         <div class="pf-section-label">Photo (optional)</div>
         <div class="pf-dropzone" id="pf_dropzone">
@@ -183,14 +183,25 @@
             </select>
           </div>
         </div>
-        <div class="row g-3 mt-0" id="laptop-condition-row" style="display:none;">
+        <div class="row g-3 mt-0" id="condition-row" style="display:none;">
           <div class="col-md-6">
             <label class="pf-label">Condition *</label>
-            <select class="form-select" name="laptop_condition" id="laptop_condition_select">
+            <select class="form-select bg-danger text-light" name="condition" id="condition_select">
               <option value="">Select condition</option>
               <option value="Brand New">Brand New</option>
               <option value="Pre Owned">Pre Owned</option>
             </select>
+          </div>
+        </div>
+        <div class="row g-3 mt-0" id="source-row" style="display:none;">
+          <div class="col-md-6">
+            <label class="pf-label">Source *</label>
+            <select class="form-select bg-danger text-light" name="source" id="source_select">
+              <option value="">Select source</option>
+              <option value="Local">Local</option>
+              <option value="Import">Import</option>
+            </select>
+            <div class="pf-hint">"Local" is added to the end of the item name. "Import" isn't included in the name.</div>
           </div>
         </div>
       </div>
@@ -200,7 +211,7 @@
         <div class="pf-spec-grid">
           <div class="pf-spec">
             <div class="pf-spec-title"><span class="pf-spec-glyph">V</span>Voltage</div>
-            <select class="form-select" name="volt" id="volt_select">
+            <select class="form-select bg-danger text-light" name="volt" id="volt_select">
                 <option value="">Select voltage</option>
                 <?php 
                     $volt_query = "SELECT * FROM voltage ORDER BY volt_value ASC";
@@ -219,7 +230,7 @@
           </div>
           <div class="pf-spec">
             <div class="pf-spec-title"><span class="pf-spec-glyph">A</span>Amperage</div>
-            <select class="form-select" name="amp" id="amp_select">
+            <select class="form-select bg-danger text-light" name="amp" id="amp_select">
                 <option value="">Select amperage</option>
                 <?php
                     $amp_query = "
@@ -240,7 +251,7 @@
           </div>
           <div class="pf-spec">
             <div class="pf-spec-title"><span class="pf-spec-glyph">P</span>Pin size</div>
-            <select class="form-select" name="pin" id="pin_select">
+            <select class="form-select bg-danger text-light" name="pin" id="pin_select">
                 <option value="">Select pin size</option>
                 <?php 
                     $pin_query = "SELECT * FROM pin ORDER BY pin_size_value ASC";
@@ -290,7 +301,7 @@
           ?>
           <div class="col-md-6">
             <label class="pf-label"><?php echo htmlspecialchars($field['label']); ?></label>
-            <select class="form-select desktop-spec-select" name="desktop_<?php echo $field_key; ?>" id="desktop_<?php echo $field_key; ?>_select">
+            <select class="form-select desktop-spec-select bg-danger text-light" name="desktop_<?php echo $field_key; ?>" id="desktop_<?php echo $field_key; ?>_select">
               <option value="">Select <?php echo htmlspecialchars($field['label']); ?></option>
               <?php
                 if ($spec_result->num_rows > 0) {
@@ -319,6 +330,118 @@
           ?>
         </div>
         <div class="pf-hint">These pull from products you've already added under Processor, Memory, Storage, Videocard, Mother Board, and PSU categories. Pick "New / not listed" to type a value that won't be saved as its own product but will still appear in the item name.</div>
+      </div>
+
+      <div class="pf-section" id="laptop-spec-section" style="display:none;">
+        <div class="pf-section-label">Laptop specifications</div>
+        <div class="row g-3">
+          <?php
+            function ensureAndSeedLookupTable($conn, $tableName, $columnName, array $defaults) {
+                $createSql = "CREATE TABLE IF NOT EXISTS `$tableName` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `$columnName` VARCHAR(100) NULL
+                )";
+                $conn->query($createSql);
+
+                $count = 0;
+                $countResult = $conn->query("SELECT COUNT(*) AS cnt FROM `$tableName`");
+                if ($countResult) {
+                    $countRow = $countResult->fetch_assoc();
+                    $count = (int)($countRow['cnt'] ?? 0);
+                }
+
+                if ($count === 0 && !empty($defaults)) {
+                    $insertStmt = $conn->prepare("INSERT INTO `$tableName` (`$columnName`) VALUES (?)");
+                    if ($insertStmt) {
+                        foreach ($defaults as $defaultValue) {
+                            $insertStmt->bind_param('s', $defaultValue);
+                            $insertStmt->execute();
+                        }
+                        $insertStmt->close();
+                    }
+                }
+            }
+
+            $laptop_spec_fields = [
+                'cpu' => [
+                    'label' => 'Processor (CPU)',
+                    'table' => 'laptop_cpu',
+                    'column' => 'cpu_value',
+                    'defaults' => [
+                        'Intel Celeron', 'Intel Pentium',
+                        'Intel Core i3', 'Intel Core i5', 'Intel Core i7', 'Intel Core i9',
+                        'AMD Athlon', 'AMD Ryzen 3', 'AMD Ryzen 5', 'AMD Ryzen 7', 'AMD Ryzen 9',
+                        'Apple M1', 'Apple M2', 'Apple M3', 'Apple M4',
+                    ],
+                ],
+                'ram' => [
+                    'label' => 'RAM',
+                    'table' => 'laptop_ram',
+                    'column' => 'ram_value',
+                    'defaults' => ['4GB', '8GB', '12GB', '16GB', '24GB', '32GB', '64GB'],
+                ],
+                'gpu' => [
+                    'label' => 'GPU / iGPU',
+                    'table' => 'laptop_gpu',
+                    'column' => 'gpu_value',
+                    'defaults' => [
+                        'Intel UHD Graphics', 'Intel Iris Xe Graphics', 'Intel Arc Graphics',
+                        'AMD Radeon Graphics (Integrated)',
+                        'NVIDIA GeForce MX550', 'NVIDIA GeForce MX570',
+                        'NVIDIA GeForce RTX 3050', 'NVIDIA GeForce RTX 4050',
+                        'NVIDIA GeForce RTX 4060', 'NVIDIA GeForce RTX 4070', 'NVIDIA GeForce RTX 4080',
+                        'AMD Radeon RX 7600M', 'Apple Integrated GPU',
+                    ],
+                ],
+                'storage' => [
+                    'label' => 'Storage (Capacity)',
+                    'table' => 'laptop_storage',
+                    'column' => 'storage_value',
+                    'defaults' => ['128GB SSD', '256GB SSD', '512GB SSD', '1TB SSD', '2TB SSD', '500GB HDD', '1TB HDD'],
+                ],
+                'screen_size' => [
+                    'label' => 'Screen Size',
+                    'table' => 'laptop_screen_size',
+                    'column' => 'screen_size_value',
+                    'defaults' => ['11.6"', '13.3"', '14"', '15.6"', '16"', '17.3"'],
+                ],
+                'color' => [
+                    'label' => 'Color',
+                    'table' => 'laptop_color',
+                    'column' => 'color_value',
+                    'defaults' => ['Black', 'Silver', 'Space Gray', 'White', 'Blue', 'Gold'],
+                ],
+            ];
+
+            foreach ($laptop_spec_fields as $field_key => $field) {
+                ensureAndSeedLookupTable($conn, $field['table'], $field['column'], $field['defaults']);
+                $lookup_res = $conn->query("SELECT `{$field['column']}` AS value FROM `{$field['table']}` ORDER BY `{$field['column']}` ASC");
+          ?>
+          <div class="col-md-6">
+            <label class="pf-label"><?php echo htmlspecialchars($field['label']); ?></label>
+            <select class="form-select bg-danger text-light laptop-spec-select" name="laptop_<?php echo $field_key; ?>" id="laptop_<?php echo $field_key; ?>_select">
+              <option value="">Select <?php echo htmlspecialchars($field['label']); ?></option>
+              <?php
+                if ($lookup_res && $lookup_res->num_rows > 0) {
+                    while ($row = $lookup_res->fetch_assoc()) {
+                        echo '<option value="' . htmlspecialchars($row['value']) . '">' . htmlspecialchars($row['value']) . '</option>';
+                    }
+                }
+              ?>
+              <option value="new">New / not listed&hellip;</option>
+            </select>
+            <input
+              type="text"
+              class="form-control mt-2 d-none"
+              id="laptop_<?php echo $field_key; ?>_input"
+              name="laptop_<?php echo $field_key; ?>_custom"
+              placeholder="Type <?php echo htmlspecialchars($field['label']); ?>"
+              disabled
+            />
+          </div>
+          <?php } ?>
+        </div>
+        <div class="pf-hint">Pick "New / not listed" to type something not yet in the list &mdash; it'll be saved for next time, same as Voltage/Amperage/Pin size.</div>
       </div>
 
       <div class="pf-section">
@@ -378,6 +501,7 @@
 
   const electricalSection = document.getElementById('electrical-spec-section');
   const desktopSection = document.getElementById('desktop-spec-section');
+  const laptopSection = document.getElementById('laptop-spec-section');
 
   const desktopFieldKeys = ['processor', 'memory', 'storage', 'videocard', 'motherboard', 'psu'];
   const desktopFields = desktopFieldKeys.map(key => ({
@@ -402,45 +526,104 @@
     input.addEventListener('input', updateItemName);
   });
 
+  const laptopSpecFieldKeys = ['cpu', 'ram', 'gpu', 'storage', 'screen_size', 'color'];
+  const laptopSpecFields = laptopSpecFieldKeys.map(key => ({
+    key,
+    select: document.getElementById('laptop_' + key + '_select'),
+    input: document.getElementById('laptop_' + key + '_input')
+  }));
+
+  laptopSpecFields.forEach(({ select, input }) => {
+    select.addEventListener('change', () => {
+      if (select.value === 'new') {
+        input.classList.remove('d-none');
+        input.disabled = false;
+        input.focus();
+      } else {
+        input.classList.add('d-none');
+        input.disabled = true;
+        input.value = '';
+      }
+      updateItemName();
+    });
+    input.addEventListener('input', updateItemName);
+  });
+
   function isDesktopCategory() {
     const text = categorySelect.options[categorySelect.selectedIndex]?.text || '';
     return text.trim().toLowerCase() === 'desktop';
   }
-
-  const laptopConditionRow = document.getElementById('laptop-condition-row');
-  const laptopConditionSelect = document.getElementById('laptop_condition_select');
 
   function isLaptopCategory() {
     const text = categorySelect.options[categorySelect.selectedIndex]?.text || '';
     return text.trim().toLowerCase() === 'laptop';
   }
 
-  function toggleLaptopConditionRow() {
-    const laptop = isLaptopCategory();
-    laptopConditionRow.style.display = laptop ? '' : 'none';
-    laptopConditionSelect.required = laptop;
-    if (!laptop) {
-      laptopConditionSelect.value = '';
+  const conditionRow = document.getElementById('condition-row');
+  const conditionSelect = document.getElementById('condition_select');
+
+  function needsCondition() {
+    return isDesktopCategory() || isLaptopCategory();
+  }
+
+  function toggleConditionRow() {
+    const show = needsCondition();
+    conditionRow.style.display = show ? '' : 'none';
+    conditionSelect.required = show;
+    if (!show) {
+      conditionSelect.value = '';
     }
   }
 
-  laptopConditionSelect.addEventListener('change', updateItemName);
+  conditionSelect.addEventListener('change', updateItemName);
+
+  function isLaptopChargerCategory() {
+    const text = categorySelect.options[categorySelect.selectedIndex]?.text || '';
+    return text.trim().toLowerCase() === 'laptop charger';
+  }
+
+  const sourceRow = document.getElementById('source-row');
+  const sourceSelect = document.getElementById('source_select');
+
+  function toggleSourceRow() {
+    const show = isLaptopChargerCategory();
+    sourceRow.style.display = show ? '' : 'none';
+    sourceSelect.required = show;
+    if (!show) {
+      sourceSelect.value = '';
+    }
+  }
+
+  sourceSelect.addEventListener('change', updateItemName);
 
   function toggleSpecSections() {
     const desktop = isDesktopCategory();
-    electricalSection.style.display = desktop ? 'none' : '';
-    desktopSection.style.display = desktop ? '' : 'none';
+    const laptop = isLaptopCategory();
 
-    if (desktop) {
+    electricalSection.style.display = (desktop || laptop) ? 'none' : '';
+    desktopSection.style.display = desktop ? '' : 'none';
+    laptopSection.style.display = laptop ? '' : 'none';
+
+    if (desktop || laptop) {
       // clear electrical fields so they don't leak into the name or the POST body
       fields.forEach(({ select, input }) => {
         select.value = '';
         input.disabled = true;
         input.value = '';
       });
-    } else {
-      // clear desktop fields when switching away from Desktop
+    }
+
+    if (!desktop) {
       desktopFields.forEach(({ select, input }) => {
+        select.value = '';
+        input.classList.add('d-none');
+        input.disabled = true;
+        input.value = '';
+      });
+    }
+
+    if (!laptop) {
+      laptopSpecFields.forEach(({ select, input }) => {
         select.value = '';
         input.classList.add('d-none');
         input.disabled = true;
@@ -451,7 +634,8 @@
 
   categorySelect.addEventListener('change', () => {
     toggleSpecSections();
-    toggleLaptopConditionRow();
+    toggleConditionRow();
+    toggleSourceRow();
     updateItemName();
   });
   brandSelect.addEventListener('change', updateItemName); // brand affects the check too
@@ -459,10 +643,10 @@
   function valueFor(select, input) {
     if (select.value === 'new') return input.value.trim();
     if (select.value === '') return ''; // placeholder or "Not available"
-    return select.value; // an existing voltage/amp/pin value was picked
+    return select.value; // an existing lookup value was picked
   }
 
-  let debounceTimer; // shared across calls now
+  let debounceTimer;
 
   function checkDuplicate() {
     clearTimeout(debounceTimer);
@@ -497,31 +681,38 @@
   function updateItemName() {
     const categoryText = categorySelect.options[categorySelect.selectedIndex]?.text || '';
     const desktop = isDesktopCategory();
-
-    const specParts = desktop
-      ? desktopFields.map(({ select, input }) => {
-          if (select.value === 'new') {
-            return input.value.trim();
-          }
-          if (!select.value || select.value === 'not_available') {
-            return '';
-          }
-          const opt = select.options[select.selectedIndex];
-          return opt?.dataset.description || opt?.text || '';
-        })
-      : [
-          valueFor(fields[0].select, fields[0].input),
-          valueFor(fields[1].select, fields[1].input),
-          valueFor(fields[2].select, fields[2].input)
-        ];
-
     const laptop = isLaptopCategory();
-    const conditionText = laptop ? laptopConditionSelect.value : '';
+
+    let specParts;
+    if (desktop) {
+      specParts = desktopFields.map(({ select, input }) => {
+        if (select.value === 'new') {
+          return input.value.trim();
+        }
+        if (!select.value || select.value === 'not_available') {
+          return '';
+        }
+        const opt = select.options[select.selectedIndex];
+        return opt?.dataset.description || opt?.text || '';
+      });
+    } else if (laptop) {
+      specParts = laptopSpecFields.map(({ select, input }) => valueFor(select, input));
+    } else {
+      specParts = [
+        valueFor(fields[0].select, fields[0].input),
+        valueFor(fields[1].select, fields[1].input),
+        valueFor(fields[2].select, fields[2].input)
+      ];
+    }
+
+    const conditionText = needsCondition() ? conditionSelect.value : '';
+    const sourceText = (isLaptopChargerCategory() && sourceSelect.value === 'Local') ? 'Local' : '';
 
     const parts = [
       conditionText,
       categorySelect.value ? categoryText : '',
-      ...specParts
+      ...specParts,
+      sourceText
     ].filter(Boolean);
 
     const joined = parts.join(' ');
