@@ -14,7 +14,7 @@
   .pf-wrap{ max-width:100%; margin:2.5rem auto; padding:0 1rem; }
   .pf-card{
     background:var(--surface); border:1px solid var(--border); border-radius:14px;
-    overflow:hidden;
+    overflow:hidden; padding: 10px;
   }
   .pf-head{ padding:1.5rem 1.75rem; border-bottom:1px solid var(--border); }
   .pf-head h2{
