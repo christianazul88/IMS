@@ -219,7 +219,7 @@
               <option value="">Select generation</option>
               <?php
                 ensureAndSeedLookupTable($conn, 'processor_generation', 'generation_value', [
-                    '8th Gen (Intel)', '9th Gen (Intel)', '10th Gen (Intel)', '11th Gen (Intel)', '12th Gen (Intel)', '13th Gen (Intel)', '14th Gen (Intel)',
+                    '10th Gen (Intel)', '11th Gen (Intel)', '12th Gen (Intel)', '13th Gen (Intel)', '14th Gen (Intel)',
                     'Core Ultra Series 1 (Intel)', 'Core Ultra Series 2 (Intel)',
                     'Ryzen 3000 Series (AMD)', 'Ryzen 4000 Series (AMD)', 'Ryzen 5000 Series (AMD)',
                     'Ryzen 6000 Series (AMD)', 'Ryzen 7000 Series (AMD)', 'Ryzen 8000 Series (AMD)', 'Ryzen 9000 Series (AMD)',
@@ -817,9 +817,11 @@
     const conditionText = needsCondition() ? conditionSelect.value : '';
     const sourceText = (isLaptopChargerCategory() && sourceSelect.value === 'Local') ? 'Local' : '';
     const modelText = modelNameInput.value.trim();
+    const brandText = laptop ? (brandSelect.options[brandSelect.selectedIndex]?.text || '') : '';
 
     const parts = [
       conditionText,
+      brandText,
       categorySelect.value ? categoryText : '',
       modelText,
       ...specParts,
