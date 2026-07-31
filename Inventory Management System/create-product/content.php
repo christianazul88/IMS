@@ -182,11 +182,15 @@
               ?>
             </select>
           </div>
+          <div class="col-md-6">
+            <label class="pf-label">Model name/ Other classification</label>
+            <input type="text" class="form-control" name="model_name" id="model_name_input" placeholder="e.g. ThinkPad X1 Carbon">
+          </div>
         </div>
         <div class="row g-3 mt-0" id="condition-row" style="display:none;">
           <div class="col-md-6">
             <label class="pf-label">Condition *</label>
-            <select class="form-select bg-danger text-light" name="condition" id="condition_select">
+            <select class="form-select" name="condition" id="condition_select">
               <option value="">Select condition</option>
               <option value="Brand New">Brand New</option>
               <option value="Pre Owned">Pre Owned</option>
@@ -196,7 +200,7 @@
         <div class="row g-3 mt-0" id="source-row" style="display:none;">
           <div class="col-md-6">
             <label class="pf-label">Source *</label>
-            <select class="form-select bg-danger text-light" name="source" id="source_select">
+            <select class="form-select" name="source" id="source_select">
               <option value="">Select source</option>
               <option value="Local">Local</option>
               <option value="Import">Import</option>
@@ -211,7 +215,7 @@
         <div class="pf-spec-grid">
           <div class="pf-spec">
             <div class="pf-spec-title"><span class="pf-spec-glyph">V</span>Voltage</div>
-            <select class="form-select bg-danger text-light" name="volt" id="volt_select">
+            <select class="form-select" name="volt" id="volt_select">
                 <option value="">Select voltage</option>
                 <?php 
                     $volt_query = "SELECT * FROM voltage ORDER BY volt_value ASC";
@@ -230,7 +234,7 @@
           </div>
           <div class="pf-spec">
             <div class="pf-spec-title"><span class="pf-spec-glyph">A</span>Amperage</div>
-            <select class="form-select bg-danger text-light" name="amp" id="amp_select">
+            <select class="form-select" name="amp" id="amp_select">
                 <option value="">Select amperage</option>
                 <?php
                     $amp_query = "
@@ -251,7 +255,7 @@
           </div>
           <div class="pf-spec">
             <div class="pf-spec-title"><span class="pf-spec-glyph">P</span>Pin size</div>
-            <select class="form-select bg-danger text-light" name="pin" id="pin_select">
+            <select class="form-select" name="pin" id="pin_select">
                 <option value="">Select pin size</option>
                 <?php 
                     $pin_query = "SELECT * FROM pin ORDER BY pin_size_value ASC";
@@ -278,7 +282,8 @@
             $desktop_spec_fields = [
                 'processor'    => ['label' => 'Processor',    'categories' => ['Processor']],
                 'memory'       => ['label' => 'Memory (RAM)', 'categories' => ['Memory']],
-                'storage'      => ['label' => 'Storage',      'categories' => ['SSD', 'HDD', 'STORAGE']],
+                'hdd'          => ['label' => 'HDD',          'categories' => ['HDD', 'STORAGE']],
+                'ssd'          => ['label' => 'SSD',          'categories' => ['SSD', 'STORAGE']],
                 'videocard'    => ['label' => 'Videocard',    'categories' => ['Videocard']],
                 'motherboard'  => ['label' => 'Mother Board', 'categories' => ['Mother Board']],
                 'psu'          => ['label' => 'PSU',          'categories' => ['PSU', 'Power Supply']],
@@ -301,7 +306,7 @@
           ?>
           <div class="col-md-6">
             <label class="pf-label"><?php echo htmlspecialchars($field['label']); ?></label>
-            <select class="form-select desktop-spec-select bg-danger text-light" name="desktop_<?php echo $field_key; ?>" id="desktop_<?php echo $field_key; ?>_select">
+            <select class="form-select desktop-spec-select" name="desktop_<?php echo $field_key; ?>" id="desktop_<?php echo $field_key; ?>_select">
               <option value="">Select <?php echo htmlspecialchars($field['label']); ?></option>
               <?php
                 if ($spec_result->num_rows > 0) {
@@ -329,7 +334,7 @@
             }
           ?>
         </div>
-        <div class="pf-hint">These pull from products you've already added under Processor, Memory, Storage, Videocard, Mother Board, and PSU categories. Pick "New / not listed" to type a value that won't be saved as its own product but will still appear in the item name.</div>
+        <div class="pf-hint">These pull from products you've already added under Processor, Memory, HDD, SSD, Videocard, Mother Board, and PSU categories. Pick "New / not listed" to type a value that won't be saved as its own product but will still appear in the item name.</div>
       </div>
 
       <div class="pf-section" id="laptop-spec-section" style="display:none;">
@@ -393,12 +398,6 @@
                         'AMD Radeon RX 7600M', 'Apple Integrated GPU',
                     ],
                 ],
-                'storage' => [
-                    'label' => 'Storage (Capacity)',
-                    'table' => 'laptop_storage',
-                    'column' => 'storage_value',
-                    'defaults' => ['128GB SSD', '256GB SSD', '512GB SSD', '1TB SSD', '2TB SSD', '500GB HDD', '1TB HDD'],
-                ],
                 'screen_size' => [
                     'label' => 'Screen Size',
                     'table' => 'laptop_screen_size',
@@ -419,7 +418,7 @@
           ?>
           <div class="col-md-6">
             <label class="pf-label"><?php echo htmlspecialchars($field['label']); ?></label>
-            <select class="form-select bg-danger text-light laptop-spec-select" name="laptop_<?php echo $field_key; ?>" id="laptop_<?php echo $field_key; ?>_select">
+            <select class="form-select laptop-spec-select" name="laptop_<?php echo $field_key; ?>" id="laptop_<?php echo $field_key; ?>_select">
               <option value="">Select <?php echo htmlspecialchars($field['label']); ?></option>
               <?php
                 if ($lookup_res && $lookup_res->num_rows > 0) {
@@ -440,8 +439,58 @@
             />
           </div>
           <?php } ?>
+          <?php
+            $laptop_storage_fields = [
+                'hdd' => ['label' => 'HDD', 'categories' => ['HDD', 'STORAGE']],
+                'ssd' => ['label' => 'SSD', 'categories' => ['SSD', 'STORAGE']],
+            ];
+
+            foreach ($laptop_storage_fields as $field_key => $field) {
+                $placeholders = implode(',', array_fill(0, count($field['categories']), '?'));
+                $types = str_repeat('s', count($field['categories']));
+
+                $storage_stmt = $conn->prepare("
+                    SELECT p.hashed_id, p.description
+                    FROM product p
+                    INNER JOIN category c ON c.hashed_id = p.category
+                    WHERE c.category_name IN ($placeholders)
+                    ORDER BY p.description ASC
+                ");
+                $storage_stmt->bind_param($types, ...$field['categories']);
+                $storage_stmt->execute();
+                $storage_result = $storage_stmt->get_result();
+          ?>
+          <div class="col-md-6">
+            <label class="pf-label"><?php echo htmlspecialchars($field['label']); ?></label>
+            <select class="form-select laptop-spec-select" name="laptop_<?php echo $field_key; ?>" id="laptop_<?php echo $field_key; ?>_select">
+              <option value="">Select <?php echo htmlspecialchars($field['label']); ?></option>
+              <?php
+                if ($storage_result->num_rows > 0) {
+                    while ($row = $storage_result->fetch_assoc()) {
+                        echo '<option value="' . htmlspecialchars($row['hashed_id']) . '" data-description="' . htmlspecialchars($row['description']) . '">' . htmlspecialchars($row['description']) . '</option>';
+                    }
+                } else {
+                    echo '<option value="">No ' . htmlspecialchars($field['label']) . ' products found</option>';
+                }
+              ?>
+              <option value="not_available">Not available</option>
+              <option value="new">New / not listed&hellip;</option>
+            </select>
+            <input
+              type="text"
+              class="form-control mt-2 d-none"
+              id="laptop_<?php echo $field_key; ?>_input"
+              name="laptop_<?php echo $field_key; ?>_custom"
+              placeholder="Type <?php echo htmlspecialchars($field['label']); ?>"
+              disabled
+            />
+          </div>
+          <?php
+                $storage_stmt->close();
+            }
+          ?>
         </div>
-        <div class="pf-hint">Pick "New / not listed" to type something not yet in the list &mdash; it'll be saved for next time, same as Voltage/Amperage/Pin size.</div>
+        <div class="pf-hint">CPU/RAM/GPU/Screen size/Color are typed &amp; saved for reuse. HDD/SSD pull from products you've already added under those categories, same as Desktop &mdash; pick "New / not listed" to type one that won't be saved as its own product.</div>
       </div>
 
       <div class="pf-section">
@@ -503,51 +552,47 @@
   const desktopSection = document.getElementById('desktop-spec-section');
   const laptopSection = document.getElementById('laptop-spec-section');
 
-  const desktopFieldKeys = ['processor', 'memory', 'storage', 'videocard', 'motherboard', 'psu'];
+  // Shared show/hide-on-'new' wiring used by every "pick existing product
+  // or type your own" style select (Desktop specs, Laptop HDD/SSD).
+  function wireToggleField({ select, input }) {
+    select.addEventListener('change', () => {
+      if (select.value === 'new') {
+        input.classList.remove('d-none');
+        input.disabled = false;
+        input.focus();
+      } else {
+        input.classList.add('d-none');
+        input.disabled = true;
+        input.value = '';
+      }
+      updateItemName();
+    });
+    input.addEventListener('input', updateItemName);
+  }
+
+  const desktopFieldKeys = ['processor', 'memory', 'hdd', 'ssd', 'videocard', 'motherboard', 'psu'];
   const desktopFields = desktopFieldKeys.map(key => ({
     key,
     select: document.getElementById('desktop_' + key + '_select'),
     input: document.getElementById('desktop_' + key + '_input')
   }));
+  desktopFields.forEach(wireToggleField);
 
-  desktopFields.forEach(({ select, input }) => {
-    select.addEventListener('change', () => {
-      if (select.value === 'new') {
-        input.classList.remove('d-none');
-        input.disabled = false;
-        input.focus();
-      } else {
-        input.classList.add('d-none');
-        input.disabled = true;
-        input.value = '';
-      }
-      updateItemName();
-    });
-    input.addEventListener('input', updateItemName);
-  });
-
-  const laptopSpecFieldKeys = ['cpu', 'ram', 'gpu', 'storage', 'screen_size', 'color'];
+  const laptopSpecFieldKeys = ['cpu', 'ram', 'gpu', 'screen_size', 'color'];
   const laptopSpecFields = laptopSpecFieldKeys.map(key => ({
     key,
     select: document.getElementById('laptop_' + key + '_select'),
     input: document.getElementById('laptop_' + key + '_input')
   }));
+  laptopSpecFields.forEach(wireToggleField);
 
-  laptopSpecFields.forEach(({ select, input }) => {
-    select.addEventListener('change', () => {
-      if (select.value === 'new') {
-        input.classList.remove('d-none');
-        input.disabled = false;
-        input.focus();
-      } else {
-        input.classList.add('d-none');
-        input.disabled = true;
-        input.value = '';
-      }
-      updateItemName();
-    });
-    input.addEventListener('input', updateItemName);
-  });
+  const laptopStorageFieldKeys = ['hdd', 'ssd'];
+  const laptopStorageFields = laptopStorageFieldKeys.map(key => ({
+    key,
+    select: document.getElementById('laptop_' + key + '_select'),
+    input: document.getElementById('laptop_' + key + '_input')
+  }));
+  laptopStorageFields.forEach(wireToggleField);
 
   function isDesktopCategory() {
     const text = categorySelect.options[categorySelect.selectedIndex]?.text || '';
@@ -629,6 +674,12 @@
         input.disabled = true;
         input.value = '';
       });
+      laptopStorageFields.forEach(({ select, input }) => {
+        select.value = '';
+        input.classList.add('d-none');
+        input.disabled = true;
+        input.value = '';
+      });
     }
   }
 
@@ -639,6 +690,9 @@
     updateItemName();
   });
   brandSelect.addEventListener('change', updateItemName); // brand affects the check too
+
+  const modelNameInput = document.getElementById('model_name_input');
+  modelNameInput.addEventListener('input', updateItemName);
 
   function valueFor(select, input) {
     if (select.value === 'new') return input.value.trim();
@@ -683,20 +737,28 @@
     const desktop = isDesktopCategory();
     const laptop = isLaptopCategory();
 
+    function productPickerValue(select, input) {
+      if (select.value === 'new') return input.value.trim();
+      if (!select.value || select.value === 'not_available') return '';
+      const opt = select.options[select.selectedIndex];
+      return opt?.dataset.description || opt?.text || '';
+    }
+
     let specParts;
     if (desktop) {
-      specParts = desktopFields.map(({ select, input }) => {
-        if (select.value === 'new') {
-          return input.value.trim();
-        }
-        if (!select.value || select.value === 'not_available') {
-          return '';
-        }
-        const opt = select.options[select.selectedIndex];
-        return opt?.dataset.description || opt?.text || '';
-      });
+      specParts = desktopFields.map(({ select, input }) => productPickerValue(select, input));
     } else if (laptop) {
-      specParts = laptopSpecFields.map(({ select, input }) => valueFor(select, input));
+      const laptopFieldMap = {};
+      laptopSpecFields.forEach(f => { laptopFieldMap[f.key] = { field: f, type: 'typed' }; });
+      laptopStorageFields.forEach(f => { laptopFieldMap[f.key] = { field: f, type: 'product' }; });
+
+      const laptopSpecOrder = ['cpu', 'ram', 'hdd', 'ssd', 'gpu', 'screen_size', 'color'];
+      specParts = laptopSpecOrder.map(key => {
+        const entry = laptopFieldMap[key];
+        if (!entry) return '';
+        const { select, input } = entry.field;
+        return entry.type === 'product' ? productPickerValue(select, input) : valueFor(select, input);
+      });
     } else {
       specParts = [
         valueFor(fields[0].select, fields[0].input),
@@ -707,10 +769,12 @@
 
     const conditionText = needsCondition() ? conditionSelect.value : '';
     const sourceText = (isLaptopChargerCategory() && sourceSelect.value === 'Local') ? 'Local' : '';
+    const modelText = modelNameInput.value.trim();
 
     const parts = [
       conditionText,
       categorySelect.value ? categoryText : '',
+      modelText,
       ...specParts,
       sourceText
     ].filter(Boolean);
