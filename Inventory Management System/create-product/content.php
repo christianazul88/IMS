@@ -51,7 +51,7 @@
   }
   .pf-label-tag{
     background:var(--surface); border:1px solid var(--border); border-radius:6px;
-    padding:.6rem .9rem; min-width:280px;
+    padding:.6rem .9rem; min-width:80%;
   }
   .pf-label-tag .eyebrow{ font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:.15rem; }
   .pf-label-tag .name{
@@ -183,6 +183,16 @@
             </select>
           </div>
         </div>
+        <div class="row g-3 mt-0" id="laptop-condition-row" style="display:none;">
+          <div class="col-md-6">
+            <label class="pf-label">Condition *</label>
+            <select class="form-select" name="laptop_condition" id="laptop_condition_select">
+              <option value="">Select condition</option>
+              <option value="Brand New">Brand New</option>
+              <option value="Pre Owned">Pre Owned</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div class="pf-section" id="electrical-spec-section">
@@ -291,14 +301,24 @@
                     echo '<option value="">No ' . htmlspecialchars($field['label']) . ' products found</option>';
                 }
               ?>
+              <option value="not_available">Not available</option>
+              <option value="new">New / not listed&hellip;</option>
             </select>
+            <input
+              type="text"
+              class="form-control mt-2 d-none"
+              id="desktop_<?php echo $field_key; ?>_input"
+              name="desktop_<?php echo $field_key; ?>_custom"
+              placeholder="Type <?php echo htmlspecialchars($field['label']); ?>"
+              disabled
+            />
           </div>
           <?php
                 $spec_stmt->close();
             }
           ?>
         </div>
-        <div class="pf-hint">These pull from products you've already added under Processor, Memory, Storage, Videocard, Mother Board, and PSU categories.</div>
+        <div class="pf-hint">These pull from products you've already added under Processor, Memory, Storage, Videocard, Mother Board, and PSU categories. Pick "New / not listed" to type a value that won't be saved as its own product but will still appear in the item name.</div>
       </div>
 
       <div class="pf-section">
@@ -358,16 +378,53 @@
 
   const electricalSection = document.getElementById('electrical-spec-section');
   const desktopSection = document.getElementById('desktop-spec-section');
-  const desktopSelects = Array.from(document.querySelectorAll('.desktop-spec-select'));
 
-  desktopSelects.forEach(select => {
-    select.addEventListener('change', updateItemName);
+  const desktopFieldKeys = ['processor', 'memory', 'storage', 'videocard', 'motherboard', 'psu'];
+  const desktopFields = desktopFieldKeys.map(key => ({
+    key,
+    select: document.getElementById('desktop_' + key + '_select'),
+    input: document.getElementById('desktop_' + key + '_input')
+  }));
+
+  desktopFields.forEach(({ select, input }) => {
+    select.addEventListener('change', () => {
+      if (select.value === 'new') {
+        input.classList.remove('d-none');
+        input.disabled = false;
+        input.focus();
+      } else {
+        input.classList.add('d-none');
+        input.disabled = true;
+        input.value = '';
+      }
+      updateItemName();
+    });
+    input.addEventListener('input', updateItemName);
   });
 
   function isDesktopCategory() {
     const text = categorySelect.options[categorySelect.selectedIndex]?.text || '';
     return text.trim().toLowerCase() === 'desktop';
   }
+
+  const laptopConditionRow = document.getElementById('laptop-condition-row');
+  const laptopConditionSelect = document.getElementById('laptop_condition_select');
+
+  function isLaptopCategory() {
+    const text = categorySelect.options[categorySelect.selectedIndex]?.text || '';
+    return text.trim().toLowerCase() === 'laptop';
+  }
+
+  function toggleLaptopConditionRow() {
+    const laptop = isLaptopCategory();
+    laptopConditionRow.style.display = laptop ? '' : 'none';
+    laptopConditionSelect.required = laptop;
+    if (!laptop) {
+      laptopConditionSelect.value = '';
+    }
+  }
+
+  laptopConditionSelect.addEventListener('change', updateItemName);
 
   function toggleSpecSections() {
     const desktop = isDesktopCategory();
@@ -383,12 +440,18 @@
       });
     } else {
       // clear desktop fields when switching away from Desktop
-      desktopSelects.forEach(select => { select.value = ''; });
+      desktopFields.forEach(({ select, input }) => {
+        select.value = '';
+        input.classList.add('d-none');
+        input.disabled = true;
+        input.value = '';
+      });
     }
   }
 
   categorySelect.addEventListener('change', () => {
     toggleSpecSections();
+    toggleLaptopConditionRow();
     updateItemName();
   });
   brandSelect.addEventListener('change', updateItemName); // brand affects the check too
@@ -436,9 +499,15 @@
     const desktop = isDesktopCategory();
 
     const specParts = desktop
-      ? desktopSelects.map(select => {
+      ? desktopFields.map(({ select, input }) => {
+          if (select.value === 'new') {
+            return input.value.trim();
+          }
+          if (!select.value || select.value === 'not_available') {
+            return '';
+          }
           const opt = select.options[select.selectedIndex];
-          return select.value ? (opt?.dataset.description || opt?.text || '') : '';
+          return opt?.dataset.description || opt?.text || '';
         })
       : [
           valueFor(fields[0].select, fields[0].input),
@@ -446,7 +515,11 @@
           valueFor(fields[2].select, fields[2].input)
         ];
 
+    const laptop = isLaptopCategory();
+    const conditionText = laptop ? laptopConditionSelect.value : '';
+
     const parts = [
+      conditionText,
       categorySelect.value ? categoryText : '',
       ...specParts
     ].filter(Boolean);
