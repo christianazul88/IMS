@@ -210,6 +210,36 @@
         </div>
       </div>
 
+      <div class="pf-section" id="processor-generation-section" style="display:none;">
+        <div class="pf-section-label">Processor generation</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="pf-label">Generation</label>
+            <select class="form-select" name="processor_generation" id="processor_generation_select">
+              <option value="">Select generation</option>
+              <?php
+                ensureAndSeedLookupTable($conn, 'processor_generation', 'generation_value', [
+                    '8th Gen (Intel)', '9th Gen (Intel)', '10th Gen (Intel)', '11th Gen (Intel)', '12th Gen (Intel)', '13th Gen (Intel)', '14th Gen (Intel)',
+                    'Core Ultra Series 1 (Intel)', 'Core Ultra Series 2 (Intel)',
+                    'Ryzen 3000 Series (AMD)', 'Ryzen 4000 Series (AMD)', 'Ryzen 5000 Series (AMD)',
+                    'Ryzen 6000 Series (AMD)', 'Ryzen 7000 Series (AMD)', 'Ryzen 8000 Series (AMD)', 'Ryzen 9000 Series (AMD)',
+                ]);
+                $gen_res = $conn->query("SELECT generation_value AS value FROM processor_generation ORDER BY id ASC");
+                if ($gen_res && $gen_res->num_rows > 0) {
+                    while ($row = $gen_res->fetch_assoc()) {
+                        echo '<option value="' . htmlspecialchars($row['value']) . '">' . htmlspecialchars($row['value']) . '</option>';
+                    }
+                }
+              ?>
+              <option value="new">New / not listed&hellip;</option>
+            </select>
+            <input type="text" class="form-control mt-2 d-none" id="processor_generation_input"
+                   name="processor_generation_custom" placeholder="Type generation" disabled />
+          </div>
+        </div>
+        <div class="pf-hint">Shown for Desktop and Laptop only. Added to the item name right after the processor/CPU.</div>
+      </div>
+
       <div class="pf-section" id="electrical-spec-section">
         <div class="pf-section-label">Electrical specifications</div>
         <div class="pf-spec-grid">
@@ -594,6 +624,13 @@
   }));
   laptopStorageFields.forEach(wireToggleField);
 
+  const processorGenSection = document.getElementById('processor-generation-section');
+  const processorGenField = {
+    select: document.getElementById('processor_generation_select'),
+    input: document.getElementById('processor_generation_input')
+  };
+  wireToggleField(processorGenField);
+
   function isDesktopCategory() {
     const text = categorySelect.options[categorySelect.selectedIndex]?.text || '';
     return text.trim().toLowerCase() === 'desktop';
@@ -648,6 +685,14 @@
     electricalSection.style.display = (desktop || laptop) ? 'none' : '';
     desktopSection.style.display = desktop ? '' : 'none';
     laptopSection.style.display = laptop ? '' : 'none';
+    processorGenSection.style.display = (desktop || laptop) ? '' : 'none';
+
+    if (!desktop && !laptop) {
+      processorGenField.select.value = '';
+      processorGenField.input.classList.add('d-none');
+      processorGenField.input.disabled = true;
+      processorGenField.input.value = '';
+    }
 
     if (desktop || laptop) {
       // clear electrical fields so they don't leak into the name or the POST body
@@ -747,12 +792,14 @@
     let specParts;
     if (desktop) {
       specParts = desktopFields.map(({ select, input }) => productPickerValue(select, input));
+      specParts.splice(1, 0, valueFor(processorGenField.select, processorGenField.input));
     } else if (laptop) {
       const laptopFieldMap = {};
       laptopSpecFields.forEach(f => { laptopFieldMap[f.key] = { field: f, type: 'typed' }; });
       laptopStorageFields.forEach(f => { laptopFieldMap[f.key] = { field: f, type: 'product' }; });
+      laptopFieldMap['generation'] = { field: processorGenField, type: 'typed' };
 
-      const laptopSpecOrder = ['cpu', 'ram', 'hdd', 'ssd', 'gpu', 'screen_size', 'color'];
+      const laptopSpecOrder = ['cpu', 'generation', 'ram', 'hdd', 'ssd', 'gpu', 'screen_size', 'color'];
       specParts = laptopSpecOrder.map(key => {
         const entry = laptopFieldMap[key];
         if (!entry) return '';
