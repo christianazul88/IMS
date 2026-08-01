@@ -31,8 +31,12 @@
 
             <tbody class="list" id="table-purchase-body">
               <?php 
+              // Do not select product_img here. It contains serialized image data and
+              // decoding/embedding it for every row makes this page unnecessarily large.
               $product_list_query = "
-                SELECT product.*, users.user_fname, users.user_lname, category.category_name, brand.brand_name
+                SELECT product.id, product.parent_barcode, product.unique_id,
+                       product.parent_barcode, product.description, product.date, product.safety,
+                       users.user_fname, users.user_lname, category.category_name, brand.brand_name
                 FROM product 
                 INNER JOIN users ON users.hashed_id = product.user_id 
                 INNER JOIN category ON category.hashed_id = product.category
@@ -60,29 +64,6 @@
                   //     $stmt->close();
                   // }
 
-                  if (empty($row['product_img']) || !isset($row['product_img'])) {
-                      $product_img = '../../assets/img/def_img.png';
-                  } else {
-                      $imageArray = @unserialize($row['product_img']); // or json_decode(..., true)
-
-                      if (is_array($imageArray) && count($imageArray) > 0) {
-                          $firstImageBinary = base64_decode($imageArray[0]);
-
-                          // Detect MIME type
-                          $finfo = new finfo(FILEINFO_MIME_TYPE);
-                          $mimeType = $finfo->buffer($firstImageBinary);
-
-                          // Encode for output
-                          $product_img = 'data:' . $mimeType . ';base64,' . $imageArray[0];
-                      } else {
-                          $product_img = '../../assets/img/def_img.png';
-                      }
-                  }
-
-
-
-
-                  
                   $product_category = $row['category_name'];
                   $product_brand = $row['brand_name'];
                   $product_main_barcode = $row['main_barcode'] ?? "<span class='badge'>NOT SET</span>";
@@ -93,7 +74,7 @@
               ?>
                 <tr>
                   <td class="p-0 m-0">
-                    <img class="img img-fluid m-0" src="<?php echo $product_img; ?>" alt="" style="heigh:10px;">
+                    <img class="img img-fluid m-0" src="product-thumbnail.php?id=<?php echo (int) $product_id; ?>" alt="" loading="lazy" decoding="async" style="height: 30px; width: 30px; object-fit: cover;">
                   </td>
                   <td class="desc"><small><?php echo $product_des; ?></small></td>
                   <td class="cat"><small><?php echo $product_category; ?></small></td>
