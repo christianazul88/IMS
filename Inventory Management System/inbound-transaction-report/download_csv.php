@@ -35,6 +35,7 @@ LEFT JOIN classification cl ON cl.hashed_id = c.classification_id
 WHERE s.date BETWEEN '{$filters['start']}' AND '{$filters['end']}'
 {$filters['warehouse_query']}
 {$filters['category_query']}
+{$filters['supplier_query']}
 ";
 
 $res = $conn->query($query);

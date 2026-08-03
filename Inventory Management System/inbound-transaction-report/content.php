@@ -25,7 +25,7 @@ if(isset($_POST['category'])){
                     <label class="form-label" for="end_datepicker">End Date</label>
                     <input class="form-control datetimepicker fs-11" name="end_date" id="end_datepicker" type="text" placeholder="dd/mm/yy" data-options='{"disableMobile":true}' value="<?php if(isset($_POST['end_date'])){echo $_POST['end_date'];}?>" required/>
                 </div>
-                <div class="col-lg-4 mb-3">
+                <div class="col-lg-3 mb-3">
                     <div class="form-group">
                         <label for="category">Category</label>
                         <select class="form-select selectpicker fs-11" id="category" multiple="multiple" size="1" name="category[]" data-options='{"placeholder":"Select your options"}'>
@@ -51,11 +51,21 @@ if(isset($_POST['category'])){
                     </div>
                 </div>
 
-                <div class="col-lg-2 mb-3">
+                <div class="col-lg-3 mb-3">
                     <label>Warehouse</label>
                     <select class="form-select" name="warehouse">
                         <option value="ALL">ALL</option>
                         <?php echo implode("\n", $warehouse_options2); ?>
+                    </select>
+                </div>
+
+                <div class="col-lg-2">
+                    <label>Supplier</label>
+                    <select class="form-select" name="supplier_type">
+                        <option value="ALL">ALL</option>
+                        <option value="Local">Local</option>
+                        <option value="International">Import</option>
+                        <option value="Hakot">Bidding/ Hakot</option>
                     </select>
                 </div>
 
@@ -89,6 +99,13 @@ if(isset($_POST['preview'])){
         $additional_warehouse_query = "AND s.warehouse IN ($user_warehouse_id)";
     }
 
+    if($_POST['supplier_type'] !== "ALL"){
+        $supplier_type = $conn->real_escape_string($_POST['supplier_type']);
+        $additional_supplier_query = "AND sup.local_international = '$supplier_type'";
+    } else {
+        $additional_supplier_query = "";
+    }
+
     // FINAL QUERY
     $query = "
     SELECT 
@@ -114,6 +131,7 @@ if(isset($_POST['preview'])){
     WHERE s.date BETWEEN '$startDate' AND '$endDate'
     $additional_warehouse_query
     $additional_category_query
+    $additional_supplier_query
     ";
 
     $res = $conn->query($query);
@@ -125,7 +143,8 @@ if(isset($_POST['preview'])){
             'start' => $startDate,
             'end' => $endDate,
             'warehouse_query' => $additional_warehouse_query,
-            'category_query' => $additional_category_query
+            'category_query' => $additional_category_query,
+            'supplier_query' => $additional_supplier_query
         ];
 
         echo '

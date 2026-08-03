@@ -86,9 +86,12 @@
                   <td class="date"><small><?php echo $product_date; ?></small></td>
                   <td class="safety text-end pe-4"><small><?php echo $table_safety;?></small></td>
                   <td class="d-flex align-items-center">
-                    <button class="btn btn-transparent py-0 fs-11" type="button" target-id="<?php echo $product_id;?>" data-bs-toggle="modal" data-bs-target="#edit-modal" data-bs-toggle="tooltip" data-bs-placement="left" title="Edit product information">
+                    <a href="../update-product/?update=<?php echo $product_id; ?>" class="btn btn-transparent py-0 fs-11" data-bs-toggle="tooltip" data-bs-placement="left" title="Edit product information">
                       <span class="far fa-edit m-0 p-0"></span>
-                    </button>
+                    </a>
+                    <!-- <button class="btn btn-transparent py-0 fs-11" type="button" target-id="<?php echo $product_id;?>" data-bs-toggle="modal" data-bs-target="#edit-modal" data-bs-toggle="tooltip" data-bs-placement="left" title="Edit product information">
+                      <span class="far fa-edit m-0 p-0"></span>
+                    </button> -->
                     <a href="../config/delete.php?from=product_list&id=<?php echo $product_id;?>" class="btn btn-transparent text-danger ms-1 custom-clicked fs-11" ><span class="far fa-trash-alt"></span></a>
                   </td>
                 </tr>
