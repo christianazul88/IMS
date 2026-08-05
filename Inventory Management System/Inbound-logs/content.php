@@ -197,7 +197,8 @@ $inbound_res = $conn->query($inbound_sql);
                                       <?php 
                                       if($row['user_id'] === $user_id && $row['status'] == 0){
                                       ?>
-                                      <button class="btn btn-primary py-1 fs-11 undo" target-id="<?php echo $row['unique_key'];?>" type="button" data-bs-toggle="modal" data-bs-target="#void-modal"><span class="fas fa-trash-alt"></span> Void</button>
+                                      <!-- <button class="btn btn-primary py-1 fs-11 undo" target-id="<?php //echo $row['unique_key'];?>" type="button" data-bs-toggle="modal" data-bs-target="#void-modal"><span class="fas fa-trash-alt"></span> Void</button> -->
+                                      <a href="../inbound-void2/?unique_key=<?php echo $row['unique_key']; ?>&po_no=<?php echo $row['po_id']; ?>" class="btn btn-primary py-1 fs-11"> <span class="fas fa-trash-alt"></span> Void</a>
                                       <?php 
                                       } elseif($row['user_id'] !== $user_id && $row['status'] == 0){
                                       ?>

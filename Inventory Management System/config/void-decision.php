@@ -67,9 +67,9 @@ if (isset($_POST['outbound_id']) && isset($_POST['response']) && isset($_POST['t
 
         // Prepare notification message
         if ($response === "approve") {
-            $notification_message = $user_fullname . ' approved your request to delete inbound with ref #: ' . $outbound_id;
+            $notification_message = $user_fullname . ' approved your request to delete outbound with ref #: ' . $outbound_id;
         } else {
-            $notification_message = $user_fullname . ' declined your request to delete inbound with ref #: ' . $outbound_id;
+            $notification_message = $user_fullname . ' declined your request to delete outbound with ref #: ' . $outbound_id;
         }
 
         // Insert notification

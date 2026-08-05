@@ -66,7 +66,7 @@ if($result->num_rows > 0){
         $notification_class = ($notification_status == 0) ? "notification-unread" : "";
 
         if(strpos($notification_title, "Inbound")!==false){
-            $link = "../Inbound-logs/?notnot=$notification_id";
+            $link = "../inbound-void-logs/?notnot=$notification_id";
         } elseif(strpos($notification_title, "Outbound")!==false){
             $link = "../Outbound-logs/?notnot=$notification_id";
         }

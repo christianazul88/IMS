@@ -170,7 +170,7 @@ $(document).ready(function () {
     }
 
     checkNotifications(); // Initial check
-    setInterval(checkNotifications, 3000); // Check every 3 seconds
+    setInterval(checkNotifications, 10000); // Check every 3 seconds
 });
 </script>
 <!-- <script>
