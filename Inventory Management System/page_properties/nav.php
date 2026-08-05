@@ -701,6 +701,11 @@
                 <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Inbound logs</span></div>
               </a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" href="../inbound-void-logs/">
+                <div class="d-flex align-items-center"><span class="nav-link-text ps-1">Void logs</span></div>
+              </a>
+            </li>
             <?php 
               }
             ?>
