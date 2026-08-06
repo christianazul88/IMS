@@ -108,9 +108,9 @@ $total_stocks    = array_sum(array_map(fn($p) => count($p['stocks']), $products)
 // to recover which product a voided barcode belonged to. Instead we
 // match each approved-voided barcode's prefix against product.parent_barcode
 // directly, which still works after the stocks row is gone.
-$voided_barcodes = [];
+$voided_items = [];
 $voided_items_stmt = $conn->prepare(
-    "SELECT vi.unique_barcode
+    "SELECT vi.unique_barcode, vi.capital
      FROM void_items vi
      INNER JOIN void_logs vl ON vl.id = vi.void_log_id
      WHERE vl.po_id = ? AND vl.unique_key = ? AND vl.request_type = 'void' AND vl.status = 'approved'"
@@ -119,28 +119,50 @@ $voided_items_stmt->bind_param('is', $po_id, $unique_key);
 $voided_items_stmt->execute();
 $voided_items_result = $voided_items_stmt->get_result();
 while ($voided_row = $voided_items_result->fetch_assoc()) {
-    $voided_barcodes[] = $voided_row['unique_barcode'];
+    $voided_items[] = $voided_row;
 }
 $voided_items_stmt->close();
 
 $total_ordered_qty = 0;
 $total_voided_count = 0;
+$total_pending_void_count = 0;
 
 foreach ($products as &$product) {
     $parent_barcode = $product['parent_barcode'] ?? '';
     $product_voided_count = 0;
+    $product_voided_stocks = [];
 
     if ($parent_barcode !== '' && $parent_barcode !== null) {
-        foreach ($voided_barcodes as $voided_barcode) {
-            if (str_starts_with((string) $voided_barcode, (string) $parent_barcode)) {
+        foreach ($voided_items as $voided_item) {
+            if (str_starts_with((string) $voided_item['unique_barcode'], (string) $parent_barcode)) {
                 $product_voided_count++;
+                $product_voided_stocks[] = $voided_item;
             }
         }
     }
 
     $product['voided_count'] = $product_voided_count;
+    // Rows already voided+approved -- their `stocks` row is gone, so this
+    // is the only remaining record of them. Displayed as extra read-only
+    // rows in the stock sequences table (see below), not counted in
+    // $stock_count / "Received" since that still reflects live stock.
+    $product['voided_stocks'] = $product_voided_stocks;
+
+    // How many of this product's current (live) stock rows have an active
+    // void request against them that hasn't been approved (or rejected)
+    // yet -- i.e. "to be voided" once someone acts on the request.
+    $product_pending_void_count = 0;
+    foreach ($product['stocks'] as $pending_check_stock) {
+        $pending_check_request = $void_requests_by_barcode[$pending_check_stock['unique_barcode']] ?? null;
+        if ($pending_check_request !== null && strtolower($pending_check_request['status'] ?? '') === 'pending') {
+            $product_pending_void_count++;
+        }
+    }
+    $product['pending_void_count'] = $product_pending_void_count;
+
     $total_ordered_qty += (int) $product['qty'];
     $total_voided_count += $product_voided_count;
+    $total_pending_void_count += $product_pending_void_count;
 }
 unset($product);
 $reviewable_stock_count = 0;
@@ -230,37 +252,46 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                 </div>
             </div>
 
-            <?php if ($transaction_approved): ?>
-                <span class="vi-badge vi-badge-transaction-approved">
-                    <i class="bi bi-check-circle-fill"></i>
-                    This transaction was approved
-                </span>
-            <?php elseif ($is_administrator && $page_void_log_ids !== ''): ?>
-                <div class="vi-action-group">
-                    <button class="vi-btn vi-btn-success vi-btn-lg"
-                            data-void-approval="approve"
-                            data-approval-scope="inbound"
-                            data-void-log-ids="<?= htmlspecialchars($page_void_log_ids) ?>">
-                        Approved
-                    </button>
-                    <button class="vi-btn vi-btn-outline-danger vi-btn-lg"
-                            data-void-approval="reject"
-                            data-approval-scope="inbound"
-                            data-void-log-ids="<?= htmlspecialchars($page_void_log_ids) ?>">
-                        Reject
-                    </button>
-                </div>
-            <?php elseif ($show_page_actions): ?>
-                <div class="vi-action-group">
-                    <button class="vi-btn vi-btn-danger vi-btn-lg"
-                            data-po-id="<?= htmlspecialchars($po_id) ?>"
-                            data-unique-key="<?= htmlspecialchars($unique_key) ?>">
-                        <i class="bi bi-trash3"></i>
-                        Void Entire Inbound
-                    </button>
-                </div>
-            <?php endif; ?>
-            
+            <div class="d-flex align-items-start gap-2 flex-wrap">
+
+                <button type="button" class="vi-btn vi-btn-outline-secondary vi-btn-lg"
+                        data-bs-toggle="modal" data-bs-target="#inboundReportModal">
+                    <i class="bi bi-file-earmark-text"></i>
+                    Generate Inbound Report
+                </button>
+
+                <?php if ($transaction_approved): ?>
+                    <span class="vi-badge vi-badge-transaction-approved">
+                        <i class="bi bi-check-circle-fill"></i>
+                        This transaction was approved
+                    </span>
+                <?php elseif ($is_administrator && $page_void_log_ids !== ''): ?>
+                    <div class="vi-action-group">
+                        <button class="vi-btn vi-btn-success vi-btn-lg"
+                                data-void-approval="approve"
+                                data-approval-scope="inbound"
+                                data-void-log-ids="<?= htmlspecialchars($page_void_log_ids) ?>">
+                            Approved
+                        </button>
+                        <button class="vi-btn vi-btn-outline-danger vi-btn-lg"
+                                data-void-approval="reject"
+                                data-approval-scope="inbound"
+                                data-void-log-ids="<?= htmlspecialchars($page_void_log_ids) ?>">
+                            Reject
+                        </button>
+                    </div>
+                <?php elseif ($show_page_actions): ?>
+                    <div class="vi-action-group">
+                        <button class="vi-btn vi-btn-danger vi-btn-lg"
+                                data-po-id="<?= htmlspecialchars($po_id) ?>"
+                                data-unique-key="<?= htmlspecialchars($unique_key) ?>">
+                            <i class="bi bi-trash3"></i>
+                            Void Entire Inbound
+                        </button>
+                    </div>
+                <?php endif; ?>
+
+            </div>
 
         </div>
 
@@ -302,6 +333,10 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                 <div class="vi-stat-label">Voided</div>
                 <div class="vi-stat-value"><?= number_format($total_voided_count) ?></div>
             </div>
+            <div class="vi-stat vi-stat-pending">
+                <div class="vi-stat-label">To Be Voided</div>
+                <div class="vi-stat-value"><?= number_format($total_pending_void_count) ?></div>
+            </div>
         </div>
 
         <div class="table-responsive mt-3">
@@ -312,12 +347,13 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                         <th class="text-end">Qty Ordered</th>
                         <th class="text-end">Received</th>
                         <th class="text-end">Voided</th>
+                        <th class="text-end">To Be Voided</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($products)): ?>
                         <tr>
-                            <td colspan="4" class="vi-empty-row">No products found for this purchase order.</td>
+                            <td colspan="5" class="vi-empty-row">No products found for this purchase order.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($products as $summary_product): ?>
@@ -326,6 +362,7 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                                 <td class="text-end"><?= number_format((int) $summary_product['qty']) ?></td>
                                 <td class="text-end"><?= number_format(count($summary_product['stocks'])) ?></td>
                                 <td class="text-end"><?= number_format($summary_product['voided_count']) ?></td>
+                                <td class="text-end"><?= number_format($summary_product['pending_void_count']) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -353,6 +390,8 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                     $is_first     = $index === 0;
                     $stocks       = $product['stocks'];
                     $stock_count  = count($stocks);
+                    $voided_stocks = $product['voided_stocks'] ?? [];
+                    $has_any_stock_rows = $stock_count > 0 || count($voided_stocks) > 0;
                     $product_has_void_request_with_remarks = false;
                     // Same idea as $has_pending_without_remarks above, scoped to this product.
                     $product_has_pending_without_remarks = false;
@@ -409,6 +448,7 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                                     <span class="vi-badge vi-badge-qty">Qty Ordered <?= htmlspecialchars($product['qty']) ?></span>
                                     <span class="vi-badge vi-badge-received">Received <?= htmlspecialchars($stock_count) ?></span>
                                     <span class="vi-badge vi-badge-voided-count">Voided <?= htmlspecialchars($product['voided_count']) ?></span>
+                                    <span class="vi-badge vi-badge-pending-void">To Be Voided <?= htmlspecialchars($product['pending_void_count']) ?></span>
                                 </div>
 
                             </div>
@@ -455,7 +495,7 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 
                                     <tbody>
 
-                                        <?php if ($stock_count === 0): ?>
+                                        <?php if (!$has_any_stock_rows): ?>
 
                                             <tr>
                                                 <td colspan="4" class="vi-empty-row">
@@ -468,12 +508,13 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                                             <?php foreach ($stocks as $stock): ?>
 
                                                  <?php
-                                                     $status = $stock['item_status'] ?? 'Unknown';
-                                                     $status_class = match (strtolower($status)) {
-                                                        'active'  => 'vi-badge-active',
-                                                        'sold'    => 'vi-badge-sold',
-                                                        'voided'  => 'vi-badge-voided',
-                                                         default   => 'vi-badge-default',
+                                                     // item_status is numeric: 0 = available on system,
+                                                     // 1 = outbounded, 3 = enroute.
+                                                     [$item_status_label, $status_class] = match ((int) ($stock['item_status'] ?? -1)) {
+                                                         0 => ['Available', 'vi-badge-active'],
+                                                         1 => ['Outbounded', 'vi-badge-outbounded'],
+                                                         3 => ['En Route', 'vi-badge-enroute'],
+                                                         default => ['Unknown', 'vi-badge-default'],
                                                      };
                                                      $void_request = $void_requests_by_barcode[$stock['unique_barcode']] ?? null;
                                                      $is_void_requested = $void_request !== null;
@@ -491,7 +532,7 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                                                     <td class="vi-capital">&#8369;<?= number_format((float) $stock['capital'], 2) ?></td>
 
                                                     <td>
-                                                        <span class="vi-badge <?= $status_class ?>"><?= htmlspecialchars($status) ?></span>
+                                                        <span class="vi-badge <?= $status_class ?>"><?= htmlspecialchars($item_status_label) ?></span>
                                                     </td>
 
                                                      <td>
@@ -522,6 +563,26 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                                                              <span class="vi-text-muted">&mdash;</span>
                                                          <?php endif; ?>
                                                      </td>
+
+                                                </tr>
+
+                                            <?php endforeach; ?>
+
+                                            <?php foreach ($voided_stocks as $voided_stock): ?>
+
+                                                <tr class="vi-row-voided">
+
+                                                    <td><span class="vi-code vi-code-row"><?= htmlspecialchars($voided_stock['unique_barcode']) ?></span></td>
+
+                                                    <td class="vi-capital">&#8369;<?= number_format((float) $voided_stock['capital'], 2) ?></td>
+
+                                                    <td>
+                                                        <span class="vi-badge vi-badge-voided">Voided</span>
+                                                    </td>
+
+                                                    <td>
+                                                        <span class="vi-text-muted">&mdash;</span>
+                                                    </td>
 
                                                 </tr>
 
@@ -606,6 +667,119 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
     </div>
 </div>
 
+
+<!-- Inbound Report Modal -->
+<div class="modal fade" id="inboundReportModal" tabindex="-1" aria-labelledby="inboundReportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="inboundReportModalLabel">Inbound Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="inboundReportPrintArea" class="vi-report">
+                    <div class="vi-report-header">
+                        <img src="../../assets/img/logo/LPO Emblem.png" alt="Company Logo" class="vi-report-logo">
+                        <div class="vi-report-heading">
+                            <div class="vi-report-title">Inbound Report</div>
+                            <div class="vi-report-sub">Purchase Order #<?= htmlspecialchars($po_id) ?> &middot; Inbound Ref # <?= htmlspecialchars($unique_key) ?></div>
+                        </div>
+                    </div>
+
+                    <div class="vi-report-meta-grid">
+                        <div class="vi-report-meta-col">
+                            <div class="vi-report-meta-item">
+                                <span class="vi-report-meta-label">Purchase Order</span>
+                                <span class="vi-report-meta-value">#<?= htmlspecialchars($po_id) ?></span>
+                            </div>
+                            <div class="vi-report-meta-item">
+                                <span class="vi-report-meta-label">Inbound Ref #</span>
+                                <span class="vi-report-meta-value"><?= htmlspecialchars($unique_key) ?></span>
+                            </div>
+                            <div class="vi-report-meta-item">
+                                <span class="vi-report-meta-label">Date Generated</span>
+                                <span class="vi-report-meta-value"><?= htmlspecialchars(date('F j, Y g:i A')) ?></span>
+                            </div>
+                        </div>
+                        <div class="vi-report-meta-col">
+                            <div class="vi-report-meta-item">
+                                <span class="vi-report-meta-label">Generated By</span>
+                                <span class="vi-report-meta-value"><?= htmlspecialchars($user_fullname ?? 'N/A') ?></span>
+                            </div>
+                            <div class="vi-report-meta-item">
+                                <span class="vi-report-meta-label">Position</span>
+                                <span class="vi-report-meta-value"><?= htmlspecialchars($user_position_name ?? 'N/A') ?></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <?php if (!empty($for_implode_warehouse_names)): ?>
+                        <div class="vi-report-warehouse-row">
+                            <span class="vi-report-meta-label">Warehouse Access<?= count($for_implode_warehouse_names) > 1 ? ' (' . count($for_implode_warehouse_names) . ')' : '' ?></span>
+                            <div class="vi-report-warehouse-chips">
+                                <?php foreach ($for_implode_warehouse_names as $report_warehouse_name): ?>
+                                    <span class="vi-report-chip"><?= htmlspecialchars($report_warehouse_name) ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <table class="table vi-table vi-report-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Brand</th>
+                                <th>Parent Barcode</th>
+                                <th class="text-end">Qty Ordered</th>
+                                <th class="text-end">Qty Received</th>
+                                <th class="text-end">Qty Voided</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($products)): ?>
+                                <tr>
+                                    <td colspan="7" class="vi-empty-row">No products found for this purchase order.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($products as $report_product): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($report_product['description'] ?? 'Unknown Product') ?></td>
+                                        <td><?= htmlspecialchars($report_product['category_name'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($report_product['brand_name'] ?? 'N/A') ?></td>
+                                        <td><span class="vi-code"><?= htmlspecialchars($report_product['parent_barcode'] ?? 'N/A') ?></span></td>
+                                        <td class="text-end"><?= number_format((int) $report_product['qty']) ?></td>
+                                        <td class="text-end"><?= number_format(count($report_product['stocks'])) ?></td>
+                                        <td class="text-end"><?= number_format($report_product['voided_count']) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                        <tfoot>
+                            <tr class="vi-report-totals">
+                                <td colspan="4">Total</td>
+                                <td class="text-end"><?= number_format($total_ordered_qty) ?></td>
+                                <td class="text-end"><?= number_format($total_stocks) ?></td>
+                                <td class="text-end"><?= number_format($total_voided_count) ?></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <div class="vi-report-footer">
+                        Inbound Report &middot; Ref # <?= htmlspecialchars($unique_key) ?> &middot; Generated <?= htmlspecialchars(date('F j, Y g:i A')) ?> by <?= htmlspecialchars($user_fullname ?? 'N/A') ?>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="viPrintReportBtn">
+                    <i class="bi bi-printer"></i>
+                    Print
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
 
@@ -762,6 +936,14 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 }
 .vi-btn-success:hover{
     background:#17612e;
+}
+.vi-btn-outline-secondary{
+    background:var(--vi-navy-soft);
+    color:var(--vi-navy);
+    border-color:transparent;
+}
+.vi-btn-outline-secondary:hover{
+    background:#e0e8f2;
 }
 .vi-action-group{
     display:flex;
@@ -934,6 +1116,12 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 .vi-stat-danger{
     background:var(--vi-danger-soft);
 }
+.vi-stat-pending{
+    background:#fdf3e0;
+}
+.vi-stat-pending .vi-stat-value{
+    color:#8a6110;
+}
 .vi-stat-label{
     font-size:11px;
     font-weight:600;
@@ -973,6 +1161,18 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 .vi-badge-default{
     background:#fdf3e0;
     color:#8a6110;
+}
+.vi-badge-outbounded{
+    background:var(--vi-navy-soft);
+    color:var(--vi-navy);
+}
+.vi-badge-enroute{
+    background:#fdf3e0;
+    color:#8a6110;
+}
+.vi-badge-pending-void{
+    background:#fdeeda;
+    color:#b5580c;
 }
 .vi-badge-void-requested{
     background:#fdeeda;
@@ -1017,6 +1217,14 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 
 .vi-table tbody tr:last-child td{
     border-bottom:none;
+}
+
+.vi-row-voided{
+    background:#fafbfc;
+}
+
+.vi-row-voided td{
+    color:var(--vi-text-muted);
 }
 
 .vi-table tbody tr{
@@ -1088,6 +1296,7 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 @media (max-width: 640px){
     .vi-header{ padding:16px; }
     .vi-body{ padding:14px; }
+    .vi-report-meta-grid{ grid-template-columns:1fr; }
 }
 
 /* Safety-net modal styling, only matters if Bootstrap's own CSS
@@ -1106,6 +1315,12 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
     max-width:500px;
     margin:1.75rem auto;
     position:relative;
+}
+.modal-dialog.modal-lg{
+    max-width:800px;
+}
+.modal-dialog.modal-xl{
+    max-width:1140px;
 }
 .modal-dialog-centered{
     display:flex;
@@ -1149,7 +1364,161 @@ body.modal-open{
     overflow:hidden;
 }
 
+.vi-report{
+    background:#fff;
+}
+.vi-report-header{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding-bottom:16px;
+    margin-bottom:16px;
+    border-bottom:2px solid var(--vi-navy);
+}
+.vi-report-logo{
+    height:52px;
+    width:auto;
+    object-fit:contain;
+    flex-shrink:0;
+}
+.vi-report-heading{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+}
+.vi-report-title{
+    font-size:20px;
+    font-weight:700;
+    color:var(--vi-navy);
+    letter-spacing:.01em;
+}
+.vi-report-sub{
+    font-size:12.5px;
+    color:var(--vi-text-muted);
+}
+.vi-report-meta-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:4px 24px;
+    padding:14px 16px;
+    margin-bottom:18px;
+    background:var(--vi-navy-soft);
+    border-radius:var(--vi-radius);
+}
+.vi-report-meta-col{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+.vi-report-meta-item{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    font-size:12.5px;
+}
+.vi-report-meta-label{
+    color:var(--vi-text-muted);
+    font-weight:600;
+}
+.vi-report-meta-value{
+    color:var(--vi-text);
+    font-weight:600;
+    text-align:right;
+}
+.vi-report-warehouse-row{
+    padding:12px 16px;
+    margin-bottom:18px;
+    border:1px solid var(--vi-border);
+    border-radius:var(--vi-radius);
+}
+.vi-report-warehouse-row .vi-report-meta-label{
+    display:block;
+    margin-bottom:8px;
+}
+.vi-report-warehouse-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+.vi-report-chip{
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--vi-navy);
+    background:var(--vi-navy-soft);
+    border:1px solid var(--vi-border);
+    padding:3px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+}
+.vi-report-table{
+    border:1px solid var(--vi-border);
+}
+.vi-report-table th{
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    color:var(--vi-navy);
+    background:var(--vi-navy-soft);
+    padding:8px 10px;
+    white-space:nowrap;
+}
+.vi-report-table td{
+    padding:8px 10px;
+    border-top:1px solid var(--vi-border);
+    font-size:13px;
+}
+.vi-report-table td .vi-code{
+    font-size:11.5px;
+    padding:1px 6px;
+}
+.vi-report-totals td{
+    font-weight:700;
+    border-top:2px solid var(--vi-navy);
+    background:var(--vi-navy-soft);
+}
+.vi-report-footer{
+    margin-top:18px;
+    padding-top:10px;
+    border-top:1px solid var(--vi-border);
+    font-size:11px;
+    color:var(--vi-text-muted);
+    text-align:center;
+}
+
+@media print{
+    body > *:not(#inboundReportPrintArea){
+        display:none !important;
+    }
+    #inboundReportPrintArea{
+        display:block !important;
+        position:static;
+        width:auto;
+        max-width:none;
+        margin:0;
+        padding:0;
+    }
+    #inboundReportPrintArea thead{
+        display:table-header-group;
+    }
+    #inboundReportPrintArea tfoot{
+        display:table-footer-group;
+    }
+    #inboundReportPrintArea tr{
+        page-break-inside:avoid;
+    }
+    #inboundReportPrintArea .vi-report-header,
+    #inboundReportPrintArea .vi-report-meta-grid,
+    #inboundReportPrintArea .vi-report-warehouse-row{
+        page-break-inside:avoid;
+    }
+    @page{
+        margin:14mm 12mm;
+    }
+}
+
 </style>
+
 
 
 <script>
@@ -1271,7 +1640,7 @@ body.modal-open{
         if (row) {
             var badge = row.querySelector(".vi-badge");
             if (badge) {
-                badge.classList.remove("vi-badge-active", "vi-badge-sold", "vi-badge-voided", "vi-badge-default");
+                badge.classList.remove("vi-badge-active", "vi-badge-sold", "vi-badge-voided", "vi-badge-default", "vi-badge-outbounded", "vi-badge-enroute");
                 badge.classList.add("vi-badge-void-requested");
                 badge.textContent = "Void Requested";
             }
@@ -1592,6 +1961,39 @@ body.modal-open{
                     setButtonLoading(doneBtn, false);
                 });
             });
+        });
+    }
+
+    // ---- 5. Print Inbound Report ---------------------------------------
+
+    // Bootstrap's modal centers itself via a CSS transform on .modal-dialog.
+    // An absolutely-positioned print target inside a transformed ancestor is
+    // positioned relative to THAT ancestor, not the page -- which is why the
+    // report used to print with a huge blank lead-in and spill across many
+    // pages. Instead, physically move the report node out to be a direct
+    // child of <body> right before printing (any trigger -- the button below
+    // or Ctrl+P), then restore it to its original spot right after.
+    var printReportBtn   = document.getElementById("viPrintReportBtn");
+    var reportPrintArea  = document.getElementById("inboundReportPrintArea");
+    var reportPlaceholder = document.createComment("inbound-report-placeholder");
+    var reportHomeParent  = null;
+
+    window.addEventListener("beforeprint", function () {
+        if (!reportPrintArea) return;
+        reportHomeParent = reportPrintArea.parentNode;
+        reportHomeParent.insertBefore(reportPlaceholder, reportPrintArea);
+        document.body.appendChild(reportPrintArea);
+    });
+
+    window.addEventListener("afterprint", function () {
+        if (!reportPrintArea || !reportPlaceholder.parentNode) return;
+        reportPlaceholder.parentNode.insertBefore(reportPrintArea, reportPlaceholder);
+        reportPlaceholder.remove();
+    });
+
+    if (printReportBtn) {
+        printReportBtn.addEventListener("click", function () {
+            window.print();
         });
     }
 })();
