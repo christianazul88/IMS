@@ -41,7 +41,15 @@ $selected_warehouse_name = $_SESSION['selected_warehouse_name'];
                                     while ($supplier_row = $supplier_res->fetch_assoc()) {
                                         $supplier = $supplier_row['supplier_name'];
                                         $supplier_id = $supplier_row['hashed_id'];
-                                        echo '<option value="' . $supplier_id . '">' . $supplier . '</option>';
+                                        $local_international = $supplier_row['local_international'];
+                                        if($local_international === "Hakot") {
+                                            $local_international = "Bidding";
+                                        } elseif($local_international === "International"){
+                                            $local_international = "Imports";
+                                        } elseif(empty($local_international)){
+                                            $local_international = "Requires update on supplier module";
+                                        }
+                                        echo '<option value="' . $supplier_id . '">' . $supplier . ' - ' . $local_international . '</option>';
                                     }
                                 } else {
                                     echo '<option value="">No Supplier Available</option>';
