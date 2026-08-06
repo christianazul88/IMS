@@ -7,6 +7,15 @@ $is_administrator = ($user_position_name ?? '') === 'Administrator';
 // Load the void request attached to each barcode for this inbound once.
 // The old page only queried `stocks`, which is why it always displayed a
 // Void button even when the barcode had already been placed in void_items.
+$void_info_stmt = $conn->prepare("SELECT remarks, `status` FROM void_logs WHERE unique_key = ? AND po_id = ? LIMIT 1");
+$void_info_stmt->bind_param('si', $unique_key, $po_id);
+$void_info_stmt->execute();
+$void_info_result = $void_info_stmt->get_result();
+$void_info = $void_info_result->fetch_assoc();
+$void_status = $void_info['status'] ?? NULL;
+$void_remarks = $void_info['remarks'] ?? NULL;
+
+
 $void_requests_by_barcode = [];
 $void_request_stmt = $conn->prepare(
     "SELECT vi.unique_barcode, vl.id AS void_log_id, vl.status, vl.request_type, vl.remarks
@@ -177,8 +186,16 @@ $page_void_log_ids = implode(',', array_keys($page_void_log_ids));
 // Show the action buttons when there's no void_logs data at all yet for
 // this inbound (nothing requested), or when a request is pending without
 // remarks yet (still in progress, Done not yet clicked).
-$show_page_actions = !$transaction_approved
-    && (empty($void_requests_by_barcode) || $has_pending_without_remarks);
+// $show_page_actions = !$transaction_approved
+//     && (empty($void_requests_by_barcode) || $has_pending_without_remarks);
+
+if(($void_status === "pending" || is_null($void_status)) && is_null($void_remarks)){
+    $show_page_actions = true;
+} else {
+    $show_page_actions = false;
+}
+
+
 ?>
 
 <div class="void-inbound container-fluid py-4">
@@ -409,7 +426,7 @@ $show_page_actions = !$transaction_approved
 
                                 <div class="vi-subhead">Stock Sequences</div>
 
-                                    <?php if ($product_show_actions): ?>
+                                    <?php if ($show_page_actions): ?>
                                     <button class="vi-btn vi-btn-outline-danger vi-btn-sm"
                                             data-product-id="<?= htmlspecialchars($product['product_id']) ?>"
                                             data-parent-barcode="<?= htmlspecialchars($product['parent_barcode'] ?? '') ?>"
@@ -489,7 +506,7 @@ $show_page_actions = !$transaction_approved
                                                                     || (!$has_remarks && $status === 'pending'));
                                                             ?>
 
-                                                            <?php if ($showVoidButton): ?>
+                                                            <?php if ($show_page_actions): ?>
                                                              <button class="vi-btn vi-btn-outline-danger vi-btn-xs"
                                                                      data-barcode="<?= htmlspecialchars($stock['unique_barcode']) ?>">
                                                                  <i class="bi bi-trash"></i>
