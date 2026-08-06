@@ -229,7 +229,8 @@ $inbound_res = $conn->query($inbound_sql);
                                       ?>
                                     </td>
                                     <td class="inbound_no">
-                                        <a type="button" data-bs-toggle="modal" data-bs-target="#view-modal" target-id="<?php echo $row['unique_key']; ?>">
+                                        <!-- <a type="button" data-bs-toggle="modal" data-bs-target="#view-modal" target-id="<?php echo $row['unique_key']; ?>"> -->
+                                        <a href="../inbound-void2/?unique_key=<?php echo $row['unique_key']; ?>&po_no=<?php echo $row['po_id']; ?>&inbound=1">
                                             <strong><?php echo $row['unique_key']; ?></strong>
                                         </a>
                                     </td>

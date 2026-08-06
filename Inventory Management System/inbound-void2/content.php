@@ -49,6 +49,32 @@ foreach ($void_requests_by_barcode as $vr) {
     }
 }
 
+// Once an inbound has been received for more than 3 days, close the void
+// window entirely -- no new void requests should be startable on it. Reads
+// the most recent date_received recorded for this po_id + unique_key.
+// If no inbound_logs row is found at all (e.g. legacy data gaps), we don't
+// assume expired -- fail open to preserve existing behavior rather than
+// silently locking staff out of a legitimate void.
+$voiding_window_expired = false;
+$inbound_date_received = null;
+
+$inbound_log_stmt = $conn->prepare(
+    "SELECT date_received FROM inbound_logs WHERE po_id = ? AND unique_key = ? ORDER BY date_received DESC LIMIT 1"
+);
+$inbound_log_stmt->bind_param('is', $po_id, $unique_key);
+$inbound_log_stmt->execute();
+$inbound_log_row = $inbound_log_stmt->get_result()->fetch_assoc();
+$inbound_log_stmt->close();
+
+if ($inbound_log_row && !empty($inbound_log_row['date_received'])) {
+    $inbound_date_received = $inbound_log_row['date_received'];
+    $received_timestamp = strtotime($inbound_date_received);
+    if ($received_timestamp !== false) {
+        $days_since_received = (time() - $received_timestamp) / 86400;
+        $voiding_window_expired = $days_since_received > 3;
+    }
+}
+
 // --- Fetch products on this PO ---
 $purchased_order_query = "SELECT 
                             poc.product_id, 
@@ -217,6 +243,18 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
     $show_page_actions = false;
 }
 
+if($po_id = 0){
+    $show_page_actions = false;
+}
+// Once the 3-day voiding window has closed, no new void action can be
+// started regardless of the void_logs state above -- this covers Void
+// Entire Inbound, Void All Sequences, every per-barcode Void button, the
+// Done button, and the supplier-update dropdown (which itself creates a
+// void_logs row), since all of them are gated on $show_page_actions.
+if ($voiding_window_expired) {
+    $show_page_actions = false;
+}
+
 
 ?>
 
@@ -228,7 +266,14 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 
             <div>
                 <div class="vi-eyebrow">Inventory / Inbound</div>
-                <h1 class="vi-title">Void Inbound Stocks</h1>
+                <?php 
+                if(isset($_GET['inbound'])){
+                    echo '<h1 class="vi-title">Inbounded</h1>';
+                } else {
+                    echo '<h1 class="vi-title">Void Inbounded Stocks</h1>';
+                }
+                ?>
+                
 
                 <div class="vi-meta">
                     <span class="vi-meta-item">
@@ -289,6 +334,11 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
                             Void Entire Inbound
                         </button>
                     </div>
+                <?php elseif ($voiding_window_expired): ?>
+                    <span class="vi-badge vi-badge-window-closed" title="Received more than 3 days ago">
+                        <i class="bi bi-lock-fill"></i>
+                        Void window closed
+                    </span>
                 <?php endif; ?>
 
             </div>
@@ -1093,6 +1143,16 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 .vi-badge-transaction-approved{
     background:var(--vi-success-bg);
     color:var(--vi-success-text);
+    font-size:14px;
+    padding:8px 16px;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+}
+
+.vi-badge-window-closed{
+    background:#eef0f3;
+    color:#5b6472;
     font-size:14px;
     padding:8px 16px;
     display:inline-flex;
