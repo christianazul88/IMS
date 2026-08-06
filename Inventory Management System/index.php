@@ -98,16 +98,13 @@ if (isset($_SESSION['user_id'])) {
                                                 <div class="d-flex justify-content-between">
                                                     <label class="form-label" for="card-password">Password</label>
                                                 </div>
-                                                <input class="form-control" id="password" name="password" type="password" />
-                                            </div>
-                                            <!-- <div class="row flex-between-center">
-                                                <div class="col-auto">
-                                                    <div class="form-check mb-0">
-                                                        <input class="form-check-input" type="checkbox" id="card-checkbox" />
-                                                        <label class="form-check-label mb-0" for="card-checkbox">Show Password</label>
-                                                    </div>
+                                                <div class="input-group">
+                                                    <input class="form-control" id="password" name="password" type="password" />
+                                                    <button class="btn btn-outline-secondary" type="button" id="toggle-password" tabindex="-1" aria-label="Show password">
+                                                        <i class="fa-solid fa-eye" id="toggle-password-icon"></i>
+                                                    </button>
                                                 </div>
-                                            </div> -->
+                                            </div>
                                             <div class="mb-3" id="btn-login-container">
                                                 <button class="btn btn-primary d-block w-100 mt-3" id="btn-login" type="submit" name="submit">Log in</button>
                                                  
@@ -140,6 +137,20 @@ if (isset($_SESSION['user_id'])) {
     <script src="vendors/list.js/list.min.js"></script>
     <script src="assets/js/theme.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Show / hide password toggle
+        document.getElementById('toggle-password').addEventListener('click', function () {
+            const passwordInput = document.getElementById('password');
+            const icon = document.getElementById('toggle-password-icon');
+            const isHidden = passwordInput.type === 'password';
+
+            passwordInput.type = isHidden ? 'text' : 'password';
+            icon.classList.toggle('fa-eye', !isHidden);
+            icon.classList.toggle('fa-eye-slash', isHidden);
+            this.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+        });
+    </script>
+
     <script>
         document.getElementById('login-form').addEventListener('submit', function (e) {
             e.preventDefault(); // Prevent form from submitting normally
