@@ -1602,13 +1602,23 @@ body.modal-open{
 <script>
 window.onload = function () {
 
+    var viSupplierUniqueKey = <?= json_encode((string) $unique_key) ?>;
+    var viSupplierPoId      = <?= json_encode((string) $po_id) ?>;
+    var viSupplierPrev      = <?= json_encode((string) ($prev_supplier ?? '')) ?>;
+
     const supplierSelect = document.getElementById('select-supplier');
 
     supplierSelect.addEventListener('change', function () {
 
         if (this.value === '') return;
 
-        fetch('update-supplier-info.php?unique_key=<?php echo $unique_key; ?>&po_id=<?php echo $po_id; ?>&supplier=<?php echo $prev_supplier;?>', {
+        var supplierUpdateUrl = 'update-supplier-info.php?' + new URLSearchParams({
+            unique_key: viSupplierUniqueKey,
+            po_id: viSupplierPoId,
+            supplier: viSupplierPrev
+        }).toString();
+
+        fetch(supplierUpdateUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'

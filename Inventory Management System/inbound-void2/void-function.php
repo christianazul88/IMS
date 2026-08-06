@@ -275,8 +275,9 @@ try {
     $check_result = $check_stmt->get_result();
 
     if ($check_result->num_rows > 0) {
-        $void_log_id = $check_result->fetch_assoc()['id'];
-        $void_new_supplier = $check_result->fetch_assoc()['new_supplier'];
+        $existing_void_log = $check_result->fetch_assoc();
+        $void_log_id = $existing_void_log['id'];
+        $void_new_supplier = $existing_void_log['new_supplier'];
     } else {
         $insert_stmt = $conn->prepare(
             "INSERT INTO void_logs (request_type, po_id, unique_key, requested_by, `status`, created_at)
