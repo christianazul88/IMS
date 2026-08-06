@@ -89,6 +89,8 @@
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const module_dateInput = document.getElementById("module_date_range");
+        const returnCollapse = document.getElementById("collapse4");
+        let returnSummaryLoaded = false;
 
         function module_fetchData(module_dateGross = null) {
             let module_bodyData = module_dateGross ? "module_date_range=" + encodeURIComponent(module_dateGross) : "";
@@ -115,8 +117,13 @@
             });
         }
 
-        // Fetch today's data immediately when page loads
-        module_fetchData();
+        // Return figures are only needed when this collapsed panel is opened.
+        returnCollapse.addEventListener("shown.bs.collapse", function() {
+            if (!returnSummaryLoaded) {
+                returnSummaryLoaded = true;
+                module_fetchData();
+            }
+        });
 
         // Then listen if user selects a date range
         module_dateInput.addEventListener("change", function() {

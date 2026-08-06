@@ -13,7 +13,7 @@
             <div class="alert alert-warning text-center">
                 <strong>Action Required:</strong><br>
                 One or more suppliers have not been assigned a classification.  
-                Please update their records by specifying whether they are <strong>"Local"</strong> or <strong>"Import"</strong>.
+                Please update their records by specifying whether they are <strong>"Local"</strong>, <strong>"Hakot/Bidding"</strong> or <strong>"Import"</strong>.
             </div>
         <?php
             } else {
@@ -48,7 +48,7 @@
                    style="background-color:#f8f9fa; border:1px solid #0d6efd;"
                    href="download-hakot.php">
                     <span class="fas fa-file-alt text-primary me-2" data-fa-transform="grow-4"></span>
-                    Download Inventory Per Supplier Hakot CSV
+                    Download Inventory Per Supplier Hakot/ Bidding CSV
                 </a>
             </div>
         <?php

@@ -59,6 +59,11 @@ if ($hour >= 5 && $hour < 12) {
         <?php
         }
         ?>
+        <?php
+        if ($user_position_name === "Superadmin" || strpos($access, "outbound_safety_available") !== false || strpos($access, "under_safety") !== false) {
+            include "inventory_health.php";
+        }
+        ?>
     </div>
     
     <div class="col-xxl-6 col-xl-12">

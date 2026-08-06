@@ -98,34 +98,21 @@ if($dashboard_supplier_res->num_rows > 0){
 }
 ?>
 
-<div class="accordion" id="stocksummarycontainer">
-  <div class="accordion-item">
-    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#stocksummary" aria-expanded="true" aria-controls="stocksummary">Stock Summary</button></h2>
-    <div class="accordion-collapse collapse" id="stocksummary" aria-labelledby="heading4" data-bs-parent="#accordionExample">
-      <div class="accordion-body">
-        <div class="accordion-header">
-            <h6><a href="../Stock-Summary/">View Stocks</a> as of <?php echo date("Y-m-d"); ?></h6>
-        </div>
-        <div class="table-responsive">
-            <table class="table mb-0 data-table fs-10" data-datatables='{"paging":false,"scrollY":"500px","scrollCollapse":true}'>
-                <thead class="bg-dark">
-                    <tr>
-                        <th>Supplier</th>
-                        <th>Category</th>
-                        <th>Qty</th>
-                        <th>Total Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php 
-                    foreach($stock_summary as $stock_summary_display){
-                        echo $stock_summary_display;
-                    }
-                    ?>
-                </tbody>
-            </table>
-        </div>
-      </div>
-    </div>
-  </div>
+<div class="accordion-header">
+    <h6><a href="../Stock-Summary/">View Stocks</a> as of <?php echo date("Y-m-d"); ?></h6>
+</div>
+<div class="table-responsive">
+    <table class="table mb-0 data-table fs-10">
+        <thead class="bg-dark">
+            <tr>
+                <th>Supplier</th>
+                <th>Category</th>
+                <th>Qty</th>
+                <th>Total Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach($stock_summary as $stock_summary_display){ echo $stock_summary_display; } ?>
+        </tbody>
+    </table>
 </div>
