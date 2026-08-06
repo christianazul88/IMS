@@ -246,6 +246,10 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
 if($po_id = 0){
     $show_page_actions = false;
 }
+
+if(isset($_GET['inbound'])){
+    $show_page_actions = false;
+}
 // Once the 3-day voiding window has closed, no new void action can be
 // started regardless of the void_logs state above -- this covers Void
 // Entire Inbound, Void All Sequences, every per-barcode Void button, the
