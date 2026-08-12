@@ -152,6 +152,7 @@ $voided_items_stmt->close();
 $total_ordered_qty = 0;
 $total_voided_count = 0;
 $total_pending_void_count = 0;
+$total_amount = 0;
 
 foreach ($products as &$product) {
     $parent_barcode = $product['parent_barcode'] ?? '';
@@ -186,9 +187,16 @@ foreach ($products as &$product) {
     }
     $product['pending_void_count'] = $product_pending_void_count;
 
+    // Value of this product's current (live) stock, from stocks.capital.
+    // Mirrors the "Received" qty column -- voided rows are excluded since
+    // their stocks row (and capital) is gone once approved.
+    $product_amount = array_sum(array_column($product['stocks'], 'capital'));
+    $product['amount'] = $product_amount;
+
     $total_ordered_qty += (int) $product['qty'];
     $total_voided_count += $product_voided_count;
     $total_pending_void_count += $product_pending_void_count;
+    $total_amount += $product_amount;
 }
 unset($product);
 $reviewable_stock_count = 0;
@@ -391,6 +399,10 @@ if ($voiding_window_expired) {
                 <div class="vi-stat-label">To Be Voided</div>
                 <div class="vi-stat-value"><?= number_format($total_pending_void_count) ?></div>
             </div>
+            <div class="vi-stat vi-stat-success">
+                <div class="vi-stat-label">Total Amount</div>
+                <div class="vi-stat-value">&#8369;<?= number_format($total_amount, 2) ?></div>
+            </div>
         </div>
 
         <div class="table-responsive mt-3">
@@ -402,12 +414,13 @@ if ($voiding_window_expired) {
                         <th class="text-end">Received</th>
                         <th class="text-end">Voided</th>
                         <th class="text-end">To Be Voided</th>
+                        <th class="text-end">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($products)): ?>
                         <tr>
-                            <td colspan="5" class="vi-empty-row">No products found for this purchase order.</td>
+                            <td colspan="6" class="vi-empty-row">No products found for this purchase order.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($products as $summary_product): ?>
@@ -417,10 +430,23 @@ if ($voiding_window_expired) {
                                 <td class="text-end"><?= number_format(count($summary_product['stocks'])) ?></td>
                                 <td class="text-end"><?= number_format($summary_product['voided_count']) ?></td>
                                 <td class="text-end"><?= number_format($summary_product['pending_void_count']) ?></td>
+                                <td class="text-end vi-capital">&#8369;<?= number_format($summary_product['amount'], 2) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>
+                <?php if (!empty($products)): ?>
+                    <tfoot>
+                        <tr class="vi-summary-totals">
+                            <td>Total</td>
+                            <td class="text-end"><?= number_format($total_ordered_qty) ?></td>
+                            <td class="text-end"><?= number_format($total_stocks) ?></td>
+                            <td class="text-end"><?= number_format($total_voided_count) ?></td>
+                            <td class="text-end"><?= number_format($total_pending_void_count) ?></td>
+                            <td class="text-end vi-capital">&#8369;<?= number_format($total_amount, 2) ?></td>
+                        </tr>
+                    </tfoot>
+                <?php endif; ?>
             </table>
         </div>
     </div>
@@ -788,12 +814,13 @@ if ($voiding_window_expired) {
                                 <th class="text-end">Qty Ordered</th>
                                 <th class="text-end">Qty Received</th>
                                 <th class="text-end">Qty Voided</th>
+                                <th class="text-end">Amount</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($products)): ?>
                                 <tr>
-                                    <td colspan="7" class="vi-empty-row">No products found for this purchase order.</td>
+                                    <td colspan="8" class="vi-empty-row">No products found for this purchase order.</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($products as $report_product): ?>
@@ -805,6 +832,7 @@ if ($voiding_window_expired) {
                                         <td class="text-end"><?= number_format((int) $report_product['qty']) ?></td>
                                         <td class="text-end"><?= number_format(count($report_product['stocks'])) ?></td>
                                         <td class="text-end"><?= number_format($report_product['voided_count']) ?></td>
+                                        <td class="text-end">&#8369;<?= number_format($report_product['amount'], 2) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php endif; ?>
@@ -815,6 +843,7 @@ if ($voiding_window_expired) {
                                 <td class="text-end"><?= number_format($total_ordered_qty) ?></td>
                                 <td class="text-end"><?= number_format($total_stocks) ?></td>
                                 <td class="text-end"><?= number_format($total_voided_count) ?></td>
+                                <td class="text-end">&#8369;<?= number_format($total_amount, 2) ?></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -1186,6 +1215,12 @@ if ($voiding_window_expired) {
 .vi-stat-pending .vi-stat-value{
     color:#8a6110;
 }
+.vi-stat-success{
+    background:var(--vi-success-bg);
+}
+.vi-stat-success .vi-stat-value{
+    color:var(--vi-success-text);
+}
 .vi-stat-label{
     font-size:11px;
     font-weight:600;
@@ -1537,6 +1572,11 @@ body.modal-open{
     padding:1px 6px;
 }
 .vi-report-totals td{
+    font-weight:700;
+    border-top:2px solid var(--vi-navy);
+    background:var(--vi-navy-soft);
+}
+.vi-summary-totals td{
     font-weight:700;
     border-top:2px solid var(--vi-navy);
     background:var(--vi-navy-soft);
