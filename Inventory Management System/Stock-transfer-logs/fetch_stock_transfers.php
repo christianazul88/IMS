@@ -1,8 +1,6 @@
 <?php
 require "../config/database.php";
 require "../config/on_session.php";
-<?php
-require 'db_connection.php';
 
 $request = $_POST;
 
