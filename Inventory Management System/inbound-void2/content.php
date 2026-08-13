@@ -75,6 +75,8 @@ if ($inbound_log_row && !empty($inbound_log_row['date_received'])) {
     }
 }
 
+$po_warehouse = 0;
+
 // --- Fetch products on this PO ---
 $purchased_order_query = "SELECT 
                             poc.product_id, 
@@ -83,9 +85,11 @@ $purchased_order_query = "SELECT
                             p.parent_barcode,
                             b.brand_name,
                             c.category_name,
-                            po.supplier
+                            po.supplier,
+                            w.warehouse_name
                         FROM purchased_order_content poc 
                         INNER JOIN purchased_order po ON po.id = poc.po_id
+                        LEFT JOIN warehouse w ON w.hashed_id = po.warehouse
                         LEFT JOIN product p ON poc.product_id = p.hashed_id
                         LEFT JOIN brand b ON p.brand = b.hashed_id
                         LEFT JOIN category c ON p.category = c.hashed_id
@@ -97,15 +101,20 @@ $stmt->execute();
 $purchased_order_result = $stmt->get_result();
 
 $products = [];
-
+$supplier = 0;
 if ($purchased_order_result && $purchased_order_result->num_rows > 0) {
     while ($row = $purchased_order_result->fetch_assoc()) {
         $product_id = $row['product_id'];
         $prev_supplier = $row['supplier'];
 
+        if($po_warehouse == 0){
+            $po_warehouse = $row['warehouse_name'];
+        }
+
         // --- Fetch stock sequences for this product under this inbound ---
-        $stocks_query = "SELECT s.unique_barcode, s.capital, s.item_status 
+        $stocks_query = "SELECT s.unique_barcode, s.capital, s.item_status, sup.supplier_name, sup.local_international 
                           FROM stocks s 
+                          LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
                           WHERE s.unique_key = ? AND s.product_id = ?";
         $stock_stmt = $conn->prepare($stocks_query);
         $stock_stmt->bind_param("ss", $unique_key, $product_id);
@@ -115,6 +124,9 @@ if ($purchased_order_result && $purchased_order_result->num_rows > 0) {
         $stocks = [];
         while ($stock_row = $stocks_result->fetch_assoc()) {
             $stocks[] = $stock_row;
+            if($supplier == 0 ){
+                $supplier = $stock_row['supplier_name'] . " - " . $stock_row['local_international'];
+            }
         }
         $stock_stmt->close();
 
@@ -790,19 +802,22 @@ if ($voiding_window_expired) {
                                 <span class="vi-report-meta-label">Position</span>
                                 <span class="vi-report-meta-value"><?= htmlspecialchars($user_position_name ?? 'N/A') ?></span>
                             </div>
+                            <div class="vi-report-meta-item">
+                                <span class="vi-report-meta-label">Supplier</span>
+                                <span class="vi-report-meta-value"><?= htmlspecialchars($supplier) ?></span>
+                            </div>
                         </div>
                     </div>
 
-                    <?php if (!empty($for_implode_warehouse_names)): ?>
+                    
                         <div class="vi-report-warehouse-row">
-                            <span class="vi-report-meta-label">Warehouse Access<?= count($for_implode_warehouse_names) > 1 ? ' (' . count($for_implode_warehouse_names) . ')' : '' ?></span>
+                            <span class="vi-report-meta-label">Received by:</span>
                             <div class="vi-report-warehouse-chips">
-                                <?php foreach ($for_implode_warehouse_names as $report_warehouse_name): ?>
-                                    <span class="vi-report-chip"><?= htmlspecialchars($report_warehouse_name) ?></span>
-                                <?php endforeach; ?>
+                                
+                                    <span class="vi-report-chip"><?= htmlspecialchars($po_warehouse) ?></span>
+                                
                             </div>
                         </div>
-                    <?php endif; ?>
 
                     <table class="table vi-table vi-report-table align-middle mb-0">
                         <thead>
