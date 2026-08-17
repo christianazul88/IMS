@@ -10,13 +10,10 @@
         // Show spinner on page load
         $('#outbound-008-spinner').show();
 
-        // Wait 2 seconds, then load content
-        setTimeout(function () {
-            $('#outbound-008').load('outbound-008.php?wh=<?php echo $dashboard_wh; ?>', function () {
+            $('#outbound-008').load('outbound-008.php?wh=<?php echo rawurlencode($dashboard_wh); ?>', function () {
                 // Hide spinner after content loads
                 $('#outbound-008-spinner').hide();
             });
-        }, 2000);
     });
 </script>
 

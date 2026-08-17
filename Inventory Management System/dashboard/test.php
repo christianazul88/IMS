@@ -18,7 +18,7 @@ if (isset($_POST['date_between'])) {
         list($start_date, $end_date) = explode(' to ', $date_between);
         // Convert to MySQL format Y-m-d
         $start_date_mysql = DateTime::createFromFormat('d/m/y', $start_date)->format('Y-m-d') . " 00:00:00";
-        $end_date_mysql = DateTime::createFromFormat('d/m/y', $end_date)->format('Y-m-d') . " 11:59:59";
+        $end_date_mysql = DateTime::createFromFormat('d/m/y', $end_date)->format('Y-m-d');
 
         // Format for display
         $start_date_display = DateTime::createFromFormat('d/m/y', $start_date)->format('M j, Y');
@@ -43,27 +43,29 @@ if (isset($_POST['date_between'])) {
             SELECT SUM(oc.sold_price) AS total_outbound_sales, COUNT(oc.unique_barcode) AS outbound_qty
             FROM outbound_content oc
             LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
-            WHERE ol.warehouse $where_warehouse AND oc.status IN (0, 6) AND DATE(ol.date_sent) BETWEEN '$start_date_mysql' AND '$end_date_mysql'
+            WHERE ol.warehouse $where_warehouse AND oc.status IN (0, 6)
+              AND ol.date_sent >= '$start_date_mysql 00:00:00'
+              AND ol.date_sent < DATE_ADD('$end_date_mysql', INTERVAL 1 DAY)
         ";
 
         $inbound_query = "
             SELECT SUM(capital) AS total_unit_cost, COUNT(unique_barcode) AS inbound_qty
             FROM stocks
-            WHERE warehouse $where_warehouse AND DATE(date) BETWEEN '$start_date_mysql' AND '$end_date_mysql'
+            WHERE warehouse $where_warehouse AND date >= '$start_date_mysql 00:00:00' AND date < DATE_ADD('$end_date_mysql', INTERVAL 1 DAY)
         ";
 
         $local_query = "
             SELECT SUM(s.capital) AS local_unit_cost, COUNT(s.unique_barcode) AS local_qty
             FROM stocks s
             LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
-            WHERE sup.local_international = 'Local' AND s.warehouse $where_warehouse AND DATE(s.date) BETWEEN '$start_date_mysql' AND '$end_date_mysql'
+            WHERE sup.local_international = 'Local' AND s.warehouse $where_warehouse AND s.date >= '$start_date_mysql 00:00:00' AND s.date < DATE_ADD('$end_date_mysql', INTERVAL 1 DAY)
         ";
 
         $import_query = "
             SELECT SUM(s.capital) AS import_unit_cost, COUNT(s.unique_barcode) AS import_qty
             FROM stocks s
             LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
-            WHERE sup.local_international = 'International' AND s.warehouse $where_warehouse AND DATE(s.date) BETWEEN '$start_date_mysql' AND '$end_date_mysql'
+            WHERE sup.local_international = 'International' AND s.warehouse $where_warehouse AND s.date >= '$start_date_mysql 00:00:00' AND s.date < DATE_ADD('$end_date_mysql', INTERVAL 1 DAY)
         ";
     } else {
         $today_mysql = DateTime::createFromFormat('d/m/y', $date_between)->format('Y-m-d');
@@ -87,27 +89,27 @@ if (isset($_POST['date_between'])) {
             SELECT SUM(oc.sold_price) AS total_outbound_sales, COUNT(oc.unique_barcode) AS outbound_qty
             FROM outbound_content oc
             LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
-            WHERE ol.warehouse $where_warehouse AND oc.status IN (0, 6) AND DATE(ol.date_sent) = '$today_mysql'
+            WHERE ol.warehouse $where_warehouse AND oc.status IN (0, 6) AND ol.date_sent >= '$today_mysql 00:00:00' AND ol.date_sent < DATE_ADD('$today_mysql', INTERVAL 1 DAY)
         ";
 
         $inbound_query = "
             SELECT SUM(capital) AS total_unit_cost, COUNT(unique_barcode) AS inbound_qty
             FROM stocks
-            WHERE warehouse $where_warehouse AND DATE(date) = '$today_mysql'
+            WHERE warehouse $where_warehouse AND date >= '$today_mysql 00:00:00' AND date < DATE_ADD('$today_mysql', INTERVAL 1 DAY)
         ";
 
         $local_query = "
             SELECT SUM(s.capital) AS local_unit_cost, COUNT(s.unique_barcode) AS local_qty
             FROM stocks s
             LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
-            WHERE sup.local_international = 'Local' AND s.warehouse $where_warehouse AND DATE(s.date) = '$today_mysql'
+            WHERE sup.local_international = 'Local' AND s.warehouse $where_warehouse AND s.date >= '$today_mysql 00:00:00' AND s.date < DATE_ADD('$today_mysql', INTERVAL 1 DAY)
         ";
 
         $import_query = "
             SELECT SUM(s.capital) AS import_unit_cost, COUNT(s.unique_barcode) AS import_qty
             FROM stocks s
             LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
-            WHERE sup.local_international = 'International' AND s.warehouse $where_warehouse AND DATE(s.date) = '$today_mysql'
+            WHERE sup.local_international = 'International' AND s.warehouse $where_warehouse AND s.date >= '$today_mysql 00:00:00' AND s.date < DATE_ADD('$today_mysql', INTERVAL 1 DAY)
         ";
     }
     
@@ -134,27 +136,27 @@ if (isset($_POST['date_between'])) {
         SELECT SUM(oc.sold_price) AS total_outbound_sales, COUNT(oc.unique_barcode) AS outbound_qty
         FROM outbound_content oc
         LEFT JOIN outbound_logs ol ON ol.hashed_id = oc.hashed_id
-        WHERE ol.warehouse $where_warehouse AND oc.status IN (0, 6) AND DATE(ol.date_sent) = '$today_mysql'
+        WHERE ol.warehouse $where_warehouse AND oc.status IN (0, 6) AND ol.date_sent >= '$today_mysql 00:00:00' AND ol.date_sent < DATE_ADD('$today_mysql', INTERVAL 1 DAY)
     ";
 
     $inbound_query = "
         SELECT SUM(capital) AS total_unit_cost, COUNT(unique_barcode) AS inbound_qty
         FROM stocks
-        WHERE warehouse $where_warehouse AND DATE(date) = '$today_mysql'
+        WHERE warehouse $where_warehouse AND date >= '$today_mysql 00:00:00' AND date < DATE_ADD('$today_mysql', INTERVAL 1 DAY)
     ";
 
     $local_query = "
         SELECT SUM(s.capital) AS local_unit_cost, COUNT(s.unique_barcode) AS local_qty
         FROM stocks s
         LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
-        WHERE sup.local_international = 'Local' AND s.warehouse $where_warehouse AND DATE(s.date) = '$today_mysql'
+        WHERE sup.local_international = 'Local' AND s.warehouse $where_warehouse AND s.date >= '$today_mysql 00:00:00' AND s.date < DATE_ADD('$today_mysql', INTERVAL 1 DAY)
     ";
 
     $import_query = "
         SELECT SUM(s.capital) AS import_unit_cost, COUNT(s.unique_barcode) AS import_qty
         FROM stocks s
         LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
-        WHERE sup.local_international = 'International' AND s.warehouse $where_warehouse AND DATE(s.date) = '$today_mysql'
+        WHERE sup.local_international = 'International' AND s.warehouse $where_warehouse AND s.date >= '$today_mysql 00:00:00' AND s.date < DATE_ADD('$today_mysql', INTERVAL 1 DAY)
     ";
 }
 

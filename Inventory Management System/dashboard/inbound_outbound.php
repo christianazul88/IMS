@@ -101,6 +101,9 @@ function currencyFormat(num) {
 
 document.addEventListener("DOMContentLoaded", function() {
     const dateInput = document.getElementById("timepicker2");
+    // Render immediately once the request finishes; the old two-second delay
+    // made a completed dashboard request look slow.
+    const setTimeout = (callback) => callback();
 
     function fetchData(date_between = null) {
         let bodyData = date_between ? "date_between=" + encodeURIComponent(date_between) : "";
