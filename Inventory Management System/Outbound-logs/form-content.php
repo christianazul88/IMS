@@ -131,60 +131,112 @@ if (isset($_GET['id'])) {
                         </thead>
                         <tbody>
                             <?php 
-                            // Second query: Using prepared statements and handling result
+                            // Second query: one row per unit, so each unique_barcode can be checked
+                            // against the returns table individually (returns are logged per
+                            // unique_barcode, not per parent_barcode/SKU). Grouping into line
+                            // items now happens in PHP below instead of via SQL GROUP BY, since
+                            // we need the individual barcodes - not just a count of them - to
+                            // know which specific unit(s) came back.
+                            //
+                            // returns.date >= ol.date_sent (this outbound's own send date, bound
+                            // as $date_Sent) makes sure we only match a return that happened as a
+                            // result of *this* outbound, in case a unique_barcode gets reused for
+                            // a different unit later on and picks up an unrelated return record.
                             $query = "
-                                SELECT p.description, b.brand_name, c.category_name, s.parent_barcode, 
-                                       oc.quantity_before, oc.quantity_after, COUNT(s.parent_barcode) AS quantity, 
-                                       s.capital, oc.sold_price
+                                SELECT p.description, b.brand_name, c.category_name, s.parent_barcode,
+                                       oc.quantity_before, oc.quantity_after, oc.unique_barcode,
+                                       s.capital, oc.sold_price,
+                                       r.reason AS return_reason, r.fault AS return_fault,
+                                       r.fault_type AS return_fault_type, r.date AS return_date
                                 FROM outbound_content oc
                                 LEFT JOIN stocks s ON s.unique_barcode = oc.unique_barcode
                                 LEFT JOIN product p ON p.hashed_id = s.product_id
                                 LEFT JOIN brand b ON b.hashed_id = p.brand
                                 LEFT JOIN category c ON c.hashed_id = p.category
+                                LEFT JOIN returns r ON r.unique_barcode = oc.unique_barcode AND r.date >= ?
                                 WHERE oc.hashed_id = ?
-                                GROUP BY s.parent_barcode";
-                                
+                                ORDER BY s.parent_barcode, oc.unique_barcode";
+
                             $stmt2 = $conn->prepare($query);
-                            $stmt2->bind_param("s", $outbound_id);
+                            $stmt2->bind_param("ss", $date_Sent, $outbound_id);
                             $stmt2->execute();
                             $res = $stmt2->get_result();
-                            
+
+                            // Group the per-unit rows into one line item per parent_barcode
+                            $items = [];
+                            while ($unit = $res->fetch_assoc()) {
+                                $pb = $unit['parent_barcode'];
+                                if (!isset($items[$pb])) {
+                                    $items[$pb] = [
+                                        'description'     => $unit['description'],
+                                        'brand_name'       => $unit['brand_name'],
+                                        'category_name'    => $unit['category_name'],
+                                        'quantity_before'  => $unit['quantity_before'],
+                                        'quantity_after'   => $unit['quantity_after'],
+                                        'capital'          => $unit['capital'],
+                                        'sold_price'       => $unit['sold_price'],
+                                        'units'            => [],
+                                    ];
+                                }
+                                $items[$pb]['units'][] = [
+                                    'barcode'     => $unit['unique_barcode'],
+                                    'returned'    => !empty($unit['return_date']),
+                                    'reason'      => $unit['return_reason'],
+                                    'fault'       => $unit['return_fault'],
+                                    'fault_type'  => $unit['return_fault_type'],
+                                    'return_date' => $unit['return_date'],
+                                ];
+                            }
+
                             $count = 1;
                             $total = 0;
                             $total_profit = 0;
-                            if ($res->num_rows > 0) {
-                                while ($row = $res->fetch_assoc()) {
-                                    $productDescription = $row['description'];
-                                    $brandName = $row['brand_name'];
-                                    $categoryName = $row['category_name'];
-                                    $parentBarcode = $row['parent_barcode'];
-                                    $quantityBefore = $row['quantity_before'];
-                                    $quantityAfter = $row['quantity_after'];
-                                    $quantity = $row['quantity'];
-                                    $productCapital = $row['capital'];
-                                    $soldPrice = $row['sold_price'];
+                            if (!empty($items)) {
+                                foreach ($items as $parentBarcode => $item) {
+                                    $productDescription = $item['description'];
+                                    $brandName = $item['brand_name'];
+                                    $categoryName = $item['category_name'];
+                                    $quantityBefore = $item['quantity_before'];
+                                    $quantityAfter = $item['quantity_after'];
+                                    $quantity = count($item['units']);
+                                    $productCapital = $item['capital'];
+                                    $soldPrice = $item['sold_price'];
                                     $sub_Total = $quantity * $soldPrice;
                                     $profit = $soldPrice - $productCapital;
                                     $sub_profit = $profit * $quantity;
+                                    $returned_count = count(array_filter($item['units'], fn($u) => $u['returned']));
                                     ?>
                                      
                                     <tr>
                                         <td class="fs-10" style="width: 550px;"><?php echo $count;?></td>
-                                        <td class="fs-10"><?php echo $productDescription;?></td>
-                                        <td class="fs-10"><?php echo $brandName;?></td>
-                                        <td class="fs-10"><?php echo $categoryName;?></td>
+                                        <td class="fs-10"><?php echo htmlspecialchars($productDescription);?></td>
+                                        <td class="fs-10"><?php echo htmlspecialchars($brandName);?></td>
+                                        <td class="fs-10"><?php echo htmlspecialchars($categoryName);?></td>
                                         <td class="fs-11">
-                                            <?php 
-                                            echo $parentBarcode . "<br>";
-                                            $last_query = "SELECT unique_barcode FROM outbound_content WHERE hashed_id = '$outbound_id'";
-                                            $last_res = $conn->query($last_query);
-                                            if($last_res->num_rows>0){
-                                                while($row=$last_res->fetch_assoc()){
-                                                    $unique_bc = $row['unique_barcode'];
-                                                    echo $unique_bc . ", ";
-                                                }
-                                            }
-                                            ?>
+                                            <?php echo htmlspecialchars($parentBarcode); ?>
+                                            <?php if ($returned_count > 0): ?>
+                                                <span class="badge rounded-pill badge-subtle-danger ms-1">
+                                                    <?php echo $returned_count;?>/<?php echo $quantity;?> returned
+                                                </span>
+                                            <?php endif; ?>
+                                            <br>
+                                            <?php $unit_count = count($item['units']); ?>
+                                            <?php foreach ($item['units'] as $u_idx => $unit): ?>
+                                                <?php if ($unit['returned']): ?>
+                                                    <span class="badge rounded-pill badge-subtle-danger fs-11 me-1 mb-1"
+                                                          data-bs-toggle="tooltip"
+                                                          title="<?php echo htmlspecialchars(trim(
+                                                              ($unit['fault'] ? $unit['fault'] . ' - ' : '') .
+                                                              ($unit['fault_type'] ?? '') .
+                                                              ($unit['reason'] ? ' (' . $unit['reason'] . ')' : '') .
+                                                              ($unit['return_date'] ? ' on ' . $unit['return_date'] : '')
+                                                          ));?>">
+                                                        <span class="fas fa-undo fs-11"></span> <?php echo htmlspecialchars($unit['barcode']);?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="fs-11"><?php echo htmlspecialchars($unit['barcode']);?></span>
+                                                <?php endif; ?><?php echo ($u_idx < $unit_count - 1) ? ', ' : '';?>
+                                            <?php endforeach; ?>
                                         </td>
                                         <td class="text-end fs-10" style="width: 250px;"><?php echo $quantityBefore;?></td>
                                         <td class="text-end fs-10" style="width: 250px;"><?php echo $quantity;?></td>
@@ -243,6 +295,18 @@ if (isset($_GET['id'])) {
         </div>
     </div>
 
+    <script>
+    // Fragment is loaded via $("#target-id").load(...), so this <script> runs
+    // once per open. Init tooltips just for the returned-barcode badges above.
+    (function () {
+        var tooltipEls = document.querySelectorAll('#target-id [data-bs-toggle="tooltip"]');
+        tooltipEls.forEach(function (el) {
+            var existing = bootstrap.Tooltip.getInstance(el);
+            if (existing) existing.dispose();
+            new bootstrap.Tooltip(el);
+        });
+    })();
+    </script>
 
     <?php 
         if($outbound_status == 6 && $user_id === $outbound_user_id){
