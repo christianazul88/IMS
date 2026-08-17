@@ -1,19 +1,35 @@
-<?php  
+<?php
 $selected_warehouse_id = $_SESSION['selected_warehouse_id'];
 $selected_warehouse_name = $_SESSION['selected_warehouse_name'];
+
+// CSRF token for the AJAX calls and PO submit on this page
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
 ?>
 
 <div class="card">
-    <div class="card-header bg-warning">
-        <h2 class="text-white">Confirmation of Orders</h2>
-        <p class="text-white">Please confirm your orders then select your supplier.</p>
+    <div class="card-header bg-warning d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+            <h2 class="text-white mb-0">Confirmation of Orders</h2>
+            <p class="text-white mb-0">Please confirm your orders then select your supplier.</p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-dark fs-10">
+                <span class="fas fa-warehouse me-1"></span>
+                <?php echo htmlspecialchars($selected_warehouse_name ?? 'No warehouse selected'); ?>
+            </span>
+        </div>
     </div>
     <div class="card-body overflow-hidden py-6 px-2">
         <form id="import" method="POST">
+            <input type="hidden" name="csrf_token" id="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <div class="row px-3">
                 <div class="col-9">
-                    <div class="mb-3">
-                        <input type="text" id="search_item" class="form-control" placeholder="Search Item name">
+                    <div class="mb-3 position-relative">
+                        <input type="text" id="search_item" class="form-control" placeholder="Search Item name" autocomplete="off">
+                        <span id="search_spinner" class="spinner-border spinner-border-sm text-primary d-none position-absolute" style="right: 12px; top: 10px;"></span>
                     </div>
                     <div class="scrollbar overflow-auto mb-3" style="max-height: 250px;">
                         <div id="showhere"></div>
@@ -21,20 +37,24 @@ $selected_warehouse_name = $_SESSION['selected_warehouse_name'];
                 </div>
                 <div class="col-3 text-start">
                     <button class="btn btn-primary" type="submit" id="btnSubmitImport">Add</button>
+                    <div class="mt-2">
+                        <span class="badge bg-secondary" id="cart-count-badge">0 items in cart</span>
+                    </div>
                 </div>
             </div>
-            
-            
+
+
         </form>
-        <form action="../config/create_po.php" method="POST">
+        <form action="../config/create_po.php" method="POST" id="createPoForm">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <div class="card shadow-none">
                 <div class="card-body p-0 pb-3" data-list='{"valueNames":["desc","barcode","brand","cat","qty"]}'>
-                    <div class="d-flex align-items-center justify-content-end my-3">
+                    <div class="d-flex align-items-center justify-content-end my-3 flex-wrap gap-2">
 
                         <div class="col-auto text-end mb-3 me-1">
-                            <select class="form-select" name="supplier" required>
+                            <select class="form-select" name="supplier" id="supplier_select" required>
                                 <option value="">Select Supplier</option>
-                                <?php 
+                                <?php
                                 $supplier_query = "SELECT * FROM supplier ORDER BY supplier_name ASC";
                                 $supplier_res = $conn->query($supplier_query);
                                 if ($supplier_res->num_rows > 0) {
@@ -42,14 +62,14 @@ $selected_warehouse_name = $_SESSION['selected_warehouse_name'];
                                         $supplier = $supplier_row['supplier_name'];
                                         $supplier_id = $supplier_row['hashed_id'];
                                         $local_international = $supplier_row['local_international'];
-                                        if($local_international === "Hakot") {
+                                        if ($local_international === "Hakot") {
                                             $local_international = "Bidding";
-                                        } elseif($local_international === "International"){
+                                        } elseif ($local_international === "International") {
                                             $local_international = "Imports";
-                                        } elseif(empty($local_international)){
+                                        } elseif (empty($local_international)) {
                                             $local_international = "Requires update on supplier module";
                                         }
-                                        echo '<option value="' . $supplier_id . '">' . $supplier . ' - ' . $local_international . '</option>';
+                                        echo '<option value="' . htmlspecialchars($supplier_id) . '">' . htmlspecialchars($supplier) . ' - ' . htmlspecialchars($local_international) . '</option>';
                                     }
                                 } else {
                                     echo '<option value="">No Supplier Available</option>';
@@ -59,14 +79,18 @@ $selected_warehouse_name = $_SESSION['selected_warehouse_name'];
                         </div>
                         <div class="col-auto text-end mb-3 me-1">
                             <div id="bulk-select-replace-element">
-                                <button class="btn btn-falcon-success btn-sm" type="submit" id="submit-po-btn">
-                                    <span class="fas fa-plus" data-fa-transform="shrink-3 down-2"></span>
-                                    <span class="ms-1">Submit</span>
-                                </button>
+                                <span class="d-inline-block" tabindex="0" id="submit-po-tooltip-wrap">
+                                    <button class="btn btn-falcon-success btn-sm" type="submit" id="submit-po-btn" disabled>
+                                        <span class="fas fa-plus" data-fa-transform="shrink-3 down-2"></span>
+                                        <span class="ms-1">Submit</span>
+                                    </button>
+                                </span>
                             </div>
                         </div>
                         <div class="d-none ms-3" id="bulk-select-actions"></div>
                     </div>
+
+                    <div id="submit-blockers" class="alert alert-warning py-2 px-3 fs-11 mb-3 d-none"></div>
 
                     <div class="table-responsive scrollbar">
                         <table class="table mb-0 table-sm">
@@ -79,11 +103,11 @@ $selected_warehouse_name = $_SESSION['selected_warehouse_name'];
                                     <th class="text-black fs-11 dark__text-white align-middle sort" data-sort="cat">Category</th>
                                     <th class="text-black fs-11 dark__text-white align-middle sort" style="min-width: 250px;" hidden>Supplier</th>
                                     <th class="text-black fs-11 dark__text-white align-middle sort" style="min-width: 150px;">Order Quantity</th>
-                                    <th class="text-black fs-11 dark__text-white align-middle white-space-nowrap pe-3 sort" data-sort="qty">Quantity</th>
+                                    <th class="text-black fs-11 dark__text-white align-middle white-space-nowrap pe-3 sort" data-sort="qty">Current Stock</th>
                                 </tr>
                             </thead>
                             <tbody class="list" data-sortable="data-sortable" id="preview">
-                               
+
                             </tbody>
                         </table>
                     </div>
@@ -102,23 +126,73 @@ $selected_warehouse_name = $_SESSION['selected_warehouse_name'];
         </form>
     </div>
 </div>
+
+<style>
+/* Sticky action bar for long item lists */
+.po-sticky-bar {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    z-index: 5;
+    border-top: 1px solid #e9ecef;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.05);
+}
+#preview tr.row-invalid input[name='order_qty[]'] {
+    border: 2px solid #dc3545 !important;
+}
+</style>
+
 <script>
 $(document).ready(function() {
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
     $(document).on("change", "#flexCheckChecked", function () {
         checkFormCompletion();
     });
 
-    
+    function updateCartBadge() {
+        const count = $("#preview tr.sortable-item").length;
+        $("#cart-count-badge").text(count + (count === 1 ? " item in cart" : " items in cart"));
+    }
+
     function loadPreview() {
         $("#preview").load("preview.php", function () {
+            checkFormCompletion();
+            updateCartBadge();
         });
     }
     loadPreview();
 
+    // --- Search with debounce + request abort to avoid race conditions ---
+    let searchTimer = null;
+    let searchXhr = null;
+
     $("#search_item").on("keyup", function() {
-        let query = $(this).val();
-        if (query.length > 1) {
-            $.ajax({
+        const query = $(this).val().trim();
+        clearTimeout(searchTimer);
+
+        if (query.length <= 1) {
+            $("#showhere").html("");
+            $("#search_spinner").addClass("d-none");
+            return;
+        }
+
+        searchTimer = setTimeout(function() {
+            if (searchXhr) {
+                searchXhr.abort();
+            }
+            $("#search_spinner").removeClass("d-none");
+
+            searchXhr = $.ajax({
                 url: "search.php",
                 method: "POST",
                 data: { query: query },
@@ -127,13 +201,17 @@ $(document).ready(function() {
                     let output = "<ul class='list-group'>";
                     if (response.length > 0) {
                         response.forEach(function(item) {
+                            const barcode = escapeHtml(item.parent_barcode);
+                            const desc = escapeHtml(item.description);
+                            const brand = escapeHtml(item.brand_name);
+                            const cat = escapeHtml(item.category_name);
                             output += `
                                 <li class="list-group-item d-flex align-items-center">
-                                    <input class="form-check-input me-2 item-checkbox" name="parent_barcode[]" type="checkbox" value="${item.parent_barcode}" id="chk_${item.parent_barcode}">
-                                    <label for="chk_${item.parent_barcode}" class="flex-grow-1">
-                                        <strong>${item.description}</strong> - ${item.brand_name} - ${item.category_name}
+                                    <input class="form-check-input me-2 item-checkbox" name="parent_barcode[]" type="checkbox" value="${barcode}" id="chk_${barcode}">
+                                    <label for="chk_${barcode}" class="flex-grow-1">
+                                        <strong>${desc}</strong> - ${brand} - ${cat}
                                     </label>
-                                    <span class="badge bg-primary">${item.parent_barcode}</span>
+                                    <span class="badge bg-primary">${barcode}</span>
                                 </li>`;
                         });
                     } else {
@@ -141,11 +219,12 @@ $(document).ready(function() {
                     }
                     output += "</ul>";
                     $("#showhere").html(output);
+                },
+                complete: function() {
+                    $("#search_spinner").addClass("d-none");
                 }
             });
-        } else {
-            $("#showhere").html("");
-        }
+        }, 300);
     });
 
     $("#import").on("submit", function(event) {
@@ -153,7 +232,7 @@ $(document).ready(function() {
         let selectedBarcodes = $(".item-checkbox:checked").map(function() {
             return this.value;
         }).get();
-        
+
         if (selectedBarcodes.length === 0) {
             Swal.fire("Warning", "Please select at least one product.", "warning");
             return;
@@ -171,7 +250,7 @@ $(document).ready(function() {
                 $.ajax({
                     url: "import.php",
                     type: "POST",
-                    data: { parent_barcodes: selectedBarcodes },
+                    data: { parent_barcodes: selectedBarcodes, csrf_token: $("#csrf_token").val() },
                     dataType: "json",
                     success: function(response) {
                         let toastMessage = $("#toastMessage");
@@ -198,65 +277,87 @@ $(document).ready(function() {
 
     function checkFormCompletion() {
         let allFilled = true;
+        let reasons = [];
 
-        // Check if supplier is selected
-        const supplierSelected = $("select[name='supplier']").val() !== "";
-        if (!supplierSelected) allFilled = false;
+        const supplierSelected = $("#supplier_select").val() !== "";
+        if (!supplierSelected) {
+            allFilled = false;
+            reasons.push("Select a supplier");
+        }
 
-        // Check if all order_qty[] fields have values > 0
-        $("#preview tr").each(function () {
-            const qty = $(this).find("input[name='order_qty[]']").val();
+        const rowCount = $("#preview tr.sortable-item").length;
+        if (rowCount === 0) {
+            allFilled = false;
+            reasons.push("Add at least one item");
+        }
+
+        let missingQty = false;
+        $("#preview tr.sortable-item").each(function () {
+            const $row = $(this);
+            const qty = $row.find("input[name='order_qty[]']").val();
             if (!qty || parseInt(qty) <= 0) {
-                allFilled = false;
-                return false; // break loop
+                missingQty = true;
+                $row.addClass("row-invalid");
+            } else {
+                $row.removeClass("row-invalid");
             }
         });
+        if (missingQty) {
+            allFilled = false;
+            reasons.push("Enter an order quantity greater than 0 for every item");
+        }
 
-        // ✅ Check if the confirmation checkbox is ticked
         const isChecked = $("#flexCheckChecked").is(":checked");
-        if (!isChecked) allFilled = false;
+        if (!isChecked) {
+            allFilled = false;
+            reasons.push("Check the confirmation box");
+        }
 
-        // Show or hide submit button
+        const $btn = $("#submit-po-btn");
+        const $blockers = $("#submit-blockers");
         if (allFilled) {
-            $("#submit-po-btn").removeClass("d-none");
+            $btn.prop("disabled", false).removeAttr("title");
+            $blockers.addClass("d-none").text("");
         } else {
-            $("#submit-po-btn").addClass("d-none");
+            $btn.prop("disabled", true).attr("title", reasons.join(", "));
+            $blockers.removeClass("d-none").html("<span class='fas fa-circle-info me-1'></span>Before you can submit: " + reasons.join(" &middot; "));
         }
     }
 
-
-    // Re-check form on changes
     $(document).on("input change", "input[name='order_qty[]'], select[name='supplier']", function () {
         checkFormCompletion();
     });
 
-    // Also check after preview reload
-    function loadPreview() {
-        $("#preview").load("preview.php", function () {
-            checkFormCompletion(); // run after new rows are loaded
-        });
-    }
-
-
     $(document).on("click", ".delete-btn", function () {
         const id = $(this).attr("target-id");
+        const $btn = $(this);
 
-        $.ajax({
-            url: "remove_item.php",
-            method: "POST",
-            data: { id: id },
-            dataType: "json",
-            success: function (response) {
-                if (response.status === "success") {
-                    // Reload the preview list
-                    $("#preview").load("preview.php");
-                } else {
-                    Swal.fire("Error", response.message, "error");
+        Swal.fire({
+            title: "Remove item?",
+            text: "This item will be removed from the current PO draft.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Yes, remove",
+            cancelButtonText: "Cancel"
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            $.ajax({
+                url: "remove_item.php",
+                method: "POST",
+                data: { id: id, csrf_token: $("#csrf_token").val() },
+                dataType: "json",
+                success: function (response) {
+                    if (response.status === "success") {
+                        loadPreview();
+                    } else {
+                        Swal.fire("Error", response.message, "error");
+                    }
+                },
+                error: function () {
+                    Swal.fire("Error", "Failed to communicate with server.", "error");
                 }
-            },
-            error: function () {
-                Swal.fire("Error", "Failed to communicate with server.", "error");
-            }
+            });
         });
     });
 
