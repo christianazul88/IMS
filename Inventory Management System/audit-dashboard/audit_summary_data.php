@@ -24,6 +24,7 @@ if($user_email === "vp_ronadanesito@laptoppcoutlet.com"){
 if($user_email === "administrator@admin.admin"){
     $audit_position = 1;
 }
+$can_view_amounts = ($audit_position == 1);
 
 // Fetch audit details
 $audit_query = "SELECT al.*, w.warehouse_name FROM audit_logs al LEFT JOIN warehouse w ON al.warehouse = w.hashed_id COLLATE utf8mb4_unicode_ci WHERE al.id = ?";
@@ -272,6 +273,7 @@ $stmt_summary = "
         FROM items_to_audit
         WHERE audit_id = $audit_id
         AND audit_status = 'scanned_on_other'
+        AND warehouse_origin = '$warehouse_id_audit'
     ) AS audited_on_other_wh_qty,
 
     -- Scanned on other warehouse amount
@@ -282,6 +284,7 @@ $stmt_summary = "
             ON s.unique_barcode = ita.unique_barcode
         WHERE audit_id = $audit_id
         AND audit_status = 'scanned_on_other'
+        AND warehouse_origin = '$warehouse_id_audit'
     ) AS audited_on_other_wh_amount
 ";
 
@@ -350,9 +353,12 @@ $total_scanned_wrong_warehouse_as_positive_variance_amount = 0;
 
 //missing that was outbounded
 $outbounded_amount_missing = 0;
+
+// Scanned on another warehouse
+$audited_on_other_wh_amount = 0;
 }
 
-$outbounded_variance_qty = $total_scanned_outbounded_as_positive_variance_amount;
+$outbounded_variance_qty = $total_scanned_outbounded_as_positive_variance_qty;
 $positive_variance_qty = $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty;
 $positive_variance_amount = $total_scanned_wrong_warehouse_as_positive_variance_amount + $total_scanned_outbounded_as_positive_variance_amount;
 
@@ -382,8 +388,10 @@ if($audit_position != 1){
 
 $expected_summary = number_format($total_expected_qty). ' (₱ ' . number_format($total_expected_amount,2) . ')';
 // $scanned_summary_expected = $total_expected_scanned_qty . ' (₱ ' . number_format($total_expected_scanned_amount, 2) . ')';
-$requested_total_expected_scanned_qty = $total_expected_scanned_qty + $outbounded_qty_missing + $audited_on_other_wh_qty;
-$requested_total_expected_scanned_amount = $total_expected_scanned_amount + $outbounded_amount_missing + $audited_on_other_wh_amount;
+// This KPI is deliberately limited to expected items scanned at this warehouse.
+// Outbounded and other-warehouse items stay visible as separate exceptions.
+$requested_total_expected_scanned_qty = $total_expected_scanned_qty;
+$requested_total_expected_scanned_amount = $total_expected_scanned_amount;
 $scanned_summary_expected = number_format($requested_total_expected_scanned_qty) . ' (₱ ' . number_format($requested_total_expected_scanned_amount, 2) . ')';
 
 
@@ -393,8 +401,21 @@ $wrong_wh_summary = number_format($wrong_warehouse_qty) . ' (₱ ' . number_form
 $scanned_outbounded_summary = number_format($total_scanned_outbounded_as_positive_variance_qty) . ' (₱ ' . number_format($total_scanned_outbounded_as_positive_variance_amount,2) . ')';
 $missing_outbounded_summary = number_format($outbounded_qty_missing) . ' (₱ ' . number_format($outbounded_amount_missing,2) . ')';
 
+if (!$can_view_amounts) {
+    // Keep the live endpoint quantity-only as well; do not expose amounts through AJAX.
+    $expected_summary = number_format($total_expected_qty);
+    $scanned_summary_expected = number_format($requested_total_expected_scanned_qty);
+    $total_scanned_summary = number_format($total_qty_scanned);
+    $missing_summary = number_format($negative_variance_qty);
+    $wrong_wh_summary = number_format($wrong_warehouse_qty);
+    $scanned_outbounded_summary = number_format($total_scanned_outbounded_as_positive_variance_qty);
+    $missing_outbounded_summary = number_format($outbounded_qty_missing);
+}
+
 $must_be_equal_expected_scanned_amount = $total_scanned_amount - $positive_variance_amount;
 $must_be_equal_expected_amount = $must_be_equal_expected_scanned_amount + $negative_variance_amount + $outbounded_amount_missing + $audited_on_other_wh_amount;
+
+$expected_items_reconciled_amount = $total_expected_scanned_amount + $outbounded_amount_missing + $audited_on_other_wh_amount;
 
 $must_be_equal_expected_scanned_qty = $total_qty_scanned - $positive_variance_qty;
 $must_be_equal_expected_qty = $must_be_equal_expected_scanned_qty + $negative_variance_qty + $outbounded_qty_missing + $audited_on_other_wh_qty;
@@ -446,6 +467,13 @@ echo json_encode([
     'audited_on_other_wh' => number_format($audited_on_other_wh_qty) . " (₱ " . number_format($audited_on_other_wh_amount,2) . ")",
 
     'progress' => round($audit_progress,2),
+
+    'expected_items_reconciled_qty' => $total_expected_scanned_qty_with_outbounded_missing,
+    'expected_items_reconciled_total' => $total_expected_qty,
+    'expected_items_reconciled_amount' => number_format($expected_items_reconciled_amount, 2),
+    'expected_items_verified_here_qty' => $total_expected_scanned_qty,
+    'expected_items_outbounded_qty' => $outbounded_qty_missing,
+    'expected_items_scanned_elsewhere_qty' => $audited_on_other_wh_qty,
 
     'audit_status' => $audit_status
 ]);
