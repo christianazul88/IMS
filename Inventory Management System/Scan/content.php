@@ -171,7 +171,7 @@ if ((isset($_POST['area']) && $_POST['area'] === 'others') || (isset($_GET['area
 
 } else {
 
-    $selected_area = $_POST['area'];
+    $selected_area = $_GET['area'] ?? $_POST['area'];
 
 
 }

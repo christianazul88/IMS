@@ -336,8 +336,8 @@ if (isset($_GET['prod'])) {
                                     <div class="col-lg-6">
                                         <div class="timeline-item-content">
                                             <div class="timeline-item-card">
-                                                <h5 class="mb-2">Inbound</h5>
-                                                <p class="fs-10 mb-0">Item has been successfully inbounded.</p>
+                                                <h5 class="mb-2">Start</h5>
+                                                <p class="fs-10 mb-0">This is the start of the item timeline.</p>
                                             </div>
                                         </div>
                                     </div>

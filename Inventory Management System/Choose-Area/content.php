@@ -28,85 +28,23 @@ $warehouse_id_audit = $audit['warehouse'];
 
 
 try {
-    // --------------------------JSON WRITE-------------
-    $json_file = "count.json";
-
-    // Create file if it doesn't exist
+    // The JSON value is the last successfully assigned number. Rendering this
+    // page must never reserve or advance a number.
+    $json_file = __DIR__ . "/count.json";
     if (!file_exists($json_file)) {
-        if (file_put_contents($json_file, json_encode([
-            ["number" => 0]
-        ], JSON_PRETTY_PRINT)) === false) {
-            throw new Exception("Failed to create {$json_file}");
-        }
+        file_put_contents($json_file, json_encode([["number" => 0]], JSON_PRETTY_PRINT), LOCK_EX);
     }
 
-    // Open the file
-    $fp = @fopen($json_file, "c+");
-
-    if (!$fp) {
-        $error = error_get_last();
-        die("<pre>" . print_r($error, true) . "</pre>");
-    }
-    if (!$fp) {
-        throw new Exception("Unable to open {$json_file}");
+    $data = json_decode((string) file_get_contents($json_file), true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($data) || !isset($data[0])) {
+        throw new Exception("Invalid counter data in count.json");
     }
 
-    // Lock the file
-    if (!flock($fp, LOCK_EX)) {
-        fclose($fp);
-        throw new Exception("Unable to lock {$json_file}");
-    }
-
-    // Read current contents
-    rewind($fp);
-    $json = stream_get_contents($fp);
-
-    $data = json_decode($json, true);
-
-    // Check JSON validity
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        throw new Exception("JSON Decode Error: " . json_last_error_msg());
-    }
-
-    // Initialize if empty
-    if (!is_array($data) || !isset($data[0])) {
-        $data = [
-            ["number" => 0]
-        ];
-    }
-
-    $current = isset($data[0]['number']) ? (int)$data[0]['number'] : 0;
-
-    // Increment immediately
-    $current++;
-    $data[0]['number'] = $current;
-
-    // Write back
-    rewind($fp);
-    ftruncate($fp, 0);
-
-    if (fwrite($fp, json_encode($data, JSON_PRETTY_PRINT)) === false) {
-        throw new Exception("Failed to write to {$json_file}");
-    }
-
-    fflush($fp);
-
-    // Release the lock
-    flock($fp, LOCK_UN);
-    fclose($fp);
-
+    $current = isset($data[0]['number']) ? (int) $data[0]['number'] : 0;
+    $next_box_number = $current + 1;
 } catch (Exception $e) {
-    if (isset($fp) && is_resource($fp)) {
-        flock($fp, LOCK_UN);
-        fclose($fp);
-    }
-
-    die("<pre style='color:red;font-weight:bold;'>
-JSON Counter Error:
-" . $e->getMessage() . "
-</pre>");
+    die("<pre style='color:red;font-weight:bold;'>JSON Counter Error: " . htmlspecialchars($e->getMessage()) . "</pre>");
 }
-
 
 $letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -169,6 +107,12 @@ if(isset($_SESSION['NEW_LOCATION_NAME'])){
 
 ?>
 
+<?php if (!empty($_SESSION['choose_area_error'])): ?>
+    <div class="alert alert-danger" role="alert">
+        <?php echo htmlspecialchars($_SESSION['choose_area_error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['choose_area_error']); ?>
+    </div>
+<?php endif; ?>
+
 <div class="card bg-primary text-white mb-3">
     <div class="card-body">
         <div class="row">
@@ -195,7 +139,7 @@ if(isset($_SESSION['NEW_LOCATION_NAME'])){
         <hr>
 
         <!-- ✅ Form -->
-        <form action="../Scan/index.php" method="POST">
+        <form action="start_scan.php" method="POST" id="choose-area-form">
 
             <div class="mb-3">
                 <label for="area" class="form-label fw-semibold">
@@ -272,9 +216,12 @@ if(isset($_SESSION['NEW_LOCATION_NAME'])){
                         <input
                         type="text"
                         name="box_num"
-                        class="form-control readonly"
-                        value="<?php echo $current; ?>"
-                        readonly>
+                        id="box_num"
+                        class="form-control"
+                        value="<?php echo htmlspecialchars((string) $next_box_number, ENT_QUOTES, 'UTF-8'); ?>"
+                        inputmode="numeric"
+                        pattern="[0-9]+"
+                        required>
                     </div>
 
                     
@@ -306,16 +253,39 @@ if(isset($_SESSION['NEW_LOCATION_NAME'])){
 </div>
 
 <script>
-document.getElementById('area').addEventListener('change', function () {
-    const otherField = document.getElementById('other_location');
+const form = document.getElementById('choose-area-form');
 
-    if (this.value === 'others') {
-        otherField.disabled = false;
-        otherField.required = true;
-    } else {
-        otherField.disabled = true;
-        otherField.required = false;
-        otherField.value = '';
+form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+
+    const areaCode = document.getElementById('area_code').value.trim();
+    const rack = document.getElementById('rack').value.trim();
+    const level = document.getElementById('level').value.trim();
+    const boxNumber = document.getElementById('box_num').value.trim();
+
+    if (!areaCode || !rack || !level || !/^\d+$/.test(boxNumber)) {
+        form.reportValidity();
+        return;
+    }
+
+    const locationName = `${areaCode}-${rack}-${level}-${boxNumber}`;
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+
+    try {
+        const response = await fetch('check_location.php?location_name=' + encodeURIComponent(locationName));
+        const result = await response.json();
+
+        if (!response.ok || !result.available) {
+            alert(result.message || `${locationName} already exists. Please enter another number.`);
+            return;
+        }
+
+        form.submit();
+    } catch (error) {
+        alert('Unable to verify the location name. Please try again.');
+    } finally {
+        submitButton.disabled = false;
     }
 });
 </script>
