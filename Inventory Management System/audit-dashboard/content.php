@@ -302,7 +302,7 @@ $stmt_summary_result->close();
 // but are intentionally kept separate from "verified in correct warehouse".
 $audited_on_other_wh_qty = 0;
 $audited_on_other_wh_amount = 0;
-$stmt_other_warehouse = $conn->prepare("SELECT COUNT(*) AS total, COALESCE(SUM(s.capital), 0) AS total_amount FROM items_to_audit ita LEFT JOIN stocks s ON s.unique_barcode = ita.unique_barcode WHERE ita.audit_id = ? AND ita.audit_status = 'scanned_on_other' AND ita.warehouse_origin = ?");
+$stmt_other_warehouse = $conn->prepare("SELECT COUNT(*) AS total, COALESCE(SUM(s.capital), 0) AS total_amount FROM items_to_audit ita LEFT JOIN stocks s ON s.unique_barcode = ita.unique_barcode WHERE ita.audit_id = ? AND ita.audit_status = 'scanned_on_other' AND ita.warehouse_origin = ? AND ita.outbounded = 'no'");
 $stmt_other_warehouse->bind_param("is", $audit_id, $warehouse_id_audit);
 $stmt_other_warehouse->execute();
 $other_warehouse_summary = $stmt_other_warehouse->get_result()->fetch_assoc();
@@ -387,6 +387,34 @@ $stmt->close();
     .metric-card .metric-meta { min-height: 1.1rem; font-size: .78rem; color: #6e7891; }
     .attention-item { border-left: 3px solid #f5803e; padding-left: .75rem; }
     @media (min-width: 1200px) { .executive-kpis > .col-md-3 { width: 20%; } }
+
+    /* Reconciliation card - composition bar, legend, and stepper */
+    .bg-purple { background-color: #9b59b6 !important; }
+    .bg-teal { background-color: #39afd1 !important; }
+    .text-purple { color: #9b59b6 !important; }
+    .text-teal { color: #39afd1 !important; }
+    .bg-purple-subtle { background-color: rgba(155,89,182,.12) !important; }
+    .bg-teal-subtle { background-color: rgba(57,175,209,.12) !important; }
+    .bg-primary-subtle { background-color: rgba(44,123,229,.12) !important; }
+    .bg-warning-subtle { background-color: rgba(245,128,62,.12) !important; }
+    .bg-info-subtle { background-color: rgba(57,175,209,.12) !important; }
+    .bg-danger-subtle { background-color: rgba(231,76,60,.12) !important; }
+    .bg-success-subtle { background-color: rgba(0,167,111,.12) !important; }
+
+    .recon-bar { display: flex; width: 100%; height: 14px; border-radius: 8px; overflow: hidden; background: #eef1f5; }
+    .recon-bar-seg { height: 100%; transition: width .6s ease; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+    .recon-step { display: flex; align-items: flex-start; gap: .75rem; padding: .4rem 0; position: relative; }
+    .recon-step:not(:last-child)::before {
+        content: ''; position: absolute; left: 15px; top: 34px; bottom: -6px; width: 2px; background: #e9ecef;
+    }
+    .recon-icon {
+        flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: .8rem; z-index: 1;
+    }
+    .recon-step-result { opacity: .92; }
+    .recon-step-final .recon-step-body { padding: .5rem .75rem; background: #f8fffb; border-radius: 8px; }
 </style>
 
 <div class="audit-header audit-hero mb-3">
@@ -512,112 +540,117 @@ $stmt->close();
     </div>
 <?php endif; ?>
 
+<?php
+// ==================================================================
+// Single source of truth for the reconciliation bridge + health check
+// (previously duplicated/inconsistent between this file and the AJAX
+// endpoint - now computed once and reused by every card below)
+// ==================================================================
+$reconciled_scanned_qty   = $total_qty_scanned - $positive_variance_qty;
+$reconciled_scanned_amount = $total_scanned_amount - $positive_variance_amount;
+
+$reconciled_total_qty    = $reconciled_scanned_qty + $negative_variance_qty + $outbounded_qty_missing + $audited_on_other_wh_qty;
+$reconciled_total_amount = $reconciled_scanned_amount + $negative_variance_amount + $outbounded_amount_missing + $audited_on_other_wh_amount;
+
+$qty_balance_diff    = $reconciled_total_qty - $total_expected_qty;
+$amount_balance_diff = $reconciled_total_amount - $total_expected_amount;
+$is_balanced         = ($qty_balance_diff == 0) && (!$can_view_amounts || $amount_balance_diff == 0);
+
+// Composition of "Expected Inventory" as percentages, for the visual breakdown bar
+$pct_verified   = $total_expected_qty > 0 ? ($total_expected_scanned_qty / $total_expected_qty) * 100 : 0;
+$pct_outbounded = $total_expected_qty > 0 ? ($outbounded_qty_missing / $total_expected_qty) * 100 : 0;
+$pct_elsewhere  = $total_expected_qty > 0 ? ($audited_on_other_wh_qty / $total_expected_qty) * 100 : 0;
+$pct_missing    = $total_expected_qty > 0 ? ($negative_variance_qty / $total_expected_qty) * 100 : 0;
+$pct_unexplained = max(0, 100 - $pct_verified - $pct_outbounded - $pct_elsewhere - $pct_missing);
+
+// One-line, plain-English read of where the audit stands, for the card header
+if ($total_expected_qty == 0) {
+    $recon_headline = "No expected inventory recorded yet for this warehouse.";
+} elseif ($negative_variance_qty == 0 && $is_balanced) {
+    $recon_headline = "Every expected item is accounted for — nothing left to chase.";
+} elseif ($negative_variance_qty > 0) {
+    $recon_headline = number_format($pct_verified, 1) . "% of expected inventory is verified. "
+        . number_format($negative_variance_qty) . " item" . ($negative_variance_qty == 1 ? '' : 's') . " ("
+        . number_format($pct_missing, 1) . "%) still need physical verification.";
+} else {
+    $recon_headline = number_format($pct_verified, 1) . "% of expected inventory is verified.";
+}
+?>
+
 <div class="row">
     <div class="col-md-12 col-sm-12">
         <!-- //executive dashboard -->
         <div class="row g-3 mb-4 executive-kpis">
 
-            <div class="col-md-4 col-sm-12">
-                <div class="card border-primary shadow-sm">
+            <div class="col-md-3 col-sm-6 d-flex">
+                <div class="card metric-card border-primary shadow-sm w-100" style="--metric-color:#2c7be5;">
                     <div class="card-body">
-                        <small class="text-uppercase fw-semibold text-muted">Expected inventory</small>
-                        <?php if($audit_position == 1){?><a href="expected_items.php?wh=<?php echo $warehouse_id_audit;?>"> <?php } ?>
-                        <h3 id="expected_summary">
-                            <?= number_format($total_expected_qty) ?>
-                        </h3>
+                        <div class="d-flex justify-content-between align-items-start">
+                            <small class="text-uppercase fw-semibold text-muted">Expected inventory</small>
+                            <span class="fas fa-boxes text-primary opacity-50"></span>
+                        </div>
+                        <?php if($audit_position == 1){?><a href="expected_items.php?wh=<?php echo $warehouse_id_audit;?>" class="text-decoration-none"><?php } ?>
+                        <h3 class="metric-value mb-0" id="expected_summary"><?= number_format($total_expected_qty) ?></h3>
                         <?php if($audit_position == 1){?></a><?php } ?>
+                        <div class="metric-meta"><?php if($can_view_amounts){ ?>₱ <?= number_format($total_expected_amount, 2) ?><?php } ?></div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-4 col-sm-12">
-                <div class="card border-primary shadow-sm">
+            <div class="col-md-3 col-sm-6 d-flex">
+                <div class="card metric-card border-primary shadow-sm w-100" style="--metric-color:#2c7be5;">
                     <div class="card-body">
-                        <small class="text-uppercase fw-semibold text-muted">Verified in correct warehouse</small>
-                        <h3 id="scanned_expected_summary">
-                            <?= number_format($total_expected_scanned_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($total_expected_scanned_amount, 2) ?>)</span> <?php } ?>
-                        </h3>
-                        
+                        <div class="d-flex justify-content-between align-items-start">
+                            <small class="text-uppercase fw-semibold text-muted">Verified in correct WH</small>
+                            <span class="fas fa-check-circle text-primary opacity-50"></span>
+                        </div>
+                        <h3 class="metric-value mb-0" id="scanned_expected_summary"><?= number_format($total_expected_scanned_qty) ?></h3>
+                        <div class="metric-meta"><?php if($can_view_amounts){ ?>₱ <?= number_format($total_expected_scanned_amount, 2) ?><?php } ?></div>
                     </div>
                 </div>
             </div>
 
-
-
-            <div class="col-md-4 col-sm-12">
-                <div class="card border-success shadow-sm">
+            <div class="col-md-3 col-sm-6 d-flex">
+                <div class="card metric-card border-success shadow-sm w-100" style="--metric-color:#00a76f;">
                     <div class="card-body">
-                        <small class="text-uppercase fw-semibold text-muted">Total scans captured</small>
-                        <?php if($audit_position == 1){?> <a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>"><?php } ?>
-                        <h3 id="total_scanned_summary"><?= number_format($total_qty_scanned) ?> <?php if($audit_position == 1){?><span class="text-muted fs-11">( ₱ <?= number_format($total_scanned_amount,2) ?> )</span><?php } ?></h3>
-                        <?php if($audit_position == 1){?> </a><?php } ?>
+                        <div class="d-flex justify-content-between align-items-start">
+                            <small class="text-uppercase fw-semibold text-muted">Total scans captured</small>
+                            <span class="fas fa-barcode text-success opacity-50"></span>
+                        </div>
+                        <?php if($audit_position == 1){?><a href="generate_detailed_report.php?audit_id=<?php echo $audit_id; ?>" class="text-decoration-none"><?php } ?>
+                        <h3 class="metric-value mb-0" id="total_scanned_summary"><?= number_format($total_qty_scanned) ?></h3>
+                        <?php if($audit_position == 1){?></a><?php } ?>
+                        <div class="metric-meta"><?php if($can_view_amounts){ ?>₱ <?= number_format($total_scanned_amount,2) ?><?php } ?></div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-4 col-sm-12">
-                <div class="card border-info shadow-sm">
+            <div class="col-md-3 col-sm-6 d-flex">
+                <div class="card metric-card border-warning shadow-sm w-100" style="--metric-color:#f5803e;">
                     <div class="card-body">
-                        <small class="text-uppercase fw-semibold text-muted">Expected items accounted for</small>
-                        <h3 class="mb-1" id="expected_reconciled_card"><?= number_format($expected_items_resolved_qty) ?></h3>
+                        <div class="d-flex justify-content-between align-items-start">
+                            <small class="text-uppercase fw-semibold text-muted">Still missing</small>
+                            <span class="fas fa-triangle-exclamation text-warning opacity-50"></span>
+                        </div>
+                        <?php if($audit_position == 1){?><a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>" class="text-decoration-none"><?php } ?>
+                        <h3 class="metric-value mb-0" id="missing_summary"><?= number_format($negative_variance_qty) ?></h3>
+                        <?php if($audit_position == 1){?></a><?php } ?>
+                        <div class="metric-meta"><?php if($can_view_amounts){ ?>₱ <?= number_format($negative_variance_amount,2) ?><?php } ?></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 col-sm-6 d-flex">
+                <div class="card metric-card border-info shadow-sm w-100" style="--metric-color:#39afd1;">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <small class="text-uppercase fw-semibold text-muted">Expected items accounted for</small>
+                            <span class="fas fa-layer-group text-info opacity-50"></span>
+                        </div>
+                        <h3 class="metric-value mb-1" id="expected_reconciled_card"><?= number_format($expected_items_resolved_qty) ?></h3>
                         <?php if ($can_view_amounts): ?>
-                            <div class="fw-semibold text-primary small mb-1">₱ <span id="expected_reconciled_amount"><?= number_format($expected_items_resolved_amount, 2) ?></span></div>
+                            <div class="metric-meta fw-semibold text-primary mb-1">₱ <span id="expected_reconciled_amount"><?= number_format($expected_items_resolved_amount, 2) ?></span></div>
                         <?php endif; ?>
-                        <div class="small text-muted">
-                            <span id="expected_reconciled_verified"><?= number_format($total_expected_scanned_qty) ?></span> verified here +
-                            <span id="expected_reconciled_outbounded"><?= number_format($outbounded_qty_missing) ?></span> outbounded +
-                            <span id="expected_reconciled_other"><?= number_format($audited_on_other_wh_qty) ?></span> scanned elsewhere
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-4 col-sm-12">
-                <div class="card border-warning shadow-sm">
-                    <div class="card-body">
-                        <small class="text-uppercase fw-semibold text-muted">Still missing</small>
-                        <?php if($audit_position == 1){?> <a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>"><?php } ?>
-                        <h3 id="missing_summary"><?= number_format($negative_variance_qty) ?> <?php if($audit_position == 1){?><span class="fs-11 text-muted">(₱ <?= number_format($negative_variance_amount,2) ?>)</span> <?php } ?></h3>
-                        <?php if($audit_position == 1){?> </a><?php } ?>
-                    </div>
-                </div>
-            </div>
-
-            
-
-            <div class="col-md-4 col-sm-12">
-                <!-- //progress bar  -->
-                <div class="card shadow-sm mb-4">
-                    <div class="card-body">
-
-                        <div class="d-flex justify-content-between mb-2">
-
-                            <span>Audit Progress</span>
-
-                            <strong id="progress_text">
-                                <?= number_format($audit_progress,2) ?>%
-                            </strong>
-
-                        </div>
-
-                        <div class="progress" style="height:25px">
-
-                            <div
-                                id="progress_bar"
-                                class="progress-bar bg-success"
-                                style="width:<?= $audit_progress ?>%"
-                            >
-                                <?= number_format($audit_progress,2) ?>%
-                            </div>
-
-                        </div>
-
-                        <div class="mt-3 small text-muted">
-                            <strong id="expected_reconciled_qty"><?= number_format($expected_items_resolved_qty) ?></strong> of
-                            <strong id="expected_reconciled_total"><?= number_format($total_expected_qty) ?></strong> expected items reconciled
-                            <span class="d-block mt-1">Includes verified here, outbounded from missing, and scanned at another warehouse.</span>
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -626,8 +659,60 @@ $stmt->close();
     </div>
 
     <div class="col-lg-4 col-md-12 col-sm-12 col-xs-12">
-        
+        <!-- //progress bar  -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
 
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Audit Progress</span>
+                    <strong id="progress_text"><?= number_format($audit_progress,2) ?>%</strong>
+                </div>
+
+                <div class="progress" style="height:22px">
+                    <div id="progress_bar" class="progress-bar bg-success" style="width:<?= $audit_progress ?>%">
+                        <?= number_format($audit_progress,2) ?>%
+                    </div>
+                </div>
+
+                <div class="mt-3 small text-muted">
+                    <strong id="expected_reconciled_qty"><?= number_format($expected_items_resolved_qty) ?></strong> of
+                    <strong id="expected_reconciled_total"><?= number_format($total_expected_qty) ?></strong> expected items reconciled
+                    <span class="d-block mt-1">
+                        <span id="expected_reconciled_verified"><?= number_format($total_expected_scanned_qty) ?></span> verified +
+                        <span id="expected_reconciled_outbounded"><?= number_format($outbounded_qty_missing) ?></span> outbounded +
+                        <span id="expected_reconciled_other"><?= number_format($audited_on_other_wh_qty) ?></span> elsewhere
+                    </span>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- //data integrity check - new, at-a-glance -->
+        <div class="card shadow-sm mb-4 border-<?= $is_balanced ? 'success' : 'danger' ?>">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fas fa-scale-balanced fs-4 text-<?= $is_balanced ? 'success' : 'danger' ?>"></span>
+                        <div>
+                            <h6 class="mb-0">Reconciliation Check</h6>
+                            <small class="text-muted">Scanned + Missing vs. Expected</small>
+                        </div>
+                    </div>
+                    <span id="reconciliation_status_badge" class="badge <?= $is_balanced ? 'bg-success' : 'bg-danger' ?>">
+                        <?= $is_balanced ? 'Balanced' : 'Out of balance' ?>
+                    </span>
+                </div>
+                <div class="small text-muted mt-2" id="reconciliation_status_detail">
+                    <?php if ($is_balanced): ?>
+                        Every expected item is accounted for in the totals below.
+                    <?php else: ?>
+                        Variance of <strong><?= number_format(abs($qty_balance_diff)) ?></strong> qty<?php if($can_view_amounts){ ?> / ₱<?= number_format(abs($amount_balance_diff),2) ?><?php } ?> between reconciled totals and expected inventory.
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- //management attention - now carries the exception detail the removed cards used to show -->
         <div class="card shadow-sm mb-4">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -637,224 +722,263 @@ $stmt->close();
                     </div>
                     <span class="badge <?= $attention_count > 0 ? 'bg-warning text-dark' : 'bg-success' ?>"><?= number_format($attention_count) ?> open</span>
                 </div>
-                <div class="attention-item mb-2"><strong><?= number_format($negative_variance_qty) ?></strong> missing items <small class="text-muted d-block">Priority: physical verification</small></div>
-                <div class="attention-item mb-2"><strong><?= number_format($wrong_warehouse_qty) ?></strong> scanned from another warehouse <small class="text-muted d-block">Priority: validate transfer or location</small></div>
-                <div class="attention-item"><strong><?= number_format($total_scanned_outbounded_as_positive_variance_qty) ?></strong> outbounded items scanned <small class="text-muted d-block">Priority: reconcile outbound record</small></div>
+
+                <div class="attention-item mb-2 d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong id="missing_qty_att"><?= number_format($negative_variance_qty) ?></strong> missing items
+                        <small class="text-muted d-block">Priority: physical verification</small>
+                    </div>
+                    <?php if($audit_position == 1){?><a href="generate_missing.php?audit_id=<?php echo $audit_id; ?>" class="small">CSV</a><?php } ?>
+                </div>
+
+                <div class="attention-item mb-2 d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong id="wrong_wh_summary"><?= number_format($wrong_warehouse_qty) ?></strong> scanned from another warehouse
+                        <small class="text-muted d-block">Priority: validate transfer or location<?php if($can_view_amounts){ ?> &middot; ₱<?= number_format($total_scanned_wrong_warehouse_as_positive_variance_amount,2) ?><?php } ?></small>
+                    </div>
+                    <?php if($audit_position == 1){?><a href="generate_wrong_wh_report.php?audit_id=<?php echo $audit_id; ?>" class="small">CSV</a><?php } ?>
+                </div>
+
+                <div class="attention-item mb-2 d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong id="scanned_outbounded_summary"><?= number_format($total_scanned_outbounded_as_positive_variance_qty) ?></strong> outbounded items scanned
+                        <small class="text-muted d-block">Priority: reconcile outbound record<?php if($can_view_amounts){ ?> &middot; ₱<?= number_format($total_scanned_outbounded_as_positive_variance_amount,2) ?><?php } ?></small>
+                    </div>
+                </div>
+
+                <div class="attention-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong id="missing_outbounded_summary"><?= number_format($outbounded_qty_missing) ?></strong> missing items later outbounded
+                        <small class="text-muted d-block">Resolved automatically<?php if($can_view_amounts){ ?> &middot; ₱<?= number_format($outbounded_amount_missing,2) ?><?php } ?></small>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <!-- charts -->
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                Audit Exception Analysis
-            </div>
-
-            <div class="card-body">
-                <canvas id="auditChart"></canvas>
-            </div>
-        </div>
-
-        
     </div>
 
-    <div class="col-md-8 col-sm-12">
-        <!-- problems requiring investigation -->
+    <div class="col-lg-8 col-md-12 col-sm-12">
+
+        <!-- //charts row - bar chart kept, doughnut chart added for visual composition -->
         <div class="row g-3 mb-4">
-
-            <div class="col-md-6 col-sm-12">
-                <div class="card border-primary shadow-sm">
+            <div class="col-lg-7 col-md-12">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header">Audit Exception Analysis</div>
                     <div class="card-body">
-                        <small class="text-muted">Wrong/From other Warehouse(s)</small>
-                        <?php if($audit_position == 1){?> <a href="generate_wrong_wh_report.php?audit_id=<?php echo $audit_id; ?>"><?php } ?>
-                        <h5 id="wrong_wh_summary"><?= number_format($wrong_warehouse_qty,2) ?> <?php if($audit_position == 1){?><span>(₱ <?= number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2) ?> )</span><?php } ?></h5>
-                        <?php if($audit_position == 1){?> </a><?php } ?>
+                        <canvas id="auditChart" height="220"></canvas>
                     </div>
                 </div>
             </div>
-
-            <div class="col-md-6 col-sm-12">
-                <div class="card border-success shadow-sm">
-                    <div class="card-body">
-                        <small class="text-muted">Outbounded Scanned</small>
-                        <h5 id="scanned_outbounded_summary"><?= $total_scanned_outbounded_as_positive_variance_qty ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($total_scanned_outbounded_as_positive_variance_amount,2) ?> )</span> <?php } ?></h5>
+            <div class="col-lg-5 col-md-12">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header">Expected Items Resolution</div>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <canvas id="resolutionChart" height="220"></canvas>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="col-md-6 col-sm-12">
-                <div class="card border-sucess shadow-sm">
-                    <div class="card-body">
-                        <small class="text-muted">Expected item outbounded from missing</small>
-                        <h5 id="missing_outbounded_summary"><?= $outbounded_qty_missing ?> <?php if($audit_position == 1){?><span>( ₱<?= number_format($outbounded_amount_missing,2) ?> )</span> <?php } ?></h5>
+        <!-- //reconciliation - executive view: headline insight + composition bar + bridge -->
+        <div class="card shadow-sm mb-4 recon-card">
+            <div class="card-body">
+
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                    <div>
+                        <h5 class="card-title mb-1">Audit Reconciliation</h5>
+                        <div class="text-muted" id="recon_headline"><?= htmlspecialchars($recon_headline) ?></div>
                     </div>
+                    <span id="reconciliation_bridge_badge" class="badge fs-11 <?= $is_balanced ? 'bg-success' : 'bg-danger' ?>">
+                        <span class="fas <?= $is_balanced ? 'fa-circle-check' : 'fa-triangle-exclamation' ?> me-1"></span><?= $is_balanced ? 'Balanced' : 'Out of balance' ?>
+                    </span>
                 </div>
-            </div>
 
-            <div class="col-md-6 col-sm-12">
-                <div class="card border-success shadow-sm">
-                    <div class="card-body">
-                        <small class="text-muted">Expected item scanned at another warehouse</small>
-                        <?php if ($audit_position == 1): ?>
-                            <a href="generate_soow.php?audit_id=<?= $audit_id ?>">
-                        <?php endif; ?>
-
-                        <h5 id="audited_on_other_wh"></h5>
-
-                        <?php if ($audit_position == 1): ?>
-                            </a>
-                        <?php endif; ?>
-                    </div>
+                <!-- Composition bar: where every expected item currently stands -->
+                <div class="recon-bar" id="recon_bar" role="img" aria-label="Composition of expected inventory">
+                    <div class="recon-bar-seg bg-success" id="recon_bar_verified" style="width:<?= $pct_verified ?>%" title="Verified"></div>
+                    <div class="recon-bar-seg bg-purple" id="recon_bar_outbounded" style="width:<?= $pct_outbounded ?>%" title="Outbounded"></div>
+                    <div class="recon-bar-seg bg-teal" id="recon_bar_elsewhere" style="width:<?= $pct_elsewhere ?>%" title="Elsewhere"></div>
+                    <div class="recon-bar-seg bg-danger" id="recon_bar_missing" style="width:<?= $pct_missing ?>%" title="Missing"></div>
+                    <?php if ($pct_unexplained > 0): ?>
+                    <div class="recon-bar-seg bg-secondary" id="recon_bar_unexplained" style="width:<?= $pct_unexplained ?>%" title="Unexplained"></div>
+                    <?php endif; ?>
                 </div>
-            </div>
 
-            <div class="col-md-12 col-sm-12">
-                <div class="card border-warning shadow-sm">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-sm-6 col-md-6 col-xs-12">
-                                <?php if($audit_position == 1){?>
-                                    <div class="text-start">
-                                        <small>Positive Variance (Wrong WH + Outbounded)</small>
-                                    </div>
+                <div class="d-flex flex-wrap gap-3 mt-2 mb-4 recon-legend">
+                    <div class="d-flex align-items-center gap-1"><span class="legend-dot bg-success"></span><small class="text-muted">Verified <strong id="recon_legend_verified_pct"><?= number_format($pct_verified,1) ?></strong>%</small></div>
+                    <div class="d-flex align-items-center gap-1"><span class="legend-dot bg-purple"></span><small class="text-muted">Outbounded <strong id="recon_legend_outbounded_pct"><?= number_format($pct_outbounded,1) ?></strong>%</small></div>
+                    <div class="d-flex align-items-center gap-1"><span class="legend-dot bg-teal"></span><small class="text-muted">Elsewhere <strong id="recon_legend_elsewhere_pct"><?= number_format($pct_elsewhere,1) ?></strong>%</small></div>
+                    <div class="d-flex align-items-center gap-1"><span class="legend-dot bg-danger"></span><small class="text-muted">Missing <strong id="recon_legend_missing_pct"><?= number_format($pct_missing,1) ?></strong>%</small></div>
+                    <?php if (!$is_balanced): ?>
+                    <div class="d-flex align-items-center gap-1"><span class="legend-dot bg-secondary"></span><small class="text-muted">Unexplained <strong id="recon_legend_unexplained_pct"><?= number_format($pct_unexplained,1) ?></strong>%</small></div>
+                    <?php endif; ?>
+                </div>
 
-                                    <div class="text-end">
-                                        <small id="wrong_wh_amount"><?php echo number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2);?></small>
-                                        <small> + </small>
-                                        <small id="scanned_outbounded_amount"><?php echo number_format($total_scanned_outbounded_as_positive_variance_amount, 2);?></small> 
-                                        <small> = </small>
-                                        <small id="positive_variance_amount"><?php echo number_format($positive_variance_amount, 2);?></small>
-                                    </div>
+                <hr class="mb-4">
 
-                                    <div class="text-start">
-                                        <b><small>Calculation</small></b>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-sm-6 text-start">
-                                            <small>Total Scanned</small>
-                                        </div>
-                                        <div class="col-sm-6 text-end"><small id="scanned_amount"><?php echo number_format($total_scanned_amount, 2);?></small></div>
-                                        <div class="col-sm-6 text-start">
-                                            <small>Positive Variance</small>
-                                        </div>
-                                        <div class="col-sm-6 text-end">
-                                            <small>-   </small>
-                                            <small id="positive_variance_amount"> <?php echo number_format($positive_variance_amount, 2); ?></small>
-                                        </div> 
-                                        <hr>
-                                        <div class="col-sm-6">
-                                            <small>must be equal to 'Expected Scanned'</small>
-                                        </div>
-                                        <div class="col-sm-6 text-end">
-                                            <small id="must_be_equal_expected_scanned_amount"><?php 
-                                                $expected_formula_amountscanned = $total_scanned_amount - $positive_variance_amount;
-                                                echo number_format($expected_formula_amountscanned, 2);
-                                            ?></small>
-                                        </div>
-                                        <div class="col-sm-6 text-start">
-                                            <small>Missing</small>
-                                        </div>
-                                        <div class="col-sm-6 text-end">
-                                            <small> +   </small>
-                                            <small id="missing_amount"> <?php echo number_format($negative_variance_amount, 2);?></small>
-                                        </div>
-                                        <div class="col-sm-6 text-start">
-                                            <small>Outbounded</small>
-                                        </div>
-                                        <div class="col-sm-6 text-end">
-                                            <small id="missing_outbounded_amount">0</small>
-                                        </div>
-                                        <hr>
-                                        <div class="col-sm-6 text-start">
-                                            <small>must be equal to 'Expected'</small>
-                                        </div>
-                                        <div class="col-sm-6 text-end">
-                                            <small id="must_be_equal_expected_amount"><?php 
-                                            $expected_amount_formula = $expected_formula_amountscanned + $negative_variance_amount;
-                                            echo number_format($expected_amount_formula, 2);
-                                            ?></small>
-                                        </div>
-                                        
-                                        
-                                    </div>
-                                <?php
-                                }
-                                ?>
+                <!-- Bridge: how Total Scanned reconciles down to Expected Total -->
+                <div class="row">
+                    <div class="col-md-6 recon-col">
+                        <h6 class="text-muted text-uppercase fs-11 mb-3">Quantity</h6>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-primary-subtle text-primary"><span class="fas fa-barcode"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Total Scanned</small>
+                                <span class="fw-semibold" id="scanned_qty"><?= number_format($total_qty_scanned) ?></span>
                             </div>
-                            <div class="col-md-6 col-sm-6 col-xs-6 text-end">
-                                <div class="text-start">
-                                    <small>Positive Variance (Wrong WH + Outbounded)</small>
-                                </div>
+                        </div>
 
-                                <div class="text-end">
-                                    <small id="wrong_wh_qty"><?php echo number_format($wrong_warehouse_qty);?></small>
-                                    <small> + </small>
-                                    <small id="scanned_outbounded_qty"><?php echo number_format($total_scanned_outbounded_as_positive_variance_qty);?></small> 
-                                    <small> = </small>
-                                    <small id="positive_variance_qty"><?php echo $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty;?></small>
-                                </div>
+                        <div class="recon-step">
+                            <span class="recon-icon bg-warning-subtle text-warning"><span class="fas fa-minus"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Positive Variance <span class="text-nowrap">(Wrong WH <span id="wrong_wh_qty"><?= number_format($wrong_warehouse_qty) ?></span> + Outbounded <span id="scanned_outbounded_qty"><?= number_format($total_scanned_outbounded_as_positive_variance_qty) ?></span>)</span></small>
+                                <span class="fw-semibold" id="positive_variance_qty">- <?= number_format($positive_variance_qty) ?></span>
+                            </div>
+                        </div>
 
-                                <div class="text-start">
-                                    <b><small>Calculation</small></b>
-                                </div>
-                                <div class="row">
-                                    <div class="col-sm-6 text-start">
-                                        <small>Total Scanned</small>
-                                    </div>
-                                    <div class="col-sm-6 text-end"><small id="scanned_qty"><?php echo number_format($total_qty_scanned);?></small></div>
-                                    <div class="col-sm-6 text-start">
-                                        <small>Positive Variance</small>
-                                    </div>
-                                    <div class="col-sm-6 text-end">
-                                        <small>- </small>
-                                        <small id="positive_variance_qty"> <?php echo $wrong_warehouse_qty + $total_scanned_outbounded_as_positive_variance_qty; ?></small></div> 
-                                    <hr>
-                                    <div class="col-sm-6 text-start">
-                                        <small>must be equal to 'Expected Scanned'</small>
-                                    </div>
-                                    <div class="col-sm-6 text-end">
-                                        <small id="must_be_equal_expected_scanned_qty"><?php 
-                                            
-                                            $expected_formula_qtyscanned = $total_qty_scanned - $positive_variance_qty;
-                                            echo number_format($expected_formula_qtyscanned);
-                                        ?></small>
-                                    </div>
-                                    <div class="col-sm-6 text-start">
-                                        <small>Missing</small>
-                                    </div>
-                                    <div class="col-sm-6 text-end">
-                                        <small>+ </small>
-                                        <small id="missing_qty"><?php echo number_format($negative_variance_qty); ?></small>
-                                    </div>
-                                    <div class="col-sm-6 text-start">
-                                        <small>Outbounded</small>
-                                    </div>
-                                    <div class="col-sm-6 text-end">
-                                        <small> + </small>
-                                        <small id="missing_outbounded_qty">0</small>
-                                    </div>
-                                    <hr>
-                                    <div class="col-sm-6 text-start">
-                                        <small>must be equal to 'Expected'</small>
-                                    </div>
-                                    <div class="col-sm-6 text-end">
-                                        <small id="must_be_equal_expected_qty"><?php 
-                                        $expected_qty_formula = $expected_formula_qtyscanned + $negative_variance_qty;
-                                        echo number_format($expected_qty_formula);
-                                        ?></small>
-                                    </div>
-                                </div>
+                        <div class="recon-step recon-step-result">
+                            <span class="recon-icon bg-info-subtle text-info"><span class="fas fa-equals"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Expected Scanned</small>
+                                <span class="fw-bold" id="must_be_equal_expected_scanned_qty"><?= number_format($reconciled_scanned_qty) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-danger-subtle text-danger"><span class="fas fa-plus"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Missing</small>
+                                <span class="fw-semibold" id="missing_qty"><?= number_format($negative_variance_qty) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-purple-subtle text-purple"><span class="fas fa-truck"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Outbounded (was missing)</small>
+                                <span class="fw-semibold" id="missing_outbounded_qty"><?= number_format($outbounded_qty_missing) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-teal-subtle text-teal"><span class="fas fa-warehouse"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Scanned elsewhere</small>
+                                <span class="fw-semibold" id="audited_on_other_wh_qty"><?= number_format($audited_on_other_wh_qty) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step recon-step-final">
+                            <span class="recon-icon bg-success-subtle text-success"><span class="fas fa-flag-checkered"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Expected Total</small>
+                                <span class="fw-bold fs-5" id="must_be_equal_expected_qty"><?= number_format($reconciled_total_qty) ?></span>
+                                <div class="text-muted" style="font-size:.72rem;">vs. Expected Inventory: <?= number_format($total_expected_qty) ?></div>
                             </div>
                         </div>
                     </div>
+
+                    <?php if ($can_view_amounts): ?>
+                    <div class="col-md-6 recon-col mt-4 mt-md-0">
+                        <h6 class="text-muted text-uppercase fs-11 mb-3">Amount (₱)</h6>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-primary-subtle text-primary"><span class="fas fa-barcode"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Total Scanned</small>
+                                <span class="fw-semibold" id="scanned_amount"><?= number_format($total_scanned_amount, 2) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-warning-subtle text-warning"><span class="fas fa-minus"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Positive Variance <span class="text-nowrap">(Wrong WH <span id="wrong_wh_amount"><?= number_format($total_scanned_wrong_warehouse_as_positive_variance_amount, 2) ?></span> + Outbounded <span id="scanned_outbounded_amount"><?= number_format($total_scanned_outbounded_as_positive_variance_amount, 2) ?></span>)</span></small>
+                                <span class="fw-semibold" id="positive_variance_amount">- <?= number_format($positive_variance_amount, 2) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step recon-step-result">
+                            <span class="recon-icon bg-info-subtle text-info"><span class="fas fa-equals"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Expected Scanned</small>
+                                <span class="fw-bold" id="must_be_equal_expected_scanned_amount"><?= number_format($reconciled_scanned_amount, 2) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-danger-subtle text-danger"><span class="fas fa-plus"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Missing</small>
+                                <span class="fw-semibold" id="missing_amount"><?= number_format($negative_variance_amount, 2) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-purple-subtle text-purple"><span class="fas fa-truck"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Outbounded (was missing)</small>
+                                <span class="fw-semibold" id="missing_outbounded_amount"><?= number_format($outbounded_amount_missing, 2) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step">
+                            <span class="recon-icon bg-teal-subtle text-teal"><span class="fas fa-warehouse"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Scanned elsewhere</small>
+                                <span class="fw-semibold" id="audited_on_other_wh_amount"><?= number_format($audited_on_other_wh_amount, 2) ?></span>
+                            </div>
+                        </div>
+
+                        <div class="recon-step recon-step-final">
+                            <span class="recon-icon bg-success-subtle text-success"><span class="fas fa-flag-checkered"></span></span>
+                            <div class="recon-step-body">
+                                <small class="text-muted d-block">Expected Total</small>
+                                <span class="fw-bold fs-5" id="must_be_equal_expected_amount"><?= number_format($reconciled_total_amount, 2) ?></span>
+                                <div class="text-muted" style="font-size:.72rem;">vs. Expected Inventory: ₱<?= number_format($total_expected_amount, 2) ?></div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                        <!-- Hidden holders so live AJAX updates never throw on missing targets for restricted roles -->
+                        <span class="d-none" id="scanned_amount"></span>
+                        <span class="d-none" id="wrong_wh_amount"></span>
+                        <span class="d-none" id="scanned_outbounded_amount"></span>
+                        <span class="d-none" id="positive_variance_amount"></span>
+                        <span class="d-none" id="must_be_equal_expected_scanned_amount"></span>
+                        <span class="d-none" id="missing_amount"></span>
+                        <span class="d-none" id="missing_outbounded_amount"></span>
+                        <span class="d-none" id="audited_on_other_wh_amount"></span>
+                        <span class="d-none" id="must_be_equal_expected_amount"></span>
+                    <?php endif; ?>
                 </div>
+
+                <?php if (!$is_balanced): ?>
+                <div class="alert alert-danger d-flex align-items-center gap-2 mt-4 mb-0 py-2" id="recon_variance_alert">
+                    <span class="fas fa-triangle-exclamation"></span>
+                    <small>
+                        Variance of <strong id="recon_variance_qty"><?= number_format(abs($qty_balance_diff)) ?></strong> qty
+                        <?php if($can_view_amounts){ ?>/ ₱<strong id="recon_variance_amount"><?= number_format(abs($amount_balance_diff),2) ?></strong><?php } ?>
+                        between the reconciled total and Expected Inventory.
+                        <?php if($audit_position == 1){?><a href="../Variance-look/?audit_id=<?= $audit_id ?>" class="alert-link">Investigate variance &rarr;</a><?php } ?>
+                    </small>
+                </div>
+                <?php else: ?>
+                <div class="alert alert-success d-flex align-items-center gap-2 mt-4 mb-0 py-2" id="recon_variance_alert">
+                    <span class="fas fa-circle-check"></span>
+                    <small>Reconciled totals match Expected Inventory exactly. No further action needed here.</small>
+                </div>
+                <?php endif; ?>
+
             </div>
-
-            
-
         </div>
+
+
     </div>
+    <!-- NOTE: outer .row intentionally stays open here on purpose -- the Missing,
+         Recent Scans, and Assignments table sections further down this file render
+         as siblings inside this same row, which is closed near the Assignments card. -->
+
 
     <style>
         .card {
@@ -1414,6 +1538,7 @@ $stmt->close();
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -1496,6 +1621,68 @@ function startAudit() {
 
 
 
+
+const resolutionChart = new Chart(document.getElementById('resolutionChart'), {
+    type: 'doughnut',
+
+    data: {
+        labels: [
+            'Verified here',
+            'Outbounded (was missing)',
+            'Scanned elsewhere',
+            'Still missing'
+        ],
+
+        datasets: [{
+            data: [
+                <?= $total_expected_scanned_qty ?>,
+                <?= $outbounded_qty_missing ?>,
+                <?= $audited_on_other_wh_qty ?>,
+                <?= $negative_variance_qty ?>
+            ],
+
+            backgroundColor: [
+                '#00a76f', // green
+                '#9b59b6', // purple
+                '#39afd1', // teal
+                '#e74c3c'  // red
+            ],
+
+            borderWidth: 2,
+            borderColor: '#fff',
+            hoverOffset: 6
+        }]
+    },
+
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '62%',
+
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    boxWidth: 10,
+                    font: { size: 11 }
+                }
+            },
+
+            tooltip: {
+                backgroundColor: '#212529',
+                padding: 12,
+                cornerRadius: 8,
+                callbacks: {
+                    label: function(context) {
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const pct = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0;
+                        return context.label + ': ' + context.raw.toLocaleString() + ' (' + pct + '%)';
+                    }
+                }
+            }
+        }
+    }
+});
 
 const auditChart = new Chart(document.getElementById('auditChart'), {
     type: 'bar',
@@ -1688,6 +1875,94 @@ function loadAuditSummary(){
             ];
 
             auditChart.update();
+
+            resolutionChart.data.datasets[0].data = [
+                data.expected_scanned_qty,
+                data.missing_outbounded_qty,
+                data.audited_on_other_wh_qty,
+                data.missing_qty
+            ];
+
+            resolutionChart.update();
+
+            // Live reconciliation health check
+            const toNum = v => parseFloat(String(v).replace(/,/g, '')) || 0;
+            const qtyBalanced = toNum(data.must_be_equal_expected_qty) === toNum(data.total_expected_qty);
+            const amountBalanced = !data.total_expected_amount || toNum(data.must_be_equal_expected_amount) === toNum(data.total_expected_amount);
+            const isBalanced = qtyBalanced && amountBalanced;
+
+            $("#reconciliation_status_badge")
+                .toggleClass("bg-success", isBalanced)
+                .toggleClass("bg-danger", !isBalanced)
+                .text(isBalanced ? "Balanced" : "Out of balance");
+
+            if (isBalanced) {
+                $("#reconciliation_status_detail").text("Every expected item is accounted for in the totals below.");
+            } else {
+                const qtyDiff = Math.abs(toNum(data.must_be_equal_expected_qty) - toNum(data.total_expected_qty)).toLocaleString();
+                $("#reconciliation_status_detail").text("Variance of " + qtyDiff + " qty between reconciled totals and expected inventory.");
+            }
+
+            // Update the Audit Reconciliation card: composition bar, legend, headline, badge, alert
+            const expectedTotal = toNum(data.total_expected_qty);
+            const verifiedQty = toNum(data.expected_scanned_qty);
+            const outboundedQty = toNum(data.missing_outbounded_qty);
+            const elsewhereQty = toNum(data.audited_on_other_wh_qty);
+            const missingQty = toNum(data.missing_qty);
+
+            const pct = n => expectedTotal > 0 ? (n / expectedTotal) * 100 : 0;
+            const pctVerified = pct(verifiedQty);
+            const pctOutbounded = pct(outboundedQty);
+            const pctElsewhere = pct(elsewhereQty);
+            const pctMissing = pct(missingQty);
+            const pctUnexplained = Math.max(0, 100 - pctVerified - pctOutbounded - pctElsewhere - pctMissing);
+
+            $("#recon_bar_verified").css("width", pctVerified + "%");
+            $("#recon_bar_outbounded").css("width", pctOutbounded + "%");
+            $("#recon_bar_elsewhere").css("width", pctElsewhere + "%");
+            $("#recon_bar_missing").css("width", pctMissing + "%");
+            $("#recon_bar_unexplained").css("width", pctUnexplained + "%").toggle(pctUnexplained > 0);
+
+            $("#recon_legend_verified_pct").text(pctVerified.toFixed(1));
+            $("#recon_legend_outbounded_pct").text(pctOutbounded.toFixed(1));
+            $("#recon_legend_elsewhere_pct").text(pctElsewhere.toFixed(1));
+            $("#recon_legend_missing_pct").text(pctMissing.toFixed(1));
+            $("#recon_legend_unexplained_pct").text(pctUnexplained.toFixed(1));
+
+            if (expectedTotal === 0) {
+                $("#recon_headline").text("No expected inventory recorded yet for this warehouse.");
+            } else if (missingQty === 0 && isBalanced) {
+                $("#recon_headline").text("Every expected item is accounted for — nothing left to chase.");
+            } else if (missingQty > 0) {
+                $("#recon_headline").text(
+                    pctVerified.toFixed(1) + "% of expected inventory is verified. " +
+                    missingQty.toLocaleString() + (missingQty === 1 ? " item" : " items") +
+                    " (" + pctMissing.toFixed(1) + "%) still need physical verification."
+                );
+            } else {
+                $("#recon_headline").text(pctVerified.toFixed(1) + "% of expected inventory is verified.");
+            }
+
+            $("#reconciliation_bridge_badge")
+                .toggleClass("bg-success", isBalanced)
+                .toggleClass("bg-danger", !isBalanced)
+                .html('<span class="fas ' + (isBalanced ? 'fa-circle-check' : 'fa-triangle-exclamation') + ' me-1"></span>' + (isBalanced ? 'Balanced' : 'Out of balance'));
+
+            const $reconAlert = $("#recon_variance_alert");
+            if (isBalanced) {
+                $reconAlert.removeClass("alert-danger").addClass("alert-success")
+                    .html('<span class="fas fa-circle-check"></span><small>Reconciled totals match Expected Inventory exactly. No further action needed here.</small>');
+            } else {
+                const qtyDiffAbs = Math.abs(toNum(data.must_be_equal_expected_qty) - expectedTotal).toLocaleString();
+                let msg = 'Variance of <strong>' + qtyDiffAbs + '</strong> qty';
+                if (data.total_expected_amount) {
+                    const amtDiffAbs = Math.abs(toNum(data.must_be_equal_expected_amount) - toNum(data.total_expected_amount)).toFixed(2);
+                    msg += ' / ₱<strong>' + amtDiffAbs + '</strong>';
+                }
+                msg += ' between the reconciled total and Expected Inventory.';
+                $reconAlert.removeClass("alert-success").addClass("alert-danger")
+                    .html('<span class="fas fa-triangle-exclamation"></span><small>' + msg + '</small>');
+            }
 
             if(data.audit_status === "completed"){
                 $(".scan-buttons").hide();

@@ -117,11 +117,32 @@ $audit_assignment_id = $assignment_data['id'] ?? null;
 
 /* ---------------------------
    FETCH SCANNED BARCODES
+   (only the last 3 are rendered - see note below on why)
 ----------------------------*/
 $barcodes = [];
+$total_scanned = 0;
+
+$RECEIPT_DISPLAY_LIMIT = 3;
 
 if ($audit_assignment_id) {
 
+    // Cheap count - this is what drives the "TOTAL" line and the
+    // sequence numbers, without ever pulling the full scan history.
+    $count_query = "
+        SELECT COUNT(*) AS total
+        FROM items_to_audit
+        WHERE audit_id = ?
+        AND audit_assignment_id = ?
+        AND user_id = ?
+    ";
+
+    $stmt = $conn->prepare($count_query);
+    $stmt->bind_param("iis", $audit_id, $audit_assignment_id, $user_id);
+    $stmt->execute();
+    $total_scanned = (int)($stmt->get_result()->fetch_assoc()['total'] ?? 0);
+    $stmt->close();
+
+    // Only fetch the most recent RECEIPT_DISPLAY_LIMIT rows, newest first.
     $barcode_query = "
         SELECT
             id,
@@ -130,7 +151,8 @@ if ($audit_assignment_id) {
         WHERE audit_id = ?
         AND audit_assignment_id = ?
         AND user_id = ?
-        ORDER BY scanned_date ASC
+        ORDER BY scanned_date DESC, id DESC
+        LIMIT " . $RECEIPT_DISPLAY_LIMIT . "
     ";
 
     $stmt = $conn->prepare($barcode_query);
@@ -204,12 +226,12 @@ if ($audit_assignment_id) {
 
         <?php foreach ($barcodes as $index => $item): ?>
 
-            
+            <?php $sequence = $total_scanned - $index; ?>
 
             <div class="receipt-item" id="receipt-item-<?= $item['id']; ?>">
 
                 <span>
-                    <?php echo count($barcodes) - $index; ?>.
+                    <?php echo $sequence; ?>.
                     <?php echo htmlspecialchars($item['barcode']); ?>
                 </span>
 
@@ -224,13 +246,20 @@ if ($audit_assignment_id) {
 
         <?php endforeach; ?>
 
+        <?php if ($total_scanned > $RECEIPT_DISPLAY_LIMIT): ?>
+            <div class="text-center text-muted" style="font-size:11px; margin-top:4px;">
+                Showing your last <?php echo $RECEIPT_DISPLAY_LIMIT; ?> scans only, to keep scanning fast for everyone.
+                All <?php echo number_format($total_scanned); ?> items are saved — this list is just a live preview.
+            </div>
+        <?php endif; ?>
+
     <?php endif; ?>
 
     <div class="receipt-line"></div>
 
     <div class="receipt-item">
         <strong>TOTAL</strong>
-        <strong><?php echo count($barcodes); ?></strong>
+        <strong><?php echo number_format($total_scanned); ?></strong>
     </div>
 
     <div class="receipt-footer">
