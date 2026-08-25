@@ -59,7 +59,7 @@ $voiding_window_expired = false;
 $inbound_date_received = null;
 
 $inbound_log_stmt = $conn->prepare(
-    "SELECT date_received FROM inbound_logs WHERE po_id = ? AND unique_key = ? ORDER BY date_received DESC LIMIT 1"
+    "SELECT il.date_received, u.user_fname, u.user_lname FROM inbound_logs il INNER JOIN users u ON u.hashed_id = il.user_id WHERE po_id = ? AND unique_key = ? ORDER BY date_received DESC LIMIT 1"
 );
 $inbound_log_stmt->bind_param('is', $po_id, $unique_key);
 $inbound_log_stmt->execute();
@@ -68,6 +68,7 @@ $inbound_log_stmt->close();
 
 if ($inbound_log_row && !empty($inbound_log_row['date_received'])) {
     $inbound_date_received = $inbound_log_row['date_received'];
+    $inbounded_by = $inbound_log_row['user_fname'] . " " . $inbound_log_row['user_lname'];
     $received_timestamp = strtotime($inbound_date_received);
     if ($received_timestamp !== false) {
         $days_since_received = (time() - $received_timestamp) / 86400;
@@ -792,6 +793,12 @@ if ($voiding_window_expired) {
                                 <span class="vi-report-meta-label">Date Generated</span>
                                 <span class="vi-report-meta-value"><?= htmlspecialchars(date('F j, Y g:i A')) ?></span>
                             </div>
+                            <div class="vi-report-meta-item">
+                                <span class="vi-report-meta-label">Date Inbounded</span>
+                                <span class="vi-report-meta-value">
+                                    <?= !empty($inbound_date_received) ? htmlspecialchars(date('F j, Y g:i A', strtotime($inbound_date_received))) : '' ?>
+                                </span>
+                            </div>
                         </div>
                         <div class="vi-report-meta-col">
                             <div class="vi-report-meta-item">
@@ -805,6 +812,10 @@ if ($voiding_window_expired) {
                             <div class="vi-report-meta-item">
                                 <span class="vi-report-meta-label">Supplier</span>
                                 <span class="vi-report-meta-value"><?= htmlspecialchars($supplier) ?></span>
+                            </div>
+                             <div class="vi-report-meta-item">
+                                <span class="vi-report-meta-label">Inbounded by</span>
+                                <span class="vi-report-meta-value"><?= htmlspecialchars($inbounded_by) ?></span>
                             </div>
                         </div>
                     </div>
