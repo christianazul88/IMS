@@ -1,5 +1,18 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| SAFETY SETTINGS FOR LARGE EXPORTS
+|--------------------------------------------------------------------------
+| - set_time_limit(0): don't let PHP kill this script on large exports
+|   (default max_execution_time is often only 30s)
+| - mysqli_report(...): make DB failures throw instead of failing silently,
+|   so a dropped connection mid-stream doesn't just look like "no more rows"
+*/
+
+set_time_limit(0);
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 include "../config/database.php";
 include "../config/on_session.php";
 
@@ -48,6 +61,13 @@ $filename =
 
 header('Content-Type: text/csv');
 header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+// Kill any inherited output buffering (from session/config includes, output
+// compression, etc.) so fputcsv()/flush() actually stream to the browser
+// instead of being held in memory until the script ends.
+while (ob_get_level() > 0) {
+    ob_end_flush();
+}
 
 $output = fopen("php://output", "w");
 
@@ -153,6 +173,11 @@ $query = "
 
 $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $audit_id);
+
+// Use unbuffered execution so PHP starts streaming rows as they come in
+// from MySQL rather than pulling the entire result set into memory first.
+// This also makes it easier to catch a connection that dies mid-export,
+// since execute()/fetch() will throw via mysqli_report() above.
 $stmt->execute();
 
 /*
@@ -183,6 +208,8 @@ $stmt->bind_result(
 |--------------------------------------------------------------------------
 */
 
+$row_count = 0;
+
 while ($stmt->fetch()) {
 
     // 🔥 MODIFY VALUES HERE (best place)
@@ -190,7 +217,7 @@ while ($stmt->fetch()) {
         $audit_status = "MISSING";
     }
 
-    if($system_location === "" || $system_location == 0){
+    if ($system_location === "" || $system_location == 0) {
         $system_location = "FOR SKU";
     }
 
@@ -209,10 +236,29 @@ while ($stmt->fetch()) {
         $capital,
         $scanned_date
     ]);
+
+    $row_count++;
+
+    // Periodically flush so the client receives data steadily instead of
+    // in one big burst at the end (helps avoid client/proxy read timeouts
+    // on large exports, and lets you SEE progress if watching network tab).
+    if ($row_count % 500 === 0) {
+        flush();
+    }
 }
+
+// If the loop ended because of a DB error rather than because it legitimately
+// ran out of rows, log it instead of silently producing a truncated CSV.
+if ($stmt->error) {
+    error_log(
+        "generate_detailed_report.php: export failed for audit_id={$audit_id} " .
+        "after {$row_count} rows: {$stmt->error}"
+    );
+}
+
+error_log("generate_detailed_report.php: audit_id={$audit_id} exported {$row_count} rows.");
 
 $stmt->close();
 fclose($output);
 
 exit;
-
