@@ -166,7 +166,7 @@ $query = "
 
     WHERE ita.audit_id = ?
 
-        AND ita.audit_status = 'approved'
+        AND ita.audit_status IN ('approved','scanned')
 
     ORDER BY ita.audit_status;
 ";
