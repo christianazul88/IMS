@@ -6,6 +6,15 @@
   <div class="col-lg-12 text-end px-3 mb-3">
     <a href="../create-product" class="btn btn-primary py-0 me-auto">Create</a>
     <!-- <button class="btn btn-primary py-0 me-auto" type="button" data-bs-toggle="modal" data-bs-target="#create-modal">Create</button> -->
+    <div class="btn-group">
+      <button type="button" class="btn btn-outline-secondary py-0 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+        <span class="far fa-file-export me-1"></span>Export CSV
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="#" id="export-displayed-btn">Export displayed list</a></li>
+        <li><a class="dropdown-item" href="../config/export-products.php">Export all products</a></li>
+      </ul>
+    </div>
   </div>
 
   <div class="col-lg-12">
@@ -382,5 +391,77 @@ document.getElementById('parent_barcode').addEventListener('input', function () 
         .catch(err => {
             console.error(err);
         });
+});
+</script>
+
+<script>
+document.getElementById('export-displayed-btn').addEventListener('click', function (e) {
+    e.preventDefault();
+
+    // Columns to export, in order: [header label, <td> class to read from]
+    const columns = [
+        ['Description', 'desc'],
+        ['Category', 'cat'],
+        ['Brand', 'brand'],
+        ['Product ID', 'barcode'],   // first .barcode cell = unique_id
+        ['Main Barcode', 'main'],
+        ['Parent Barcode', 'barcode'], // second .barcode cell = parent_barcode
+        ['Created by', 'by'],
+        ['Date', 'date'],
+        ['Safety', 'safety'],
+    ];
+
+    const csvEscape = (value) => {
+        const str = String(value ?? '').replace(/\s+/g, ' ').trim();
+        return '"' + str.replace(/"/g, '""') + '"';
+    };
+
+    const rows = document.querySelectorAll('#table-purchase-body > tr');
+    const csvRows = [columns.map(c => csvEscape(c[0])).join(',')];
+    let exportedCount = 0;
+
+    rows.forEach(row => {
+        // Skip rows hidden by search/filter (list.js) or a "No Data" row
+        if (row.offsetParent === null || row.style.display === 'none') return;
+        if (row.querySelector('td[colspan]')) return;
+
+        // Handle the two .barcode cells (Product ID and Parent Barcode) by position
+        const barcodeCells = row.querySelectorAll('td.barcode');
+
+        const values = columns.map(([label, cls]) => {
+            if (cls === 'barcode') {
+                const cell = label === 'Product ID' ? barcodeCells[0] : barcodeCells[1];
+                return cell ? cell.innerText : '';
+            }
+            const cell = row.querySelector('td.' + cls);
+            return cell ? cell.innerText : '';
+        });
+
+        csvRows.push(values.map(csvEscape).join(','));
+        exportedCount++;
+    });
+
+    if (exportedCount === 0) {
+        Swal.fire({
+            title: 'Nothing to export',
+            text: 'There are no visible rows to export.',
+            icon: 'info',
+            confirmButtonText: 'OK'
+        });
+        return;
+    }
+
+    const csvContent = '\uFEFF' + csvRows.join('\r\n'); // BOM so Excel reads UTF-8 correctly
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+
+    link.href = url;
+    link.download = 'product-list-' + timestamp + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 });
 </script>
