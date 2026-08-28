@@ -8,7 +8,7 @@ require_once "../config/database.php";
 |--------------------------------------------------------------------------
 */
 
-$cutoff = '2026-01-31 23:59:59';
+$cutoff = '2026-02-01 23:59:59';
 
 
 /*
@@ -25,7 +25,7 @@ $cutoff = '2026-01-31 23:59:59';
 
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 
-    $filename = 'inventory_snapshot_2026-01-31.csv';
+    $filename = 'inventory_snapshot_2026-02-01.csv';
 
     header('Content-Type: text/csv; charset=utf-8');
 
@@ -670,7 +670,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     >
 
     <title>
-        Inventory Snapshot - January 31, 2026
+        Inventory Snapshot - Feb 1, 2026
     </title>
 
 
@@ -731,7 +731,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                     Available inventory as of
 
                     <strong>
-                        January 31, 2026 11:59:59 PM
+                        Feb 1, 2026 11:59:59 PM
                     </strong>
 
                 </p>
