@@ -122,148 +122,149 @@ if (isset($_GET['id'])) {
 
         ?>
         <div class="card overflow-hidden" >
-        <div class="card-body">
-            <form action="../config/stock-transfer.php?status=enroute" method="POST">
-            <input type="text" name="id" value="<?php echo $getid;?>" readonly hidden>
-            <h5 class="card-title"><?php echo $statusBadge;?></h5>
-            <div class="table-responsive">
-                <table class="table bordered-table table-bordered">
-                    <tr>
-                        <th>From</th>
-                        <th>Processed by</th>
-                        <th>Date Out</th>
-                    </tr>
-                    <tr>
-                        <td><?php echo $fromWarehouseName;?></td>
-                        <td><?php echo $fromFullname;?></td>
-                        <td><?php echo $dateSent;?></td>
-                    </tr>
-                    <tr>
-                        <th>To</th>
-                        <th>Received By</th>
-                        <th>Date Received</th>
-                    </tr>
-                    <tr>
-                        <td><?php echo $toWarehouseName;?></td>
-                        <td><?php echo $receiverName;?></td>
-                        <td><?php echo $dateReceived;?></td>
-                    </tr>
-                    <tr>
-                        <td colspan="3" class="p-0">
-                            <table class="table bordered-table table-bordered">
-                                <tr>
-                                    <th>Sender Remarks</th>
-                                    <th>Receiver Remarks</th>
-                                </tr>
-                                <tr>
-                                    <td><?php echo $remarksSender;?></td>
-                                    <td><?php echo $remarksReceiver;?></td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-            <div class="row">
-                <!--  Products Table -->
-                <div class="col-lg-12 mb-3">
-                    <div class="card h-lg-100 overflow-hidden">
-                    <div class="card-body p-0">
-                        <div class="table-responsive scrollbar">
-                        <table class="table table-dashboard mb-0 table-borderless fs-10 border-200">
-                            <thead class="bg-body-tertiary">
-                            <tr>
-                                <th class="text-900">Sent Products</th>
-                                <th class="text-900 text-end"></th>
-                                <th class="text-900 pe-x1 text-end" style="width: 8rem">Barcode</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php 
-                            $product_query = "
-                                SELECT 
-                                    stc.unique_barcode, 
-                                    stc.status AS stc_status, 
-                                    p.product_img, 
-                                    p.description, 
-                                    s.parent_barcode, 
-                                    b.brand_name, 
-                                    c.category_name,
-                                    p.hashed_id AS product_id
-                                FROM 
-                                    stock_transfer_content stc
-                                LEFT JOIN 
-                                    stocks s ON s.unique_barcode = stc.unique_barcode
-                                LEFT JOIN 
-                                    product p ON p.hashed_id = s.product_id
-                                LEFT JOIN 
-                                    brand b ON b.hashed_id = p.brand
-                                LEFT JOIN 
-                                    category c ON c.hashed_id = p.category
-                                WHERE 
-                                    stc.st_id = '$getid'
-                               
-                            ";
-                            $product_query_res = $conn->query($product_query);
-                            if($product_query_res->num_rows>0){
-                                while($row=$product_query_res->fetch_assoc()){
-                                    $unique_barcode = $row['unique_barcode'];
-                                    $stc_status = $row['stc_status'];
-                                    $product_img = $row['product_img'] ?? "../../assets/img/def_img.png";
-                                    $product_description = $row['description'];
-                                    $parent_barcode = $row['parent_barcode'];
-                                    $brand_name = $row['brand_name'];
-                                    $category_name = $row['category_name'];
-                                    $product_id = $row['product_id'];
-                                    $qty = 0;
-                                    $quantity_query = "SELECT COUNT(stc.unique_barcode) AS qty FROM product p LEFT JOIN stocks s on s.product_id = p.hashed_id LEFT JOIN stock_transfer_content stc ON stc.unique_barcode = s.unique_barcode WHERE p.hashed_id = '$product_id' AND stc.st_id = '$getid'";
-                                    $quantity_res = $conn->query($quantity_query);
-                                    if($quantity_res->num_rows>0){
-                                        $row=$quantity_res->fetch_assoc();
-                                        $qty = $row['qty'];
-                                    }
-                                    
-                                    ?>
-                                    <tr class="border-bottom border-200">
-                                        <td>
-                                        <div class="d-flex align-items-center position-relative">
-                                            <img class="rounded-1 border border-200" src="<?php echo $product_img;?>" width="60" alt="" />
-                                            <div class="flex-1 ms-3">
-                                            <h6 class="mb-1 fw-semi-bold">
-                                                <a class="text-1100 stretched-link" href="#!"><?php echo $product_description;?></a>
-                                            </h6>
-                                            <p class="fw-semi-bold mb-0 text-500">Brand: <?php echo $brand_name;?> | Category: <?php echo $category_name;?> | total qty for this item: <?php echo $qty;?></p>
-                                            </div>
-                                        </div>
-                                        </td>
-                                        <td class="align-middle text-end fw-semi-bold"></td>
-                                        <td class="align-middle pe-x1">
-                                            <?php echo $unique_barcode;?>
-                                        </td>
+            <div class="card-body">
+                <form action="../config/stock-transfer.php?status=enroute" method="POST">
+                <input type="text" name="id" value="<?php echo $getid;?>" readonly hidden>
+                <h5 class="card-title"><?php echo $statusBadge;?></h5>
+                <div class="table-responsive">
+                    <table class="table bordered-table table-bordered">
+                        <tr>
+                            <th>From</th>
+                            <th>Processed by</th>
+                            <th>Date Out</th>
+                        </tr>
+                        <tr>
+                            <td><?php echo $fromWarehouseName;?></td>
+                            <td><?php echo $fromFullname;?></td>
+                            <td><?php echo $dateSent;?></td>
+                        </tr>
+                        <tr>
+                            <th>To</th>
+                            <th>Received By</th>
+                            <th>Date Received</th>
+                        </tr>
+                        <tr>
+                            <td><?php echo $toWarehouseName;?></td>
+                            <td><?php echo $receiverName;?></td>
+                            <td><?php echo $dateReceived;?></td>
+                        </tr>
+                        <tr>
+                            <td colspan="3" class="p-0">
+                                <table class="table bordered-table table-bordered">
+                                    <tr>
+                                        <th>Sender Remarks</th>
+                                        <th>Receiver Remarks</th>
                                     </tr>
-                                    <?php
+                                    <tr>
+                                        <td><?php echo $remarksSender;?></td>
+                                        <td><?php echo $remarksReceiver;?></td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="row">
+                    <!--  Products Table -->
+                    <div class="col-lg-12 mb-3">
+                        <div class="card h-lg-100 overflow-hidden">
+                        <div class="card-body p-0">
+                            <div class="table-responsive scrollbar">
+                            <table class="table table-dashboard mb-0 table-borderless fs-10 border-200">
+                                <thead class="bg-body-tertiary">
+                                <tr>
+                                    <th class="text-900">Sent Products</th>
+                                    <th class="text-900 text-end"></th>
+                                    <th class="text-900 pe-x1 text-end" style="width: 8rem">Barcode</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <?php 
+                                $product_query = "
+                                    SELECT 
+                                        stc.unique_barcode, 
+                                        stc.status AS stc_status, 
+                                        p.product_img, 
+                                        p.description, 
+                                        s.parent_barcode, 
+                                        b.brand_name, 
+                                        c.category_name,
+                                        p.hashed_id AS product_id
+                                    FROM 
+                                        stock_transfer_content stc
+                                    LEFT JOIN 
+                                        stocks s ON s.unique_barcode = stc.unique_barcode
+                                    LEFT JOIN 
+                                        product p ON p.hashed_id = s.product_id
+                                    LEFT JOIN 
+                                        brand b ON b.hashed_id = p.brand
+                                    LEFT JOIN 
+                                        category c ON c.hashed_id = p.category
+                                    WHERE 
+                                        stc.st_id = '$getid'
+                                
+                                ";
+                                $product_query_res = $conn->query($product_query);
+                                if($product_query_res->num_rows>0){
+                                    while($row=$product_query_res->fetch_assoc()){
+                                        $unique_barcode = $row['unique_barcode'];
+                                        $stc_status = $row['stc_status'];
+                                        $product_img = $row['product_img'] ?? "../../assets/img/def_img.png";
+                                        $product_description = $row['description'];
+                                        $parent_barcode = $row['parent_barcode'];
+                                        $brand_name = $row['brand_name'];
+                                        $category_name = $row['category_name'];
+                                        $product_id = $row['product_id'];
+                                        $qty = 0;
+                                        $quantity_query = "SELECT COUNT(stc.unique_barcode) AS qty FROM product p LEFT JOIN stocks s on s.product_id = p.hashed_id LEFT JOIN stock_transfer_content stc ON stc.unique_barcode = s.unique_barcode WHERE p.hashed_id = '$product_id' AND stc.st_id = '$getid'";
+                                        $quantity_res = $conn->query($quantity_query);
+                                        if($quantity_res->num_rows>0){
+                                            $row=$quantity_res->fetch_assoc();
+                                            $qty = $row['qty'];
+                                        }
+                                        
+                                        ?>
+                                        <tr class="border-bottom border-200">
+                                            <td>
+                                            <div class="d-flex align-items-center position-relative">
+                                                <img class="rounded-1 border border-200" src="<?php echo $product_img;?>" width="60" alt="" />
+                                                <div class="flex-1 ms-3">
+                                                <h6 class="mb-1 fw-semi-bold">
+                                                    <a class="text-1100 stretched-link" href="#!"><?php echo $product_description;?></a>
+                                                </h6>
+                                                <p class="fw-semi-bold mb-0 text-500">Brand: <?php echo $brand_name;?> | Category: <?php echo $category_name;?> | total qty for this item: <?php echo $qty;?></p>
+                                                </div>
+                                            </div>
+                                            </td>
+                                            <td class="align-middle text-end fw-semi-bold"></td>
+                                            <td class="align-middle pe-x1">
+                                                <?php echo $unique_barcode;?>
+                                            </td>
+                                        </tr>
+                                        <?php
+                                    }
                                 }
-                            }
-                       
-                            ?>
+                        
+                                ?>
 
-                            
-                            
-                            
-                            </tbody>
-                        </table>
+                                
+                                
+                                
+                                </tbody>
+                            </table>
+                            </div>
+                        </div>
+                        
                         </div>
                     </div>
-                    
-                    </div>
                 </div>
-            </div>
-            <?php 
-            echo $submitBTN;
-            ?>
+                <?php 
+                echo $submitBTN;
+                ?>
 
-            </form>
-        </div>
+                </form>
+            </div>
+            <a href="transfer_id.php?transfer_id=<?php echo $getid; ?>&export=csv" class="btn btn-success btn-sm">Export CSV</a>
         </div>
         <?php
     } else {
