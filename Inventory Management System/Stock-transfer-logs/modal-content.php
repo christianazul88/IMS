@@ -264,7 +264,7 @@ if (isset($_GET['id'])) {
 
                 </form>
             </div>
-            <a href="transfer_id.php?transfer_id=<?php echo $getid; ?>&export=csv" class="btn btn-success btn-sm">Export CSV</a>
+            <a href="transfer_id.php?transfer_id=<?php echo $getid; ?>&export=csv" target="_blank" rel="noopener noreferrer" class="btn btn-success btn-sm">Export/ Print</a>
         </div>
         <?php
     } else {
