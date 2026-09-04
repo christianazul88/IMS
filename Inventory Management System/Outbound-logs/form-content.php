@@ -57,7 +57,7 @@ if (isset($_GET['id'])) {
                     <?php 
                     if($outbound_status == 6 && $user_id === $outbound_user_id){
                     ?>
-                        <button class="btn btn-primary fs-11 me-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?php echo $outbound_id;?>" aria-expanded="false" aria-controls="collapse<?php echo $outbound_id;?>"><span class="fas fa-trash-alt"></span> Void</button>
+                        <button class="btn btn-primary d-none fs-11 me-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?php echo $outbound_id;?>" aria-expanded="false" aria-controls="collapse<?php echo $outbound_id;?>"><span class="fas fa-trash-alt"></span> Void</button>
                     
                     <?php 
                     }
@@ -320,7 +320,7 @@ if (isset($_GET['id'])) {
                     <textarea name="reason" class="form-control" required></textarea>
                 </div>
                 <div class="col-lg-12 text-center mb-3">
-                    <button class="btn btn-primary fs-11" type="submit">Submit</button>
+                    <button class="btn btn-primary fs-11 d-none" type="submit">Submit</button>
                 </div>
             </form>
         </div>

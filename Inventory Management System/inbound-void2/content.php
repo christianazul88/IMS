@@ -337,13 +337,14 @@ if ($voiding_window_expired) {
                     </span>
                 <?php elseif ($is_administrator && $page_void_log_ids !== ''): ?>
                     <div class="vi-action-group">
-                        <button class="vi-btn vi-btn-success vi-btn-lg"
+                        <button class="vi-btn vi-btn-success vi-btn-lg d-none"
                                 data-void-approval="approve"
                                 data-approval-scope="inbound"
-                                data-void-log-ids="<?= htmlspecialchars($page_void_log_ids) ?>">
+                                data-void-log-ids="<?= htmlspecialchars($page_void_log_ids) ?>"
+                                >
                             Approved
                         </button>
-                        <button class="vi-btn vi-btn-outline-danger vi-btn-lg"
+                        <button class="vi-btn vi-btn-outline-danger vi-btn-lg d-none"
                                 data-void-approval="reject"
                                 data-approval-scope="inbound"
                                 data-void-log-ids="<?= htmlspecialchars($page_void_log_ids) ?>">
@@ -560,7 +561,7 @@ if ($voiding_window_expired) {
                                 <div class="vi-subhead">Stock Sequences</div>
 
                                     <?php if ($show_page_actions): ?>
-                                    <button class="vi-btn vi-btn-outline-danger vi-btn-sm"
+                                    <button class="vi-btn vi-btn-outline-danger vi-btn-sm d-none"
                                             data-product-id="<?= htmlspecialchars($product['product_id']) ?>"
                                             data-parent-barcode="<?= htmlspecialchars($product['parent_barcode'] ?? '') ?>"
                                             data-unique-key="<?= htmlspecialchars($unique_key) ?>"
@@ -641,7 +642,7 @@ if ($voiding_window_expired) {
                                                             ?>
 
                                                             <?php if ($show_page_actions): ?>
-                                                             <button class="vi-btn vi-btn-outline-danger vi-btn-xs"
+                                                             <button class="vi-btn vi-btn-outline-danger vi-btn-xs d-none"
                                                                      data-barcode="<?= htmlspecialchars($stock['unique_barcode']) ?>">
                                                                  <i class="bi bi-trash"></i>
                                                                  Void
@@ -707,7 +708,7 @@ if ($voiding_window_expired) {
             <div class="vi-footer-note">Once all necessary voids are complete, finish this void request with remarks.</div>
             <button type="button"
                     id="viDoneBtn"
-                    class="vi-btn vi-btn-danger vi-btn-lg"
+                    class="vi-btn vi-btn-danger vi-btn-lg d-none"
                     data-po-id="<?= htmlspecialchars($po_id) ?>"
                     data-unique-key="<?= htmlspecialchars($unique_key) ?>">
                 <i class="bi bi-check2-circle"></i>
