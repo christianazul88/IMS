@@ -8,7 +8,18 @@ require_once "../config/database.php";
 |--------------------------------------------------------------------------
 */
 
-$cutoff = '2026-02-01 23:59:59';
+$defaultCutoffDate = date('Y-m-d');
+$selectedCutoffDate = $_GET['cutoff_date'] ?? $defaultCutoffDate;
+
+// Accept only a real YYYY-MM-DD date; use today's date for invalid input.
+$cutoffDate = DateTime::createFromFormat('!Y-m-d', $selectedCutoffDate);
+if (!$cutoffDate || $cutoffDate->format('Y-m-d') !== $selectedCutoffDate) {
+    $cutoffDate = new DateTime($defaultCutoffDate);
+}
+
+$cutoff = $cutoffDate->format('Y-m-d') . ' 23:59:59';
+$cutoffLabel = $cutoffDate->format('F j, Y');
+$cutoffFilenameDate = $cutoffDate->format('Y-m-d');
 
 
 /*
@@ -25,7 +36,7 @@ $cutoff = '2026-02-01 23:59:59';
 
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 
-    $filename = 'inventory_snapshot_2026-02-01.csv';
+    $filename = 'Stocks on ' . $cutoffFilenameDate . '.csv';
 
     header('Content-Type: text/csv; charset=utf-8');
 
@@ -670,7 +681,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     >
 
     <title>
-        Inventory Snapshot - Feb 1, 2026
+        Inventory Snapshot
     </title>
 
 
@@ -728,23 +739,48 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 
                 <p class="text-muted mb-4">
 
-                    Available inventory as of
-
-                    <strong>
-                        Feb 1, 2026 11:59:59 PM
-                    </strong>
+                    Choose the date to use as the inventory cutoff.
 
                 </p>
 
+                <form method="get" class="row justify-content-center g-3">
 
-                <a
-                    href="?export=csv"
-                    class="btn btn-primary btn-lg"
-                >
+                    <input type="hidden" name="export" value="csv">
 
-                    Download Detailed CSV Report
+                    <div class="col-sm-6 col-md-4">
 
-                </a>
+                        <label for="cutoff_date" class="form-label">
+                            Cutoff date
+                        </label>
+
+                        <input
+                            type="date"
+                            id="cutoff_date"
+                            name="cutoff_date"
+                            class="form-control"
+                            value="<?= htmlspecialchars($cutoffFilenameDate, ENT_QUOTES, 'UTF-8') ?>"
+                            required
+                        >
+
+                    </div>
+
+                    <div class="col-12">
+
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            Download Detailed CSV Report
+                        </button>
+
+                    </div>
+
+                </form>
+
+
+                <p class="mt-3 mb-0 text-muted small">
+
+                    The report includes available inventory as of
+                    <strong><?= htmlspecialchars($cutoffLabel, ENT_QUOTES, 'UTF-8') ?> 11:59:59 PM</strong>.
+
+                </p>
 
 
                 <div class="mt-3 text-muted small">
