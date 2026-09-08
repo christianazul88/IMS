@@ -167,6 +167,9 @@ $(document).ready(function() {
                     type: "POST",
                     data: { parent_barcodes: selectedBarcodes },
                     dataType: "json",
+                    beforeSend: function() {
+                        $("#btnSubmitImport").prop("disabled", true);
+                    },
                     success: function(response) {
                         let toastMessage = $("#toastMessage");
                         if (response.status === "success") {
@@ -184,6 +187,9 @@ $(document).ready(function() {
                         $("#toastMessage").removeClass("bg-success").addClass("bg-danger");
                         $("#toastBody").text("Something went wrong. Please try again.");
                         new bootstrap.Toast(document.getElementById("toastMessage")).show();
+                    },
+                    complete: function() {
+                        $("#btnSubmitImport").prop("disabled", false);
                     }
                 });
             }

@@ -1,6 +1,6 @@
 <?php
 
-$po_id      = $_GET['po_no'] ?? 2197;
+$po_id      = $_GET['po_no'] ?? 0;
 $unique_key = $_GET['unique_key'] ?? '163067390281';
 $is_administrator = ($user_position_name ?? '') === 'Administrator';
 
@@ -264,7 +264,7 @@ if(($void_status === "pending" || is_null($void_status)) && is_null($void_remark
     $show_page_actions = false;
 }
 
-if($po_id = 0){
+if($po_id == 0){
     $show_page_actions = false;
 }
 

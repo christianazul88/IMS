@@ -16,15 +16,15 @@ if (isset($_POST['supplier'], $_POST['po_id'], $_POST['warehouse'])) {
 
 } elseif (isset($_POST['po_id'])) {
 
-    // Ensure `po_list` exists in session
-    if (!isset($_SESSION['po_list'])) {
-        $_SESSION['po_list'] = [];
-    }
-
-    $_SESSION['inbound_po_id'] = (int)$_POST['po_id'];  // Ensuring it's an integer
+    $po_id = (int)$_POST['po_id'];  // Ensuring it's an integer
+    $_SESSION['inbound_po_id'] = $po_id;
     $_SESSION['inbound_received_date'] = $currentDateTime;
 
-    $po_id = $_SESSION['inbound_po_id'];
+    // Ensure `po_list` exists for this PO, keyed by barcode so re-landing here
+    // (refresh, back/forward, another tab) never duplicates rows.
+    if (!isset($_SESSION['po_list'][$po_id])) {
+        $_SESSION['po_list'][$po_id] = [];
+    }
 
     // Fetch product IDs from the purchased order content table
     $query = "SELECT product_id, qty FROM purchased_order_content WHERE po_id = ?";
@@ -49,12 +49,15 @@ if (isset($_POST['supplier'], $_POST['po_id'], $_POST['warehouse'])) {
         $result = $stmt2->get_result();
         
         if ($product_data = $result->fetch_assoc()) {
-            // Append the fetched data to the session array
-            $_SESSION['po_list'][] = [
+            $barcode = $product_data['parent_barcode'];
+
+            // Keyed by barcode: re-running this for the same PO overwrites
+            // the same slot instead of appending a duplicate row.
+            $_SESSION['po_list'][$po_id][$barcode] = [
                 "description" => $product_data['description'],
                 "brand" => $product_data['brand_name'],
                 "category" => $product_data['category_name'],
-                "barcode" => $product_data['parent_barcode'],
+                "barcode" => $barcode,
                 "qty" => $quantity
             ];
         }
