@@ -8,11 +8,12 @@ require_once '../config/database.php';
 $product_list_query = "
   SELECT product.id, product.parent_barcode, product.unique_id,
          product.description, product.date, product.safety,
-         users.user_fname, users.user_lname, category.category_name, brand.brand_name
+         users.user_fname, users.user_lname, category.category_name, brand.brand_name, classification.classification_name
   FROM product
   INNER JOIN users ON users.hashed_id = product.user_id
   INNER JOIN category ON category.hashed_id = product.category
   INNER JOIN brand ON brand.hashed_id = product.brand
+  INNER JOIN classification ON classification.hashed_id = category.classification_id
   WHERE product.current_status = 0
   ORDER BY product.id DESC
 ";
@@ -31,13 +32,14 @@ $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF");
 
 fputcsv($out, [
-  'Description', 'Category', 'Brand', 'Product ID',
+  'Classification', 'Description', 'Category', 'Brand', 'Product ID',
   'Parent Barcode', 'Created by', 'Date', 'Safety'
 ]);
 
 if ($product_list_res && $product_list_res->num_rows > 0) {
   while ($row = $product_list_res->fetch_assoc()) {
     fputcsv($out, [
+      $row['classification_name'],
       $row['description'],
       $row['category_name'],
       $row['brand_name'],
