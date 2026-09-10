@@ -360,7 +360,7 @@ if($result->num_rows>0){
                             ?>
 
                             <div class="form-check form-switch">
-                                <input class="form-check-input"  name="access[]" id="flexSwitchCheckDefault" type="checkbox" value="audit" <?php if(strpos($account_position_access, "reports")!==false){echo 'checked=""';}?><?php if($account_position_name === "Administrator"){echo "disabled";}?>/>
+                                <input class="form-check-input"  name="access[]" id="flexSwitchCheckDefault" type="checkbox" value="reports" <?php if(strpos($account_position_access, "reports")!==false){echo 'checked=""';}?><?php if($account_position_name === "Administrator"){echo "disabled";}?>/>
                                 <label class="form-check-label" for="flexSwitchCheckDefault">View Reports</label>
                             </div>
 
@@ -368,7 +368,7 @@ if($result->num_rows>0){
                             if($account_position_name === "Administrator"){
                             ?>
                             <div class="form-check form-switch d-none">
-                                <input class="form-check-input"  name="access[]" id="flexSwitchCheckDefault" type="checkbox" value="audit" <?php if(strpos($account_position_access, "reports")!==false){echo 'checked=""';}?> hidden/>
+                                <input class="form-check-input"  name="access[]" id="flexSwitchCheckDefault" type="checkbox" value="reports" <?php if(strpos($account_position_access, "reports")!==false){echo 'checked=""';}?> hidden/>
                                 <label class="form-check-label d-none" for="flexSwitchCheckDefault">View Reports</label>
                             </div>
                             <?php
