@@ -174,7 +174,21 @@ include "update_position.php";
                 url: form.attr('action'),
                 type: 'POST',
                 data: form.serialize(),
+                dataType: 'json',
                 success: function(response) {
+                    if (!response.success) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message || 'Failed to update position!',
+                            showConfirmButton: true
+                        });
+
+                        submitBtn.show();
+                        loadingBtn.hide();
+                        return;
+                    }
+
                     // Show success message with SweetAlert2
                     Swal.fire({
                         icon: 'success',
@@ -187,17 +201,16 @@ include "update_position.php";
                     // Close modal after 1 second
                     setTimeout(function() {
                         modal.modal('hide');
-                        submitBtn.show();
-                        loadingBtn.hide();
-                        submitBtn.prop('disabled', true); // Disable again after update
+                        window.location.reload();
                     }, 1000);
                 },
-                error: function() {
+                error: function(xhr) {
+                    const response = xhr.responseJSON || {};
                     // Show error message with SweetAlert2
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Failed to update position!',
+                        text: response.message || 'Failed to update position!',
                         showConfirmButton: true
                     });
 

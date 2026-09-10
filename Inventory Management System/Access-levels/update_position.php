@@ -10,6 +10,7 @@ if($result->num_rows>0){
 <!-- Modal -->
 <div class="modal fade" id="edit-modal_<?php echo $account_position_id;?>" tabindex="-1" role="dialog" aria-hidden="true">
     <form action="../config/update-position.php" id="update_access" method="POST">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content position-relative">
                 <div class="position-absolute top-0 end-0 mt-2 me-2 z-1">
