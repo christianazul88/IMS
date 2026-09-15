@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="assets/hero.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Princess Protocol</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="shell">
+    <header><span class="mark">⚔</span><div><h1>BWAKANANGSHET</h1><p>SAVE THE GHOSTER. BRING BACK THE COLOR.</p></div></header>
+    <section id="gameFrame"><canvas id="game" width="1280" height="720" aria-label="Princess Protocol game"></canvas>
+      <button id="pauseButton" aria-label="Pause game">Ⅱ PAUSE</button>
+      <button id="muteButton" aria-label="Mute sound">🔊</button>
+      <button id="fullscreenButton" aria-label="Toggle fullscreen">⛶ FULL</button>
+      <button id="mobileSettingsButton" aria-label="Edit mobile controls">⚙ UI</button>
+      <div id="touchControls" aria-label="Mobile game controls">
+        <div id="movePad" class="touch-pad" aria-label="Move"><i></i></div>
+        <button id="dashButton" class="touch-dash" aria-label="Dash">DASH</button>
+        <div class="touch-actions"><button id="fireButton" aria-label="Aim and fire"><span>FIRE</span><i aria-hidden="true"></i></button></div>
+      </div>
+      <aside id="mobileSettingsPanel" hidden aria-label="Mobile control editor"><h3>MOBILE CONTROLS</h3><p class="hint">Drag any button on the field to place it — or fine-tune with the sliders below.</p><label>Control size <input id="controlScale" type="range" min="70" max="150" value="100" /></label><label>Control opacity <input id="controlOpacity" type="range" min="30" max="100" value="100" /></label><label>Move left/right <input id="moveX" type="range" min="0" max="140" value="24" /></label><label>Move height <input id="moveY" type="range" min="0" max="170" value="28" /></label><label>Fire left/right <input id="fireX" type="range" min="0" max="140" value="24" /></label><label>Fire height <input id="fireY" type="range" min="0" max="170" value="30" /></label><label>Dash left/right <input id="dashX" type="range" min="0" max="200" value="114" /></label><label>Dash height <input id="dashY" type="range" min="0" max="170" value="30" /></label><label>Aim sensitivity <input id="aimSensitivity" type="range" min="50" max="180" value="100" /></label><button id="swapSidesButton">SWAP SIDES</button><button id="resetControlsButton">RESET</button><button id="closeSettingsButton">DONE</button></aside>
+      <div id="startPanel" class="panel"><h2>THE COLORLESS VOW</h2><p>When the Witch took the Princess, color left the kingdom—and your life with it. Break four seals, defeat the guardians, and find her before the last light goes out.</p><label class="difficulty-control" for="difficultySelect"><span>DIFFICULTY</span><select id="difficultySelect"><option value="superEasy">SUPER EASY — one-hit enemies</option><option value="easy" selected>EASY — standard balance</option><option value="hard">HARD — 3× durability</option><option value="noMercy">NO MERCY — 100× durability</option></select></label><button id="startButton">BEGIN RESCUE</button><small>Desktop: WASD / arrows · Aim: mouse · Fire: click · Double dash: Space · Weapons: 1 / 2 / 3 · Mobile controls appear in battle</small></div>
+      <div id="pausePanel" class="panel pause" hidden><h2>PAUSED</h2><p>The Princess is counting on you.</p><button id="resumeButton">RETURN TO BATTLE</button><small>Press P or Esc to resume.</small></div>
+      <div id="message" aria-live="polite"></div>
+    </section>
+    <footer><span>TIP: Witch attacks are dangerous—but every pattern has a safe route.</span><span>© Bloooo</span></footer>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
