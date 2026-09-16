@@ -15,6 +15,9 @@ $product_list_query = "
   INNER JOIN brand ON brand.hashed_id = product.brand
   INNER JOIN classification ON classification.hashed_id = category.classification_id
   WHERE product.current_status = 0
+    AND EXISTS (
+      SELECT 1 FROM stocks s WHERE s.product_id = product.id
+    )
   ORDER BY product.id DESC
 ";
 $product_list_res = $conn->query($product_list_query);
