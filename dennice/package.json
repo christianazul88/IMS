@@ -1,0 +1,12 @@
+{
+  "name": "princess-protocol",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Princess Protocol — open index.html to play. package.json only exists to run the headless smoke test in test/smoke.js.",
+  "scripts": {
+    "test": "node test-duel.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}
