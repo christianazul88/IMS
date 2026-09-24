@@ -1,9 +1,0 @@
-{
-  "name": "Princess Protocol",
-  "short_name": "Princess Protocol",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#080a12",
-  "theme_color": "#080a12",
-  "icons": [{"src":"assets/hero.png","sizes":"128x128","type":"image/png"}]
-}

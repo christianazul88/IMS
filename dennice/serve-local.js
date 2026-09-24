@@ -1,4 +1,0 @@
-// Local-only preview server: node serve-local.js
-const http=require('http'),fs=require('fs'),path=require('path');
-const root=__dirname,mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.mp3':'audio/mpeg','.json':'application/json'};
-http.createServer((req,res)=>{const name=decodeURIComponent(new URL(req.url,'http://localhost').pathname);const file=path.resolve(root,'.'+(name==='/'?'/index.html':name));if(!file.startsWith(root+path.sep)){res.writeHead(403);return res.end();}res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');res.setHeader('Cache-Control','no-store');const stream=fs.createReadStream(file);stream.on('error',()=>{res.statusCode=404;res.end();});stream.pipe(res);}).listen(8080,'127.0.0.1',()=>console.log('Preview: http://127.0.0.1:8080'));
