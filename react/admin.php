@@ -4,9 +4,52 @@ require __DIR__ . '/storage.php';
 header('Cache-Control: no-store');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
-// Local access only: this dashboard must never expose visit history publicly.
-if (!in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) {
-    http_response_code(403); exit('This dashboard is only available on the server computer.');
+
+/*
+ * The dashboard used to allow localhost only. That works on a development
+ * machine, but a VPS sees the visitor's real remote address and therefore
+ * blocked every normal browser request. Local access remains passwordless;
+ * remote access uses standard HTTP Basic Auth, which Apache/LAMPP supports.
+ *
+ * Credentials can be supplied through INVITE_ADMIN_USER and
+ * INVITE_ADMIN_PASSWORD, or through admin-config.php. The config file is
+ * deliberately outside the public web root when the usual project layout is
+ * used, but a same-directory file is also supported for portable hosting.
+ */
+function invite_admin_config(): array {
+    $paths = [];
+    $configured = getenv('INVITE_ADMIN_CONFIG');
+    if (is_string($configured) && $configured !== '') $paths[] = $configured;
+    $paths[] = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'date-invite' . DIRECTORY_SEPARATOR . 'admin-config.php';
+    $paths[] = __DIR__ . DIRECTORY_SEPARATOR . 'admin-config.php';
+    foreach ($paths as $path) {
+        if (is_file($path)) {
+            $value = require $path;
+            return is_array($value) ? $value : [];
+        }
+    }
+    return [];
+}
+
+$adminConfig = invite_admin_config();
+$adminUser = (string)(getenv('INVITE_ADMIN_USER') ?: ($adminConfig['username'] ?? ''));
+$adminPassword = (string)(getenv('INVITE_ADMIN_PASSWORD') ?: ($adminConfig['password'] ?? ''));
+$isLocalRequest = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
+
+if (!$isLocalRequest) {
+    if ($adminUser === '' || $adminPassword === '') {
+        http_response_code(503);
+        header('Content-Type: text/plain; charset=utf-8');
+        exit("Invite dashboard authentication is not configured. Set INVITE_ADMIN_USER and INVITE_ADMIN_PASSWORD in Apache/PHP, or create admin-config.php from admin-config.example.php.\n");
+    }
+    $providedUser = (string)($_SERVER['PHP_AUTH_USER'] ?? '');
+    $providedPassword = (string)($_SERVER['PHP_AUTH_PW'] ?? '');
+    if (!hash_equals($adminUser, $providedUser) || !hash_equals($adminPassword, $providedPassword)) {
+        header('WWW-Authenticate: Basic realm="Invite dashboard", charset="UTF-8"');
+        http_response_code(401);
+        header('Content-Type: text/plain; charset=utf-8');
+        exit("Authentication required.\n");
+    }
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset') {
     invite_store(function (&$data): void {
