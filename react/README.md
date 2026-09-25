@@ -7,15 +7,15 @@ Run through XAMPP/Apache, not by opening the HTML file directly:
 
 The local PHP preview started for this task uses `http://127.0.0.1:8234/princess_protocol/date-invite/` (append `admin.php` for the dashboard). It runs on this computer only. XAMPP/Apache can serve the same files using the URLs above when Apache is started.
 
-The dashboard only allows connections from the server computer (127.0.0.1 or ::1). It shows browser-level visits, selected/removed choices, confirmation, hold starts/cancellations/resets, screens, mascot touches, and link/button clicks. Refresh to see new events; filter by browser to follow one history.
+The dashboard allows local access and uses HTTP Basic Authentication for remote access. It shows browser-level visits, typed names, device labels, selected/removed choices, confirmation, hold starts/cancellations/resets, screens, mascot touches, and link/button clicks. Refresh to see new events; filter by browser to follow one history.
 
 ## Activity storage
 
-The JSON file is `C:/xampp/private/date-invite/activity.json`, outside `htdocs`. PHP creates it on first use, with file locking for simultaneous requests. The page briefly discloses recording. No typed names, IP addresses, fingerprinting, or raw keystrokes are saved.
+Activity is stored in the MySQL/MariaDB database `testonly123`. PHP creates the tables on first use. Set `INVITE_DB_HOST`, `INVITE_DB_PORT`, `INVITE_DB_NAME`, `INVITE_DB_USER`, and `INVITE_DB_PASSWORD` in Apache/PHP when deploying. The page briefly discloses recording. No IP addresses, fingerprinting, or raw keystrokes are saved.
 
 One visit means one page load; duplicate visit requests are deduplicated. Reopening or refreshing counts as another visit. A random browser ID in localStorage connects repeat visits. Another device, private browsing, or cleared storage can look like a new browser. The dashboard cannot verify the person's identity. Failed tracking does not block the invite and is not retried automatically; network failures can mean missed events.
 
-When moving to a different host, configure `INVITE_DATA_FILE` with a writable absolute file path outside the public document root. Do not expose the dashboard through a public proxy/tunnel that turns remote requests into loopback requests. Remote dashboard access is deliberately disabled; use server-local access or add authenticated hosting before making it public.
+When moving to a different host, create the database with `mysql -u root < database.sql` or let the app create it when the configured database user has permission. Exact phone models are not reliably exposed by browsers, so the dashboard records broad labels such as `iPhone`, `Android phone/tablet`, or `Windows PC`, along with browser and OS. Keep the dashboard behind HTTPS and its configured password.
 
 ## Music
 

@@ -907,6 +907,8 @@
         event.preventDefault();
         Invite.primeWalkSound?.();
         Invite.primeCelebrationMusic?.();
+        Invite.setName?.(nameInput.value.trim());
+        Invite.track('name_submitted', nameInput.value.trim().slice(0, 80));
         const normalizedName = nameInput.value.trim().toLocaleLowerCase();
         if (normalizedName === 'dennice' || normalizedName === 'denice') {
           runMissingNSequence();

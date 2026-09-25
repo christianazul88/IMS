@@ -6,6 +6,7 @@
   save('invite.visitor', visitor);
   const visit = uuid();
   const started = performance.now();
+  let typedName = read('invite.name', '');
   let visits = Number(read('invite.visits', '0')) + 1;
   save('invite.visits', visits);
   let queue = Promise.resolve();
@@ -24,7 +25,7 @@
   let sideTimer;
   let hideTimer;
   function track(type, target = '') {
-    const event = { visitor, visit, type, target, elapsedMs: Math.round(performance.now() - started) };
+    const event = { visitor, visit, type, target, name: typedName, elapsedMs: Math.round(performance.now() - started) };
     queue = queue.then(async () => {
       try {
         const response = await fetch('activity.php', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(event), keepalive: true});
@@ -175,7 +176,7 @@
   const catMusicTrigger = document.querySelector('#catMusicTrigger');
   catMusicTrigger?.addEventListener('click', startCelebrationMusic);
   window.Invite = {
-    track, tone, whisper, hush, walk, stopWalk, primeWalkSound,
+    track, setName: (name) => { typedName = String(name || '').slice(0, 80); save('invite.name', typedName); }, tone, whisper, hush, walk, stopWalk, primeWalkSound,
     primeCelebrationMusic, startCelebrationMusic, stopCelebrationMusic
   };
   greet();
