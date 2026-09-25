@@ -1,0 +1,1487 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Para kay Dennice</title>
+    <style>
+      :root {
+        --ink: #342316;
+        --muted: #8a6c5d;
+        --paper: #fffaf5;
+        --cream: #fff3e7;
+        --coral: #ff785f;
+        --coral-dark: #d9513c;
+        --mint: #49c7a1;
+        --mint-dark: #178c6b;
+        --line: #f0ddcc;
+        --shadow: 0 20px 52px rgba(115, 65, 34, 0.16);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        overflow-x: hidden;
+        color: var(--ink);
+        font-family: Inter, ui-rounded, "Avenir Next", "Segoe UI", sans-serif;
+        background: #fff;
+      }
+
+      button { font: inherit; }
+      button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #2e8fdb; outline-offset: 4px; }
+
+      .page {
+        position: relative;
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: 30px 18px;
+      }
+
+      .invite {
+        width: min(760px, 100%);
+      }
+
+      .free-mascot {
+        position: fixed;
+        z-index: 20;
+        bottom: max(18px, 3vh);
+        left: clamp(10px, 3.5vw, 64px);
+        width: clamp(190px, 22vw, 328px);
+        transform: translate3d(0, 0, 0);
+        transform-origin: 50% 100%;
+        will-change: transform;
+      }
+
+      .free-mascot.is-walking { transition: transform 3.15s cubic-bezier(.32,.72,.35,1); }
+      .free-mascot.is-gripping { z-index: 40; }
+      .free-mascot .mascot-wrap { width: 100%; margin: 0; }
+      .free-mascot .touch-guide { display: none; }
+
+      .mascot-side {
+        position: relative;
+        display: grid;
+        min-height: 560px;
+        place-items: end center;
+        overflow: hidden;
+        background: linear-gradient(150deg, #ffd4bf 0%, #ffe9dc 45%, #bdebdc 100%);
+      }
+
+      .mascot-side::before {
+        content: "";
+        position: absolute;
+        width: 290px;
+        height: 290px;
+        top: 52px;
+        border: 2px dashed rgba(255,255,255,0.7);
+        border-radius: 50%;
+      }
+
+      .sticker-note {
+        position: absolute;
+        top: 34px;
+        left: 25px;
+        z-index: 3;
+        display: inline-flex;
+        transform: rotate(-5deg);
+        padding: 10px 13px;
+        border: 1px solid rgba(154, 81, 46, 0.12);
+        border-radius: 10px 11px 10px 4px;
+        color: #724733;
+        font-family: "Comic Sans MS", "Bradley Hand", cursive;
+        font-size: 0.92rem;
+        font-weight: 700;
+        background: #fffdd3;
+        box-shadow: 4px 5px 0 rgba(147, 83, 50, 0.12);
+      }
+
+      .mascot-wrap {
+        position: relative;
+        z-index: 2;
+        width: min(340px, 115%);
+        margin-right: -18px;
+        transform-origin: 52% 100%;
+        will-change: transform;
+      }
+
+      .mascot-stage {
+        position: relative;
+        display: block;
+        width: 100%;
+        aspect-ratio: 1;
+        padding: 0;
+        border: 0;
+        cursor: grab;
+        background: transparent;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: none;
+      }
+
+      .mascot-stage:active { cursor: grabbing; }
+
+      .mascot {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transform-origin: 50% 82%;
+        pointer-events: none;
+        will-change: opacity, transform;
+        backface-visibility: hidden;
+        transition: opacity 70ms cubic-bezier(.22,.8,.3,1);
+        filter: drop-shadow(0 17px 13px rgba(102, 55, 36, 0.21));
+      }
+
+      .mascot.is-active { opacity: 1; animation: breathe 3.4s ease-in-out infinite; }
+
+      .touch-guide {
+        position: absolute;
+        z-index: 5;
+        bottom: 12px;
+        left: 50%;
+        width: max-content;
+        max-width: calc(100% - 28px);
+        margin: 0;
+        padding: 6px 10px;
+        transform: translateX(-50%);
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        border-radius: 999px;
+        color: #725141;
+        text-align: center;
+        font-size: 0.68rem;
+        font-weight: 750;
+        letter-spacing: 0.01em;
+        background: rgba(255, 252, 245, 0.72);
+        backdrop-filter: blur(7px);
+      }
+
+      .tug-line {
+        position: absolute;
+        z-index: -1;
+        top: 58%;
+        right: -74px;
+        width: 130px;
+        height: 3px;
+        display: none;
+        transform: rotate(-11deg);
+        transform-origin: left;
+        border-radius: 99px;
+        background: repeating-linear-gradient(90deg, #e05d49 0 9px, transparent 9px 15px);
+      }
+
+      .action-pop {
+        display: none;
+        position: absolute;
+        right: -12px;
+        bottom: 176px;
+        z-index: 4;
+        min-width: 70px;
+        padding: 7px 9px;
+        opacity: 0;
+        transform: scale(0.7) rotate(-8deg);
+        border-radius: 10px;
+        color: #fff;
+        text-align: center;
+        font-family: "Comic Sans MS", "Bradley Hand", cursive;
+        font-size: 0.82rem;
+        font-weight: 800;
+        background: var(--coral-dark);
+        box-shadow: 3px 4px 0 rgba(110, 44, 30, 0.2);
+      }
+
+      .mascot-wrap.is-pulling { animation: pull-body 0.96s cubic-bezier(.18,.85,.3,1) infinite; }
+      .mascot-wrap.is-pulling .mascot.is-active { animation: pull-head 0.96s ease-in-out infinite; }
+      .mascot-wrap.is-pushing { animation: push-body 0.96s cubic-bezier(.18,.85,.3,1) infinite; }
+      .mascot-wrap.is-pushing .mascot.is-active { animation: push-head 0.96s ease-in-out infinite; }
+      .mascot-wrap.is-dancing { animation: dance-body 1.08s ease-in-out infinite; }
+      .mascot-wrap.is-dancing .mascot.is-active { animation: dance-head 1.08s ease-in-out infinite; }
+      .mascot-wrap.is-presenting { animation: present-body 1.32s cubic-bezier(.28,.78,.32,1) infinite; }
+      .mascot-wrap.is-presenting .mascot.is-active { animation: present-head 1.32s ease-in-out infinite; }
+      .mascot-wrap.is-pulling .action-pop { animation: pop-out 0.96s ease-out both; }
+      .mascot-wrap.is-breathing { animation: catch-breath 1.28s ease-in-out both; }
+      .mascot-wrap.is-breathing .mascot.is-active { animation: breathing-head 1.28s ease-in-out both; }
+      .mascot-wrap.is-breathing .action-pop { background: #a67c52; animation: pop-out 1.28s ease-out both; }
+      .mascot-wrap.is-nodding .mascot.is-active { animation: nod 0.82s ease-in-out both; }
+      .mascot-wrap.is-nodding .action-pop { background: var(--mint-dark); animation: pop-out 0.82s ease-out both; }
+      .mascot-wrap.is-booped .mascot.is-active { animation: boop 0.62s cubic-bezier(.24,.9,.34,1) both; }
+      .mascot-wrap.is-booped .action-pop { background: #8167df; animation: pop-out 0.82s ease-out both; }
+      .mascot-wrap.is-waving .mascot.is-active { animation: wave-bounce 0.88s ease-in-out both; }
+      .mascot-wrap.is-waving .action-pop { background: #268fdb; animation: pop-out 0.92s ease-out both; }
+      .mascot-wrap.is-giggling .mascot.is-active { animation: giggle 0.9s ease-in-out both; }
+      .mascot-wrap.is-giggling .action-pop { background: #e9618d; animation: pop-out 0.95s ease-out both; }
+      .mascot-wrap.is-dizzy .mascot-stage { animation: dizzy 0.95s cubic-bezier(.22,.75,.3,1) both; }
+      .mascot-wrap.is-dizzy .action-pop { background: #e69229; animation: pop-out 0.95s ease-out both; }
+
+      .content {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: min(590px, 76vh);
+        padding: 28px 18px;
+        text-align: center;
+      }
+
+      .eyebrow {
+        margin: 0 0 16px;
+        color: var(--coral-dark);
+        font-size: 0.77rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        max-width: 720px;
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(2.55rem, 6vw, 5.2rem);
+        font-weight: 800;
+        line-height: 0.98;
+        letter-spacing: -0.055em;
+      }
+
+      h1 em { color: inherit; font-style: normal; }
+
+      .lead {
+        max-width: 490px;
+        margin: 22px 0 0;
+        color: var(--muted);
+        font-size: clamp(1rem, 2vw, 1.12rem);
+        line-height: 1.65;
+      }
+
+      .name-form { display: flex; width: min(100%, 440px); margin-top: 26px; gap: 10px; }
+      .name-input { min-width: 0; flex: 1; padding: 15px 16px; border: 1.5px solid var(--line); border-radius: 14px; color: var(--ink); background: #fffefa; box-shadow: 0 4px 0 rgba(148, 92, 61, 0.08); font: inherit; font-weight: 700; }
+      .name-input::placeholder { color: #b69b8c; font-weight: 600; }
+      .flow-button { display: inline-flex; align-items: center; justify-content: center; align-self: flex-start; margin-top: 24px; padding: 14px 18px; border: 0; border-radius: 14px; color: #fff; cursor: pointer; font-weight: 900; background: var(--coral-dark); box-shadow: 0 5px 0 rgba(90, 40, 28, 0.16); transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease; }
+      .name-form .flow-button { flex: 0 0 auto; margin: 0; }
+      .flow-button:hover { filter: brightness(1.05); transform: translateY(-2px); box-shadow: 0 8px 0 rgba(90, 40, 28, 0.14); }
+      .flow-button:active { transform: translateY(2px); box-shadow: 0 3px 0 rgba(90, 40, 28, 0.14); }
+      .intro-joke { max-width: 430px; margin: 13px 0 0; color: #8b6754; font-size: .88rem; font-weight: 750; line-height: 1.45; }
+      .name-fix-word { font-size: clamp(4.3rem, 12vw, 8rem); letter-spacing: -0.075em; }
+      .missing-n { display: inline-block; width: 0; overflow: hidden; color: var(--coral-dark); opacity: 0; transform: translate3d(-22px, 16px, 0) rotate(-35deg) scale(.25); transform-origin: 50% 84%; }
+      #nameFixScreen.is-corrected .missing-n { width: .55em; animation: missing-n-arrives .62s cubic-bezier(.18,.9,.25,1) both; }
+      #nameFixScreen.is-corrected .name-fix-word { animation: corrected-name-pop .75s cubic-bezier(.22,.8,.3,1) both; }
+      .free-mascot.is-n-forming { z-index: 40; }
+      .free-mascot.is-n-forming .mascot-wrap { animation: n-mascot-form .72s cubic-bezier(.2,.88,.3,1) both; }
+
+      .choice-zone {
+        position: relative;
+        min-height: 205px;
+        margin-top: 42px;
+      }
+
+      .hold-actions {
+        display: flex;
+        min-height: 185px;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(22px, 6vw, 48px);
+      }
+
+      .hold-button {
+        position: relative;
+        display: grid;
+        width: clamp(154px, 18vw, 186px);
+        height: clamp(154px, 18vw, 186px);
+        flex: 0 0 auto;
+        place-items: center;
+        overflow: visible;
+        border: 0;
+        border-radius: 50%;
+        color: #fff;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: none;
+        will-change: transform;
+        transition: box-shadow 180ms ease, filter 180ms ease;
+      }
+
+      .hold-button::before {
+        position: absolute;
+        inset: 9px;
+        z-index: 0;
+        content: "";
+        border-radius: inherit;
+        background: currentColor;
+        opacity: 0.11;
+      }
+
+      .yes-hold { --hold-accent: #28b95a; color: #fff; background: var(--hold-accent); box-shadow: 0 11px 0 #13883d, 0 18px 24px rgba(20, 106, 54, 0.2); }
+      .no-hold { --hold-accent: #f41e2b; --hold-duration: 21s; color: #fff; background: var(--hold-accent); box-shadow: 0 11px 0 #b90f20, 0 18px 24px rgba(174, 24, 38, 0.19); }
+      .hold-button:hover { filter: brightness(1.035); }
+      .hold-button:active { box-shadow: 0 5px 0 rgba(54, 35, 22, 0.24), 0 9px 14px rgba(52, 35, 22, 0.18); }
+
+      .hold-ring {
+        position: absolute;
+        inset: -12px;
+        width: calc(100% + 24px);
+        height: calc(100% + 24px);
+        overflow: visible;
+        transform: rotate(-90deg);
+        pointer-events: none;
+      }
+
+      .hold-ring-track, .hold-ring-fill {
+        fill: none;
+        stroke-width: 5;
+      }
+
+      .hold-ring-track { stroke: rgba(106, 75, 55, 0.16); }
+      .hold-ring-fill {
+        stroke: var(--hold-accent);
+        stroke-linecap: round;
+        stroke-dasharray: 289;
+        stroke-dashoffset: 289;
+      }
+
+      .hold-button.is-holding .hold-ring-fill { animation: hold-ring var(--hold-duration, 3s) linear forwards; }
+      .hold-button.is-holding { animation: holding-pulse 0.85s ease-in-out infinite; }
+
+      .hold-label, .hold-status { position: relative; z-index: 1; }
+      .hold-label { max-width: 78%; font-size: clamp(0.91rem, 2vw, 1.2rem); font-weight: 900; line-height: 1.12; letter-spacing: 0.01em; }
+      .hold-status { display: none; }
+
+      .hold-button.is-dragging {
+        z-index: 30;
+      }
+
+      .hold-button.is-returning {
+        pointer-events: none;
+      }
+
+      .hold-button.is-guided { z-index: 30; }
+      .hold-button.is-teasing { animation: green-tease 1.15s ease-in-out infinite; }
+      .hold-button:disabled { cursor: default; }
+
+      .button-placeholder { display: block; flex: 0 0 auto; }
+
+      .hold-instruction {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      .choice, .yes-link, .confirm, .food-card {
+        border: 0;
+        cursor: pointer;
+        transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+      }
+
+      .choice {
+        position: relative;
+        z-index: 2;
+        min-width: 112px;
+        padding: 15px 19px;
+        border-radius: 14px;
+        color: white;
+        font-weight: 800;
+        box-shadow: 0 5px 0 rgba(69, 51, 40, 0.16);
+        touch-action: none;
+        user-select: none;
+      }
+
+      .choice:hover { box-shadow: 0 9px 0 rgba(69, 51, 40, 0.14); }
+      .choice:active { box-shadow: 0 2px 0 rgba(69, 51, 40, 0.16); }
+      .green-no { background: var(--mint); }
+      .red-no { background: var(--coral); }
+      .choice.is-dodging { transition: transform 270ms cubic-bezier(.2,.9,.32,1.1), box-shadow 180ms ease; }
+
+      .yes-link {
+        display: inline-flex;
+        min-height: 49px;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 17px;
+        border: 1.5px solid #dcc9b9;
+        border-radius: 14px;
+        color: var(--ink);
+        font-size: 0.9rem;
+        font-weight: 750;
+        background: white;
+        box-shadow: 0 5px 0 #eadcd1;
+      }
+
+      .yes-link:hover, .confirm:hover { transform: translateY(-3px) rotate(-1deg); }
+      .yes-link:active, .confirm:active { transform: translateY(2px); box-shadow: none; }
+
+      .hint {
+        width: 100%;
+        margin: -2px 0 0;
+        color: #a38270;
+        font-size: 0.82rem;
+      }
+
+      .honest-no {
+        align-self: flex-start;
+        margin-top: 14px;
+        color: #977461;
+        font-size: 0.78rem;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .screen[hidden] { display: none; }
+
+      .food-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 29px;
+        gap: 12px;
+      }
+
+      .food-card {
+        display: flex;
+        min-height: 112px;
+        align-items: center;
+        gap: 11px;
+        padding: 16px;
+        border: 1.5px solid var(--line);
+        border-radius: 19px;
+        color: var(--ink);
+        text-align: left;
+        background: #fffefa;
+        box-shadow: 0 4px 0 rgba(148, 92, 61, 0.08);
+      }
+
+      .food-card:hover { transform: translateY(-4px) rotate(-1deg); box-shadow: 0 10px 0 rgba(148, 92, 61, 0.1); }
+      .food-card[aria-pressed="true"] { border-color: var(--mint); background: #e9fff8; box-shadow: 0 5px 0 rgba(23, 140, 107, 0.18); }
+      .food-icon { font-size: 2.05rem; }
+      .food-name { display: block; font-size: 1rem; font-weight: 800; }
+      .food-vibe { display: block; margin-top: 3px; color: var(--muted); font-size: 0.72rem; line-height: 1.3; }
+
+      .selection-copy { min-height: 26px; margin: 15px 0 0; color: var(--mint-dark); font-size: 0.94rem; font-weight: 750; }
+      .confirm { display: none; margin-top: 7px; padding: 15px 19px; border-radius: 14px; color: white; font-weight: 850; background: var(--coral-dark); box-shadow: 0 5px 0 rgba(90, 40, 28, 0.16); }
+      .confirm.is-ready { display: inline-flex; align-self: flex-start; }
+
+      .yay { display: inline-grid; width: 72px; height: 72px; place-items: center; margin-bottom: 20px; border-radius: 23px; font-size: 2.3rem; background: #e3fbf2; transform: rotate(-8deg); }
+      .final-detail { max-width: 450px; margin-top: 19px; padding: 16px 18px; border-left: 4px solid var(--mint); border-radius: 0 13px 13px 0; color: #5f4536; line-height: 1.55; background: #f1fff9; }
+      .reco-intro { margin: 22px 0 0; color: var(--ink); font-size: 0.94rem; font-weight: 850; }
+      .rizal-recos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 620px; margin-top: 12px; gap: 10px; }
+      .reco-card { overflow: hidden; min-width: 0; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); text-decoration: none; background: #fffefa; box-shadow: 0 4px 0 rgba(148, 92, 61, 0.08); opacity: 0; transform: translate3d(0, 22px, 0) scale(.96); will-change: transform, opacity; }
+      #yayScreen:not([hidden]) .reco-card { animation: reco-card-in .62s cubic-bezier(.22,.8,.3,1) both; }
+      #yayScreen:not([hidden]) .reco-card:nth-child(2) { animation-delay: .12s; }
+      #yayScreen:not([hidden]) .reco-card:nth-child(3) { animation-delay: .24s; }
+      .reco-card:hover { transform: translate3d(0, -5px, 0) rotate(-.6deg); box-shadow: 0 10px 0 rgba(148, 92, 61, 0.12); }
+      .reco-photo { display: block; width: 100%; aspect-ratio: 1.1 / .86; object-fit: cover; background: #e6ddd4; transform: scale(1.001); transition: transform .6s cubic-bezier(.22,.8,.3,1); }
+      .reco-card:hover .reco-photo { transform: scale(1.075); }
+      .reco-copy { display: block; padding: 10px 10px 11px; }
+      .reco-name { display: block; font-size: .86rem; font-weight: 900; }
+      .reco-view { display: block; margin-top: 3px; color: var(--muted); font-size: .68rem; line-height: 1.28; }
+      .reco-joke { max-width: 480px; margin: 17px 0 0; color: #8b6754; font-size: .84rem; font-weight: 750; line-height: 1.45; }
+      .restart { display: inline-flex; align-self: flex-start; margin-top: 25px; padding: 0; border: 0; color: var(--muted); cursor: pointer; font-size: 0.83rem; text-decoration: underline; background: transparent; text-underline-offset: 4px; }
+
+      .no-thanks {
+        text-align: center;
+      }
+
+      .no-thanks h1 { font-size: clamp(2rem, 4.6vw, 3.7rem); }
+      .no-thanks .lead { margin-bottom: 4px; }
+
+      .confetti {
+        position: fixed;
+        z-index: 30;
+        top: -18px;
+        width: 10px;
+        height: 16px;
+        pointer-events: none;
+        border-radius: 2px;
+        animation: fall var(--fall-time) linear forwards;
+      }
+
+      @keyframes breathe { 50% { transform: translateY(-7px) rotate(-1.2deg); } }
+      @keyframes pull-body { 35% { transform: translateX(29px) rotate(5deg); } 75% { transform: translateX(-8px) rotate(-2deg); } }
+      @keyframes pull-head { 35% { transform: rotate(4deg) scale(1.025); } 75% { transform: rotate(-1deg); } }
+      @keyframes push-body { 35% { transform: translateX(17px) rotate(-3deg); } 75% { transform: translateX(-5px) rotate(1deg); } }
+      @keyframes push-head { 35% { transform: translateX(4px) rotate(-2deg) scale(1.02); } 75% { transform: rotate(1deg); } }
+      @keyframes dance-body { 0%, 100% { transform: translateY(0) rotate(-5deg); } 25% { transform: translate(-13px, -14px) rotate(-12deg); } 50% { transform: translateY(-2px) rotate(7deg) scale(1.04); } 75% { transform: translate(13px, -14px) rotate(12deg); } }
+      @keyframes dance-head { 0%, 100% { transform: rotate(-4deg) translateY(0); } 25% { transform: rotate(-10deg) translateY(-7px); } 50% { transform: rotate(7deg) translateY(-2px) scale(1.04); } 75% { transform: rotate(10deg) translateY(-7px); } }
+      @keyframes present-body { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); } 36% { transform: translate3d(5px, -5px, 0) rotate(-1.7deg); } 68% { transform: translate3d(-3px, 6px, 0) rotate(1.1deg); } }
+      @keyframes present-head { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); } 36% { transform: translate3d(2px, -4px, 0) rotate(-1.2deg) scale(1.012); } 68% { transform: translate3d(-1px, 4px, 0) rotate(.9deg) scale(.99); } }
+      @keyframes catch-breath { 0%, 100% { transform: translateY(0) scale(1); } 38% { transform: translateY(7px) scale(.975, 1.035); } 65% { transform: translateY(-4px) scale(1.015, .985); } }
+      @keyframes breathing-head { 0%, 100% { transform: translateY(0); } 38% { transform: translateY(5px) scale(.985, 1.025); } 65% { transform: translateY(-3px) scale(1.01, .985); } }
+      @keyframes pop-out { 16%, 76% { opacity: 1; transform: scale(1) rotate(-8deg); } 100% { opacity: 0; transform: translateY(-10px) scale(.92) rotate(-8deg); } }
+      @keyframes nod { 25% { transform: rotate(6deg) translateY(8px); } 50% { transform: rotate(-2deg) translateY(-2px); } 75% { transform: rotate(5deg) translateY(5px); } }
+      @keyframes boop { 22% { transform: translateY(12px) scale(.94, 1.05); } 48% { transform: translateY(-5px) scale(1.035, .98); } 72% { transform: rotate(-3deg); } }
+      @keyframes wave-bounce { 24% { transform: translateY(-9px) rotate(-4deg); } 49% { transform: translateY(0) rotate(3deg); } 75% { transform: translateY(-5px) rotate(-2deg); } }
+      @keyframes giggle { 16%, 48%, 80% { transform: translateX(-8px) rotate(-2deg) scale(1.015); } 32%, 64% { transform: translateX(8px) rotate(2deg) scale(1.015); } }
+      @keyframes dizzy { 22% { transform: rotate(-10deg) translateX(-8px); } 45% { transform: rotate(9deg) translateX(7px); } 68% { transform: rotate(-7deg) translateX(-4px); } 86% { transform: rotate(3deg); } }
+      @keyframes hold-ring { to { stroke-dashoffset: 0; } }
+      @keyframes holding-pulse { 50% { filter: saturate(1.1) brightness(1.06); } }
+      @keyframes green-tease { 0%, 100% { transform: translateY(0) rotate(0); filter: brightness(1); } 45% { transform: translateY(-8px) rotate(-2deg); filter: brightness(1.08) saturate(1.13); } 68% { transform: translateY(0) rotate(1deg); } }
+      @keyframes reco-card-in { to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+      @keyframes missing-n-arrives { 0% { opacity: 0; transform: translate3d(-28px, 22px, 0) rotate(-42deg) scale(.18); } 58% { opacity: 1; transform: translate3d(4px, -7px, 0) rotate(7deg) scale(1.15); } 78% { transform: translate3d(-2px, 2px, 0) rotate(-2deg) scale(.96); } 100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0) scale(1); } }
+      @keyframes corrected-name-pop { 42% { transform: translateY(-8px) rotate(-1deg) scale(1.025); } 70% { transform: translateY(3px) rotate(.5deg) scale(.99); } }
+      @keyframes n-mascot-form { 0% { transform: translate3d(0, 0, 0) rotate(0); } 40% { transform: translate3d(7px, -12px, 0) rotate(-10deg) scale(1.05); } 72% { transform: translate3d(-4px, 5px, 0) rotate(5deg) scale(.98); } 100% { transform: translate3d(0, 0, 0) rotate(0); } }
+      @keyframes fall { to { transform: translate3d(var(--drift), 110vh, 0) rotate(720deg); opacity: 0; } }
+
+      @media (max-width: 700px) {
+        .page { display: grid; padding: 18px 14px; }
+        .invite { min-height: 0; margin: 0 auto; }
+        .free-mascot { width: 142px; bottom: 8px; left: -6px; }
+        .mascot-side { min-height: 235px; place-items: end center; }
+        .mascot-side::before { width: 230px; height: 230px; top: 16px; }
+        .sticker-note { top: 21px; left: 21px; font-size: 0.78rem; }
+        .mascot-wrap { width: 227px; margin: 0 -14px 0 0; }
+        .action-pop { right: -36px; bottom: 116px; }
+        .touch-guide { bottom: 7px; font-size: 0.61rem; }
+        .content { min-height: min(640px, 80vh); padding: 28px 15px 22px; }
+        h1 { font-size: clamp(2.35rem, 12vw, 3.6rem); }
+        .choice-zone { min-height: 188px; margin-top: 29px; }
+        .hold-actions { min-height: 172px; gap: 18px; }
+        .hold-button { width: min(40vw, 150px); height: min(40vw, 150px); }
+        .hold-label { font-size: clamp(0.75rem, 3.2vw, 0.98rem); }
+        .name-form { flex-direction: column; }
+        .name-form .flow-button { width: 100%; }
+        .rizal-recos { grid-template-columns: 1fr; width: min(100%, 330px); }
+        .reco-card { display: grid; grid-template-columns: 116px 1fr; align-items: stretch; }
+        .reco-photo { height: 100%; min-height: 94px; aspect-ratio: auto; }
+        .reco-copy { align-self: center; }
+      }
+
+      @media (max-width: 390px) {
+        .food-grid { grid-template-columns: 1fr; }
+        .food-card { min-height: 75px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .confetti { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+      }
+      /* The shadow stays grounded while the body moves above it. */
+      .free-mascot::before { content: ''; position: absolute; bottom: 5%; left: 24%; width: 54%; height: 7%; border-radius: 50%; background: radial-gradient(ellipse, #76504555, #76504500 72%); filter: blur(3px); pointer-events: none; }
+      .mascot-wrap.is-peeking { animation: peek-around 3.2s cubic-bezier(.4,0,.2,1) both; }
+      @keyframes peek-around { 0%,100% { transform: translateX(0) rotate(0); } 35%,65% { transform: translateX(-48%) rotate(16deg); } 78% { transform: translateX(5%) rotate(-5deg); } }
+      .mascot-dialogue { position: fixed; z-index: 70; bottom: max(22px, env(safe-area-inset-bottom)); left: 50%; transform: translate(-50%, 12px); opacity: 0; width: max-content; max-width: min(420px, calc(100vw - 32px)); padding: 14px 20px; border: 1px solid #f0d6c4; border-radius: 22px 22px 22px 5px; background: #fffaf2; box-shadow: 0 8px 28px #885d3520; font-weight: 650; line-height: 1.4; text-align: center; pointer-events: none; transition: opacity .3s, transform .4s; }
+      .mascot-dialogue.is-visible { opacity: 1; transform: translate(-50%, 0); }
+      .hold-button.is-holding { animation: none; }
+      .hold-button { transition: translate .7s cubic-bezier(.22,.8,.3,1); }
+      .hold-button.is-nudged { translate: 10px 0; }
+      body.is-blooming { background: #fff7ed; transition: background 1.2s; }
+      .flower-garden { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+      .flower { position: absolute; font-size: clamp(28px, 5vw, 62px); animation: flower-grow 1.1s both, flower-sway 4s ease-in-out 1.1s infinite alternate; }
+      @keyframes flower-grow { from { opacity: 0; scale: .1; rotate: -45deg; } to { opacity: .8; scale: 1; rotate: 0deg; } }
+      @keyframes flower-sway { to { rotate: 12deg; translate: 0 -8px; } }
+      .page { z-index: 1; }
+      @media (max-width: 700px) { .mascot-dialogue { top: max(36px, env(safe-area-inset-top)); bottom: auto; font-size: .88rem; } }
+      @media (prefers-reduced-motion: reduce) { .flower, .mascot-wrap.is-peeking { animation: none; } .hold-button, .mascot-dialogue { transition: none; } }
+      :root { --ink: #292c28; --muted: #767b73; --line: #e6e9e2; --coral-dark: #495848; }
+      body, body.is-blooming { background: #fff; }
+      .flower-garden, .eyebrow, .food-vibe, .food-icon { display: none; }
+      .food-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .food-card { min-height: 64px; padding: 18px; border-radius: 12px; background: #fff; box-shadow: none; justify-content: center; text-align: center; }
+      .food-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px #2531250a; }
+      .food-card[aria-pressed="true"] { background: #f0f5ee; border-color: #90aa85; box-shadow: none; }
+      .flow-button, .confirm { font-weight: 650; box-shadow: none; }
+      .name-input { background: white; box-shadow: none; }
+      .lead { font-size: 1rem; }
+      .mascot-dialogue { font-weight: 500; background: #fff; border-color: #e5e8df; box-shadow: 0 5px 20px #2632230b; }
+      .audio-tools { position: fixed; top: 16px; right: 18px; z-index: 80; display: flex; gap: 8px; }
+      .audio-tools button { border: 1px solid var(--line); border-radius: 24px; background: white; color: #626b60; font-size: 12px; padding: 8px 12px; cursor: pointer; }
+      .privacy-note { max-width: 390px; color: #8a8e85; font-size: 11px; line-height: 1.5; margin: 24px auto 0; }
+      #pickScreen, #yayScreen { padding-bottom: 100px; }
+      .finale h1 { max-width: 610px; font-size: clamp(2.1rem, 4.8vw, 3.8rem); line-height: 1.08; }
+      .finale .lead { max-width: 510px; }
+      .finale .final-detail { padding: 0; border: 0; background: none; color: var(--muted); font-size: .85rem; }
+      .sidekick { position: fixed; z-index: 65; bottom: 16px; right: 16px; }
+      .sidekick button { width: 66px; height: 78px; padding: 4px; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 5px 3px #292c2820); transition: transform .35s; }
+      .sidekick button:hover, .sidekick.is-speaking button { transform: rotate(-8deg) translateY(-5px); }
+      .sidekick svg { width: 100%; height: 100%; }
+      .cat-eyes { transform-origin: center; animation: cat-blink 5s infinite; }
+      @keyframes cat-blink { 0%, 44%, 48%, 100% { scale: 1 1; } 46% { scale: 1 .12; } }
+      .sidekick-line { position: absolute; bottom: 84px; right: 0; width: 225px; max-width: calc(100vw - 36px); padding: 13px 16px; border: 1px solid #e0e5db; border-radius: 18px 18px 3px 18px; background: #f5f7f2; font-size: 13px; line-height: 1.5; opacity: 0; transform: translateY(8px); transition: .3s; pointer-events: none; }
+      .sidekick.is-speaking .sidekick-line { opacity: 1; transform: translateY(0); }
+      .decline { display: block; margin: 26px auto 0; padding: 8px; border: 0; background: none; color: #777f71; text-decoration: underline; cursor: pointer; font-size: 12px; }
+      @media (max-width: 700px) { .page { padding-top: 124px; padding-bottom: 96px; } .food-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mascot-dialogue { top: 62px; } .sidekick { right: 8px; bottom: 8px; } .sidekick button { width: 54px; height: 64px; } }
+      @media (prefers-reduced-motion: reduce) { .cat-eyes { animation: none; } .sidekick-line, .sidekick button { transition: none; } }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <aside class="free-mascot" id="freeMascot" aria-label="Interactive caricature">
+        <div class="mascot-wrap" id="mascotWrap">
+          <span class="tug-line"></span>
+          <span class="action-pop" id="actionPop" role="status" aria-live="polite">yoink!</span>
+          <button class="mascot-stage" id="mascotStage" type="button" aria-label="Play with the caricature: tap its head, hand, or tummy. You can also swipe it.">
+            <img class="mascot is-active" data-frame="idle" src="assets/denice-invite-mascot.png" alt="" />
+            <img class="mascot" data-frame="walk" src="assets/denice-invite-mascot-walk.png" alt="" />
+            <img class="mascot" data-frame="wave" src="assets/denice-invite-mascot-wave.png" alt="" />
+            <img class="mascot" data-frame="laugh" src="assets/denice-invite-mascot-laugh.png" alt="" />
+            <img class="mascot" data-frame="reach" src="assets/denice-invite-mascot-reach.png" alt="" />
+            <img class="mascot" data-frame="pull" src="assets/denice-invite-mascot-pull.png" alt="" />
+            <img class="mascot" data-frame="pull-step" src="assets/denice-invite-mascot-pull-step.png" alt="" />
+            <img class="mascot" data-frame="step" src="assets/denice-invite-mascot-step.png" alt="" />
+            <img class="mascot" data-frame="tease-ready" src="assets/denice-invite-mascot-tease-ready.png" alt="" />
+            <img class="mascot" data-frame="tease-present" src="assets/denice-invite-mascot-tease-present.png" alt="" />
+            <img class="mascot" data-frame="tease-dip" src="assets/denice-invite-mascot-tease-dip.png" alt="" />
+          </button>
+        </div>
+      </aside>
+
+      <section class="invite" aria-label="A playful invitation for Dennice">
+        <div class="content">
+          <section class="screen" id="nameScreen">
+            <h1 id="welcomeTitle">Anong pangalan mo?</h1>
+            <p class="lead" id="welcomeCopy">May tanong lang ako.</p>
+            <form class="name-form" id="nameForm">
+              <label class="sr-only" for="nameInput">Your name</label>
+              <input class="name-input" id="nameInput" name="name" type="text" autocomplete="given-name" placeholder="type your name here" required maxlength="40" />
+              <button class="flow-button" type="submit">Continue →</button>
+            </form>
+            <p class="privacy-note" id="recordingNotice">Visits, button taps, and choices are saved for Christian. What you type here isn't recorded.</p>
+          </section>
+
+          <section class="screen" id="nameFixScreen" hidden>
+            <p class="eyebrow">wait lang</p>
+            <h1 class="name-fix-word" aria-live="polite">De<span>n</span><span class="missing-n" id="missingNSlot" aria-hidden="true">n</span>ice</h1>
+            <p class="lead" id="nameFixLine">Parang may kulang.</p>
+          </section>
+
+          <section class="screen" id="introScreen" hidden>
+            <p class="eyebrow">verified, finally</p>
+            <h1>Uy, <em>Dennice.</em></h1>
+            <p class="lead">Tama yung hula mo nung isang araw.</p>
+            <button class="flow-button" id="showQuestionButton" type="button">Ano yun? →</button>
+          </section>
+
+          <section class="screen" id="notDenniceScreen" hidden>
+            <p class="eyebrow">uh oh</p>
+            <h1>Hindi ikaw si <em>Dennice?</em></h1>
+            <p class="lead">Ay. Para sa kanya kasi ito.</p>
+            <button class="flow-button" id="tryAgainButton" type="button">Ulit →</button>
+          </section>
+
+          <section class="screen" id="askScreen" hidden>
+            <h1>Labas tayo paguwi mo dito</h1>
+
+            <div class="choice-zone" aria-label="Answer choices">
+              <div class="hold-actions">
+                <button class="hold-button yes-hold" type="button" data-choice="yes" aria-describedby="holdHint">
+                  <svg class="hold-ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="hold-ring-track" cx="50" cy="50" r="46" /><circle class="hold-ring-fill" cx="50" cy="50" r="46" /></svg>
+                  <span class="hold-label">Sige,<br />tara G!</span><span class="hold-status">Hold</span>
+                </button>
+                <button class="hold-button no-hold" type="button" data-choice="no" aria-describedby="holdHint">
+                  <svg class="hold-ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="hold-ring-track" cx="50" cy="50" r="46" /><circle class="hold-ring-fill" cx="50" cy="50" r="46" /></svg>
+                  <span class="hold-label">Pass,<br />di ako<br />pwede</span><span class="hold-status">Hold</span>
+                </button>
+              </div>
+              <p class="hold-instruction" id="holdHint" aria-live="polite">Hold green for 3 seconds. Hold red for about 21 seconds to watch the little tugging skit. Release either button to pause.</p>
+            </div>
+            <button class="decline" id="declineButton" type="button">Ibang araw na lang</button>
+          </section>
+
+          <section class="screen" id="pickScreen" hidden>
+            <h1>Anong trip mo?</h1>
+            <p class="lead">Pwedeng higit sa isa.</p>
+            <div class="food-grid" aria-label="Things to do">
+              <button class="food-card" type="button" data-food="Coffee" aria-pressed="false">Coffee</button>
+              <button class="food-card" type="button" data-food="Pasta" aria-pressed="false">Pasta</button>
+              <button class="food-card" type="button" data-food="Unli wings" aria-pressed="false">Unli wings</button>
+              <button class="food-card" type="button" data-food="Samgy" aria-pressed="false">Samgy</button>
+              <button class="food-card" type="button" data-food="Road trip" aria-pressed="false">Road trip</button>
+              <button class="food-card" type="button" data-food="Gym" aria-pressed="false">Gym</button>
+              <button class="food-card" type="button" data-food="Jogging" aria-pressed="false">Jogging</button>
+              <button class="food-card" type="button" data-food="Movie" aria-pressed="false">Movie</button>
+              <button class="food-card" type="button" data-food="Street food" aria-pressed="false">Street food</button>
+              <button class="food-card" type="button" data-food="Lakad lang" aria-pressed="false">Lakad lang</button>
+              <button class="food-card" type="button" data-food="Arcade" aria-pressed="false">Arcade</button>
+              <button class="food-card" type="button" data-food="Ikaw bahala" aria-pressed="false">Ikaw bahala</button>
+            </div>
+            <p class="selection-copy" id="selectionCopy" aria-live="polite"></p>
+            <button class="confirm" id="confirmButton" type="button">Ito →</button>
+          </section>
+
+          <section class="screen finale" id="yayScreen" hidden>
+            <h1>Did I make you laugh?<br />Or at least smile?</h1>
+            <p class="lead">If G yung option na pinili mo, don't worry, seryoso naman ako sa aya HAHAHAHA.</p>
+            <p class="final-detail" id="finalDetail"></p>
+            <button class="restart" id="restartButton" type="button">Palit ng choices</button>
+          </section>
+
+          <section class="screen no-thanks finale" id="noThanksScreen" hidden>
+            <h1>Did I make you laugh?<br />Or at least smile?</h1>
+            <p class="lead">Kung pass muna, okay lang. Sana napangiti man lang kita HAHAHAHA. Ingat ka diyan.</p>
+            <button class="restart" id="backButton" type="button">Balik</button>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div class="audio-tools"><button id="soundButton" type="button" aria-pressed="false">Sound off</button><button id="musicButton" type="button" aria-pressed="false" hidden>Music off</button></div>
+    <aside class="sidekick" id="sidekick" aria-label="A nosy cat">
+      <p class="sidekick-line" id="sidekickLine" role="status" aria-live="polite"></p>
+      <button id="sidekickButton" type="button" aria-label="Hear what the cat has to say">
+        <svg viewBox="0 0 80 96" aria-hidden="true"><path d="M18 73Q7 55 11 36L10 9 29 22Q40 18 51 22L71 9 68 36Q76 56 63 74L64 88H16Z" fill="#e9ece3" stroke="#495546" stroke-width="2.5"/><path d="M18 28L17 19 26 27M56 27L64 19 63 28" fill="#c6cdbc"/><g class="cat-eyes" fill="#394334"><ellipse cx="29" cy="44" rx="3" ry="4"/><ellipse cx="51" cy="44" rx="3" ry="4"/></g><path d="M37 53L40 56 43 53M40 56Q36 63 32 58M40 56Q44 63 48 58M12 51L25 54M55 54L69 51" fill="none" stroke="#495546" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </aside>
+    <script src="experience.js"></script>
+    <script>
+      const mascotWrap = document.querySelector('#mascotWrap');
+      const mascotStage = document.querySelector('#mascotStage');
+      const freeMascot = document.querySelector('#freeMascot');
+      const actionPop = document.querySelector('#actionPop');
+      const mascotFrames = [...document.querySelectorAll('.mascot[data-frame]')];
+      const holdButtons = [...document.querySelectorAll('.hold-button')];
+      const holdHint = document.querySelector('#holdHint');
+      const screens = [...document.querySelectorAll('.screen')];
+      const foodCards = [...document.querySelectorAll('.food-card')];
+      const selectionCopy = document.querySelector('#selectionCopy');
+      const confirmButton = document.querySelector('#confirmButton');
+      const nameForm = document.querySelector('#nameForm');
+      const nameInput = document.querySelector('#nameInput');
+      const nameFixScreen = document.querySelector('#nameFixScreen');
+      const nameFixLine = document.querySelector('#nameFixLine');
+      const missingNSlot = document.querySelector('#missingNSlot');
+      const showQuestionButton = document.querySelector('#showQuestionButton');
+      const tryAgainButton = document.querySelector('#tryAgainButton');
+      let selectedFood = '';
+      const selectedChoices = new Set();
+      let frameAnimationId;
+      let pointerStart;
+      let ignoreMascotClickUntil = 0;
+      let nameFixTimers = [];
+      const holdStates = new WeakMap();
+      let sceneTimers = [];
+      let idleTimer;
+      let speechTimer;
+      let redAway = false;
+      let redPrankPlayed = false;
+      const dialogue = document.createElement('div');
+      dialogue.className = 'mascot-dialogue';
+      dialogue.setAttribute('role', 'status');
+      document.body.append(dialogue);
+      function say(text, duration = 4400) {
+        clearTimeout(speechTimer);
+        dialogue.textContent = text;
+        dialogue.classList.toggle('is-visible', Boolean(text));
+        speechTimer = setTimeout(() => dialogue.classList.remove('is-visible'), duration);
+      }
+      function sceneLater(callback, delay) {
+        sceneTimers.push(setTimeout(callback, delay));
+      }
+      function stopSceneTimers() {
+        sceneTimers.forEach(clearTimeout);
+        sceneTimers = [];
+        clearTimeout(idleTimer);
+      }
+      function armIdle() {
+        clearTimeout(idleTimer);
+        if (document.querySelector('#askScreen').hidden) return;
+        idleTimer = setTimeout(() => {
+          if (redAway) {
+            returnChoices();
+            say('O, binalik ko na.');
+            holdHint.textContent = 'Hold either button for 3 seconds. Red now finishes with your answer.';
+            Invite.whisper('Ako nagsabi na ibalik niya.', 1200);
+          } else {
+            animateMascot('is-peeking', '');
+            playFrames(['idle', 'wave', 'idle', 'laugh'], 650, 3200);
+            say('Ah, pinag-iisipan mo talaga.');
+            Invite.whisper('Hayaan mo siya mag-isip.', 1300);
+          }
+        }, redAway ? 12000 : 14000);
+      }
+      function returnChoices() {
+        if (redAway || document.querySelector('.no-hold').classList.contains('is-dragging')) Invite.track('red_returned');
+        stopSceneTimers();
+        redAway = false;
+        holdButtons.forEach(button => {
+          button.classList.remove('is-guided', 'is-teasing', 'is-dragging', 'is-returning', 'is-nudged');
+          button.removeAttribute('style');
+          button.disabled = false;
+        });
+        document.querySelector('.button-placeholder')?.remove();
+        resetMascotHome();
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          document.querySelector('.no-hold').animate([
+            { translate: '-100vw 0', rotate: '-90deg' },
+            { translate: '0 0', rotate: '0deg' }
+          ], { duration: 1000, easing: 'cubic-bezier(.22,.8,.3,1)' });
+        }
+      }
+      function bloom() {
+        document.body.classList.add('is-blooming');
+        if (document.querySelector('.flower-garden')) return;
+        const garden = document.createElement('div');
+        garden.className = 'flower-garden';
+        garden.setAttribute('aria-hidden', 'true');
+        for (let i = 0; i < 18; i++) {
+          const flower = document.createElement('span');
+          flower.className = 'flower';
+          flower.textContent = ['🌼', '🌸', '🌷', '🌻'][i % 4];
+          flower.style.left = `${i % 2 ? 91 : 1}%`;
+          flower.style.top = `${Math.floor(i / 2) * 12}%`;
+          flower.style.animationDelay = `${i * .045}s`;
+          garden.append(flower);
+        }
+        document.body.prepend(garden);
+      }
+      const HOLD_DURATION = 3000;
+      const NO_WALK_START = 1800;
+      const NO_BREATH_ONE_START = 5100;
+      const NO_PULL_ONE_START = 6400;
+      const NO_BREATH_TWO_START = 8600;
+      const NO_PULL_TWO_START = 12500;
+      const NO_BREATH_THREE_START = 14850;
+      const NO_FINAL_PULL_START = 16200;
+      const NO_ESCAPE_END = 20900;
+      const GREEN_WALK_DURATION = 3150;
+      const GREEN_PUSH_DURATION = 2600;
+      const GRIP_POINT = { mascotX: 0.79, mascotY: 0.56, buttonX: 0.1, buttonY: 0.51 };
+
+      const mascotActions = ['is-peeking', 'is-pulling', 'is-pushing', 'is-dancing', 'is-presenting', 'is-breathing', 'is-nodding', 'is-booped', 'is-waving', 'is-giggling', 'is-dizzy'];
+
+      function showScreen(id) {
+        stopSceneTimers();
+        Invite.hush();
+        screens.forEach((screen) => { screen.hidden = screen.id !== id; });
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        Invite.track('screen', id);
+        if (id === 'askScreen') armIdle();
+      }
+
+      function clearNameFixTimers() {
+        nameFixTimers.forEach((timer) => window.clearTimeout(timer));
+        nameFixTimers = [];
+      }
+
+      function resetMascotHome() {
+        stopFramePlayback();
+        mascotWrap.classList.remove(...mascotActions);
+        freeMascot.classList.remove('is-walking', 'is-gripping', 'is-n-forming');
+        freeMascot.style.transition = 'none';
+        freeMascot.style.left = '';
+        freeMascot.style.top = '';
+        freeMascot.style.bottom = '';
+        freeMascot.style.opacity = '';
+        freeMascot.style.transform = 'translate3d(0, 0, 0)';
+        void freeMascot.offsetWidth;
+        freeMascot.style.transition = '';
+        showFrame('idle');
+      }
+
+      function queueNameFix(delay, callback) {
+        nameFixTimers.push(window.setTimeout(callback, delay));
+      }
+
+      function runMissingNSequence() {
+        clearNameFixTimers();
+        showScreen('nameFixScreen');
+        nameFixScreen.classList.remove('is-corrected');
+        nameFixLine.textContent = 'Parang may kulang.';
+        resetMascotHome();
+
+        const mascotWidth = freeMascot.getBoundingClientRect().width;
+        const slotBounds = missingNSlot.getBoundingClientRect();
+        const startLeft = -mascotWidth - 24;
+        const startTop = Math.max(14, Math.min(window.innerHeight - mascotWidth - 12, slotBounds.top + slotBounds.height * 0.46 - mascotWidth * 0.58));
+        const targetLeft = slotBounds.left - mascotWidth * 0.43;
+
+        freeMascot.style.transition = 'none';
+        freeMascot.style.left = `${startLeft}px`;
+        freeMascot.style.top = `${startTop}px`;
+        freeMascot.style.bottom = 'auto';
+        freeMascot.style.transform = 'translate3d(0, 0, 0)';
+        void freeMascot.offsetWidth;
+        freeMascot.style.transition = '';
+        freeMascot.classList.add('is-walking');
+        freeMascot.style.transform = `translate3d(${targetLeft - startLeft}px, 0, 0)`;
+        playFrames(['walk', 'step', 'walk', 'step', 'walk'], 255, 1640);
+
+        queueNameFix(1680, () => {
+          freeMascot.classList.remove('is-walking');
+          freeMascot.classList.add('is-n-forming');
+          showFrame('reach');
+          nameFixLine.textContent = 'Wait, yung isa pang N.';
+        });
+        queueNameFix(1830, () => {
+          nameFixScreen.classList.add('is-corrected');
+          nameFixLine.textContent = 'Ayan. Dennice.';
+        });
+        queueNameFix(4200, () => {
+          showScreen('introScreen');
+          resetMascotHome();
+          animateMascot('is-waving', '');
+          playFrames(['idle', 'wave', 'idle'], 180, 780);
+        });
+      }
+
+      nameForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const normalizedName = nameInput.value.trim().toLocaleLowerCase();
+        if (normalizedName === 'dennice' || normalizedName === 'denice') {
+          runMissingNSequence();
+        } else {
+          clearNameFixTimers();
+          showScreen('notDenniceScreen');
+          resetMascotHome();
+          animateMascot('is-dizzy', 'wait…');
+          playFrames(['wave', 'idle', 'laugh', 'idle'], 150, 950);
+        }
+      });
+
+      showQuestionButton.addEventListener('click', () => {
+        showScreen('askScreen');
+        resetMascotHome();
+        animateMascot('is-waving', '');
+        playFrames(['idle', 'wave', 'idle'], 180, 780);
+      });
+
+      tryAgainButton.addEventListener('click', () => {
+        showScreen('nameScreen');
+        resetMascotHome();
+        nameInput.focus();
+      });
+
+      function showFrame(name) {
+        mascotFrames.forEach((frame) => frame.classList.toggle('is-active', frame.dataset.frame === name));
+      }
+
+      function stopFramePlayback() {
+        window.cancelAnimationFrame(frameAnimationId);
+        frameAnimationId = undefined;
+      }
+
+      function playFrames(sequence, interval = 150, duration = 850) {
+        stopFramePlayback();
+        let startedAt;
+        let shownIndex = -1;
+
+        function renderFrame(now) {
+          startedAt ??= now;
+          const elapsed = now - startedAt;
+          if (duration !== Infinity && elapsed >= duration) {
+            showFrame('idle');
+            frameAnimationId = undefined;
+            return;
+          }
+
+          const nextIndex = Math.floor(elapsed / interval) % sequence.length;
+          if (nextIndex !== shownIndex) {
+            shownIndex = nextIndex;
+            showFrame(sequence[nextIndex]);
+          }
+          frameAnimationId = window.requestAnimationFrame(renderFrame);
+        }
+
+        frameAnimationId = window.requestAnimationFrame(renderFrame);
+      }
+
+      function animateMascot(className, message) {
+        mascotWrap.classList.remove(...mascotActions);
+        void mascotWrap.offsetWidth;
+        actionPop.textContent = message;
+        mascotWrap.classList.add(className);
+      }
+
+      function playMascot(action, message, pullDuration = 920) {
+        const isPulling = action === 'pull';
+        animateMascot(isPulling ? 'is-pulling' : 'is-nodding', message);
+        playFrames(
+          isPulling ? ['pull', 'pull-step', 'pull', 'pull-step'] : ['idle', 'wave', 'idle'],
+          isPulling ? 320 : 190,
+          isPulling ? pullDuration : 610,
+        );
+      }
+
+      function playPushMascot(duration) {
+        animateMascot('is-pushing', '');
+        playFrames(['pull', 'pull-step', 'pull', 'pull-step'], 320, duration);
+      }
+
+      function playCelebrationDance() {
+        animateMascot('is-dancing', '');
+        playFrames(['wave', 'laugh', 'wave', 'laugh'], 300, Infinity);
+      }
+
+      function reactToMascot(reaction) {
+        if (holdButtons.some(button => holdStates.has(button)) || freeMascot.classList.contains('is-walking') || freeMascot.classList.contains('is-gripping')) return;
+        armIdle();
+        Invite.track('mascot', reaction);
+        say(({wave: 'Uy.', giggle: 'Hoy, nakikiliti.', dizzy: 'Teka, nahilo ako.', boop: 'Bakit sa mukha?'})[reaction]);
+        Invite.whisper('Kulitin mo pa.', 900);
+        if (reaction === 'wave') {
+          animateMascot('is-waving', 'hi hi!');
+          playFrames(['idle', 'wave', 'idle', 'wave'], 150, 1030);
+          return;
+        }
+        if (reaction === 'giggle') {
+          animateMascot('is-giggling', 'hehe!');
+          playFrames(['idle', 'laugh', 'idle', 'laugh'], 150, 1040);
+          return;
+        }
+        if (reaction === 'dizzy') {
+          animateMascot('is-dizzy', 'whoa!');
+          playFrames(['wave', 'idle', 'laugh', 'idle'], 135, 950);
+          return;
+        }
+        animateMascot('is-booped', 'boop!');
+        playFrames(['idle', 'wave', 'idle'], 130, 650);
+      }
+
+      function reactAtPoint(event) {
+        const bounds = mascotStage.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) / bounds.width;
+        const y = (event.clientY - bounds.top) / bounds.height;
+        if (y < 0.46) {
+          reactToMascot('boop');
+        } else if (x < 0.44 && y < 0.76) {
+          reactToMascot('wave');
+        } else {
+          reactToMascot('giggle');
+        }
+      }
+
+      mascotStage.addEventListener('pointerdown', (event) => {
+        pointerStart = { x: event.clientX, y: event.clientY };
+        mascotStage.setPointerCapture?.(event.pointerId);
+      });
+
+      mascotStage.addEventListener('pointerup', (event) => {
+        if (!pointerStart) return;
+        const travelX = event.clientX - pointerStart.x;
+        const travelY = event.clientY - pointerStart.y;
+        pointerStart = undefined;
+        ignoreMascotClickUntil = performance.now() + 420;
+        if (Math.hypot(travelX, travelY) > 42) {
+          reactToMascot('dizzy');
+        } else {
+          reactAtPoint(event);
+        }
+      });
+
+      mascotStage.addEventListener('pointercancel', () => { pointerStart = undefined; });
+      mascotStage.addEventListener('click', (event) => {
+        if (performance.now() >= ignoreMascotClickUntil) reactAtPoint(event);
+      });
+      mascotStage.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          reactToMascot('boop');
+        }
+      });
+
+      function clearHold(button, resetMessage = true) {
+        const state = holdStates.get(button);
+        if (!state) return;
+        if (resetMessage) Invite.track('hold_cancel', button.dataset.choice);
+        window.clearTimeout(state.completeTimer);
+        window.clearTimeout(state.walkTimer);
+        state.sequenceTimers?.forEach((timer) => window.clearTimeout(timer));
+        const isCancelledNoHold = button.dataset.choice === 'no' && !state.escaped;
+        if (!state.escaped) button.classList.remove('is-holding');
+        holdStates.delete(button);
+        button.classList.remove('is-nudged');
+        if (isCancelledNoHold) {
+          // A release can happen at any point: walking, resting, or mid-tug.
+          // Return both actors as one recovery so the mascot never stays off-screen.
+          restoreNoButton(button);
+          resetMascotHome();
+        } else if (!state.escaped) {
+          freeMascot.classList.remove('is-gripping');
+        }
+        if (resetMessage && !state.escaped) {
+          resetMascotHome();
+          say('Sige, teka lang.', 2200);
+          armIdle();
+          holdHint.textContent = 'Hold green for 3 seconds. Hold red for about 21 seconds. Release to pause.';
+        }
+      }
+
+      function lockMascotPosition() {
+        const bounds = freeMascot.getBoundingClientRect();
+        freeMascot.classList.remove('is-walking');
+        freeMascot.style.transition = 'none';
+        freeMascot.style.left = `${bounds.left}px`;
+        freeMascot.style.top = `${bounds.top}px`;
+        freeMascot.style.bottom = 'auto';
+        freeMascot.style.transform = 'translate3d(0, 0, 0)';
+        void freeMascot.offsetWidth;
+        freeMascot.style.transition = '';
+        return freeMascot.getBoundingClientRect();
+      }
+
+      function walkToNoButton(button) {
+        const state = holdStates.get(button);
+        if (!state || state.escaped) return;
+
+        const mascotBounds = lockMascotPosition();
+        const buttonBounds = button.getBoundingClientRect();
+        const targetLeft = buttonBounds.left + buttonBounds.width * GRIP_POINT.buttonX - mascotBounds.width * GRIP_POINT.mascotX;
+        const targetTop = buttonBounds.top + buttonBounds.height * GRIP_POINT.buttonY - mascotBounds.height * GRIP_POINT.mascotY;
+        const walkX = targetLeft - mascotBounds.left;
+        const walkY = targetTop - mascotBounds.top;
+        mascotWrap.classList.remove(...mascotActions);
+        freeMascot.classList.add('is-walking');
+        freeMascot.style.transform = `translate3d(${walkX}px, ${walkY}px, 0)`;
+        playFrames(['walk', 'step', 'walk', 'step', 'walk'], 320, 3180);
+        holdHint.textContent = 'He is walking over to the NO button… keep holding.';
+      }
+
+      function scheduleNoPhase(button, state, delay, callback) {
+        const timer = window.setTimeout(() => {
+          if (holdStates.get(button) !== state || state.escaped) return;
+          callback();
+        }, delay);
+        state.sequenceTimers.push(timer);
+      }
+
+      function pinNoButton(button) {
+        resetHoldRing(button);
+        const bounds = button.getBoundingClientRect();
+        if (!document.querySelector('.button-placeholder')) {
+          const placeholder = document.createElement('span');
+          placeholder.className = 'button-placeholder';
+          placeholder.setAttribute('aria-hidden', 'true');
+          placeholder.style.width = `${bounds.width}px`;
+          placeholder.style.height = `${bounds.height}px`;
+          button.insertAdjacentElement('afterend', placeholder);
+        }
+        button.classList.add('is-dragging');
+        button.style.transition = 'none';
+        button.style.position = 'fixed';
+        button.style.left = `${bounds.left}px`;
+        button.style.top = `${bounds.top}px`;
+        button.style.width = `${bounds.width}px`;
+        button.style.height = `${bounds.height}px`;
+        button.style.margin = '0';
+        button.style.transform = 'translate3d(0, 0, 0) rotate(0deg)';
+        void button.offsetWidth;
+        return button.getBoundingClientRect();
+      }
+
+      function restoreNoButton(button) {
+        button.style.filter = '';
+        if (!button.classList.contains('is-dragging')) return;
+
+        const placeholder = button.nextElementSibling?.classList.contains('button-placeholder')
+          ? button.nextElementSibling
+          : document.querySelector('.button-placeholder');
+
+        button.classList.add('is-returning');
+        button.style.transition = 'transform 620ms cubic-bezier(.22,.8,.3,1)';
+        const target = placeholder?.getBoundingClientRect();
+        const x = target ? target.left - parseFloat(button.style.left) : 0;
+        const y = target ? target.top - parseFloat(button.style.top) : 0;
+        button.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(0deg)`;
+
+        window.setTimeout(() => {
+          if (!button.classList.contains('is-returning')) return;
+          button.classList.remove('is-returning', 'is-dragging', 'is-holding');
+          button.removeAttribute('style');
+          placeholder?.remove();
+        }, 660);
+      }
+
+      function pinGreenButton(button) {
+        resetHoldRing(button);
+        const bounds = button.getBoundingClientRect();
+        button.classList.remove('is-teasing');
+        button.classList.add('is-guided');
+        button.style.transition = 'none';
+        button.style.position = 'fixed';
+        button.style.left = `${bounds.left}px`;
+        button.style.top = `${bounds.top}px`;
+        button.style.width = `${bounds.width}px`;
+        button.style.height = `${bounds.height}px`;
+        button.style.margin = '0';
+        button.style.transform = 'translate3d(0, 0, 0)';
+        void button.offsetWidth;
+        return button.getBoundingClientRect();
+      }
+
+      function tugButton(button, distanceX, distanceY, rotation, duration) {
+        pinNoButton(button);
+        button.style.transition = `transform ${duration}ms cubic-bezier(.2,.82,.3,1)`;
+        button.style.transform = `translate3d(${distanceX}px, ${distanceY}px, 0) rotate(${rotation}deg)`;
+      }
+
+      function tugMascot(distanceX, distanceY, duration, message) {
+        lockMascotPosition();
+        freeMascot.classList.add('is-gripping');
+        freeMascot.style.transition = `transform ${duration}ms cubic-bezier(.2,.82,.3,1)`;
+        freeMascot.style.transform = `translate3d(${distanceX}px, ${distanceY}px, 0)`;
+        playMascot('pull', message, duration);
+      }
+
+      function catchBreath(button, message) {
+        const state = holdStates.get(button);
+        lockMascotPosition();
+        freeMascot.classList.add('is-gripping');
+        animateMascot('is-breathing', message);
+        playFrames(['pull', 'pull-step', 'pull', 'pull-step'], 340, 1240);
+        button.style.filter = 'saturate(.92) brightness(.96)';
+        const filterTimer = window.setTimeout(() => { button.style.filter = ''; }, 1120);
+        state?.sequenceTimers.push(filterTimer);
+      }
+
+      function startNoEscape(button) {
+        const state = holdStates.get(button);
+        if (!state || state.escaped) return;
+        const tugDistance = Math.max(78, Math.min(128, window.innerWidth * 0.1));
+        tugButton(button, -tugDistance, 8, -32, 2140);
+        tugMascot(-tugDistance, 7, 2140, 'heave!');
+        holdHint.textContent = 'First tug… it is rolling, but he needs another breath.';
+      }
+
+      function secondNoEscapeTug(button) {
+        const distance = Math.max(170, window.innerWidth * 0.28);
+        tugButton(button, -distance, 16, -74, 2280);
+        tugMascot(-distance, 14, 2280, 'again!');
+        holdHint.textContent = 'Second tug… little feet, big determination.';
+      }
+
+      function finalNoEscapeTug(button) {
+        const buttonBounds = pinNoButton(button);
+        const buttonExit = -(buttonBounds.right + buttonBounds.width + 80);
+        lockMascotPosition();
+        button.style.transition = 'transform 4650ms cubic-bezier(.16,.88,.28,1)';
+        button.style.transform = `translate3d(${buttonExit}px, 22px, 0) rotate(-148deg)`;
+        freeMascot.style.transition = 'transform 4650ms cubic-bezier(.16,.88,.28,1)';
+        freeMascot.style.transform = `translate3d(${buttonExit}px, 18px, 0)`;
+        playMascot('pull', 'one more!', 4650);
+        holdHint.textContent = 'One last, very long pull… keep holding!';
+      }
+
+      function walkToGreenButton(button) {
+        const greenBounds = button.getBoundingClientRect();
+        const mascotWidth = freeMascot.getBoundingClientRect().width;
+        const mascotHeight = freeMascot.getBoundingClientRect().height;
+        const targetLeft = greenBounds.left + greenBounds.width * GRIP_POINT.buttonX - mascotWidth * GRIP_POINT.mascotX;
+        const targetTop = greenBounds.top + greenBounds.height * GRIP_POINT.buttonY - mascotHeight * GRIP_POINT.mascotY;
+
+        freeMascot.classList.remove('is-gripping');
+        mascotWrap.classList.remove(...mascotActions);
+        freeMascot.style.transition = 'none';
+        freeMascot.style.left = `${-mascotWidth - 24}px`;
+        freeMascot.style.top = `${targetTop}px`;
+        freeMascot.style.bottom = 'auto';
+        freeMascot.style.transform = 'translate3d(0, 0, 0)';
+        void freeMascot.offsetWidth;
+        freeMascot.style.transition = '';
+        freeMascot.classList.add('is-walking');
+        freeMascot.style.transform = `translate3d(${targetLeft + mascotWidth + 24}px, 0, 0)`;
+        playFrames(['walk', 'step', 'walk', 'step', 'walk'], 320, GREEN_WALK_DURATION);
+        holdHint.textContent = 'He is walking back to the green button.';
+        sceneLater(() => pushGreenToCenter(button), GREEN_WALK_DURATION + 120);
+      }
+
+      function pushGreenToCenter(button) {
+        const greenBounds = pinGreenButton(button);
+        const pushDistance = window.innerWidth / 2 - (greenBounds.left + greenBounds.width / 2);
+        lockMascotPosition();
+        freeMascot.classList.add('is-gripping');
+        freeMascot.style.transition = `transform ${GREEN_PUSH_DURATION}ms cubic-bezier(.2,.82,.3,1)`;
+        freeMascot.style.transform = `translate3d(${pushDistance}px, 0, 0)`;
+        button.style.transition = `transform ${GREEN_PUSH_DURATION}ms cubic-bezier(.2,.82,.3,1)`;
+        button.style.transform = `translate3d(${pushDistance}px, 0, 0)`;
+        playPushMascot(GREEN_PUSH_DURATION);
+        holdHint.textContent = 'A little nudge toward the middle…';
+        sceneLater(() => teaseGreenButton(button), GREEN_PUSH_DURATION + 80);
+      }
+
+      function teaseGreenButton(button) {
+        pinGreenButton(button);
+        document.querySelector('.button-placeholder')?.remove();
+        button.disabled = false;
+        button.classList.add('is-teasing');
+        animateMascot('is-presenting', '');
+        playFrames(['tease-ready', 'tease-present', 'tease-dip', 'tease-present'], 330, Infinity);
+        holdHint.textContent = 'The green button is waiting for you.';
+        freeMascot.classList.remove('is-gripping');
+        say('Dito lang yun.');
+        Invite.whisper('Ang dami niyang ginawa para sa isang tanong.', 1400);
+        armIdle();
+      }
+
+      function finishNoEscape(button) {
+        const state = holdStates.get(button);
+        if (!state) return;
+        state.escaped = true;
+        button.classList.remove('is-holding');
+        holdHint.textContent = 'NO has been rolled safely out of sight. He is probably taking a nap now.';
+        holdStates.delete(button);
+        redAway = true;
+        redPrankPlayed = true;
+        const greenButton = document.querySelector('.yes-hold');
+        greenButton.disabled = true;
+        sceneLater(() => walkToGreenButton(greenButton), 450);
+      }
+
+      function completeHold(button) {
+        const state = holdStates.get(button);
+        if (!state || state.escaped) return;
+        clearHold(button, false);
+        stopSceneTimers();
+        resetMascotHome();
+        button.classList.remove('is-holding');
+        showScreen('pickScreen');
+        Invite.track('accepted', 'yes');
+        Invite.tone('success');
+        say('Ay, oo? Sige.', 3200);
+        Invite.whisper('Kunwari kalmado.', 1300);
+        playCelebrationDance();
+      }
+
+      function beginHold(button, event) {
+        if (button.disabled || button.classList.contains('is-dragging') || document.querySelector('#askScreen').hidden || holdButtons.some(item => holdStates.has(item))) return;
+        clearTimeout(idleTimer);
+        Invite.hush();
+        Invite.track('hold_start', button.dataset.choice);
+        event?.preventDefault();
+        button.classList.remove('is-holding');
+        void button.offsetWidth;
+        button.classList.add('is-holding');
+        const state = { escaped: false, completeTimer: undefined, walkTimer: undefined, sequenceTimers: [] };
+        if (button.dataset.choice === 'no' && redPrankPlayed) {
+          button.style.setProperty('--hold-duration', '3s');
+          say('Sige, walang hatakan ngayon.', 2500);
+          state.completeTimer = window.setTimeout(() => finishDecline('red'), HOLD_DURATION);
+          holdHint.textContent = 'Hold red for 3 seconds to choose pass. Release to cancel.';
+        } else if (button.dataset.choice === 'no') {
+          say('Teka lang.');
+          Invite.whisper('Ayan na naman siya.', 1000);
+          state.walkTimer = window.setTimeout(() => walkToNoButton(button), NO_WALK_START);
+          scheduleNoPhase(button, state, NO_BREATH_ONE_START, () => {
+            catchBreath(button, 'huff…');
+            holdHint.textContent = 'He got there. Tiny breathing break before the first tug…';
+          });
+          scheduleNoPhase(button, state, NO_PULL_ONE_START, () => startNoEscape(button));
+          scheduleNoPhase(button, state, NO_BREATH_TWO_START, () => {
+            catchBreath(button, 'whew…');
+            say('Kahit ibang araw? Pag-isipan mo muna.', 3900);
+            Invite.whisper('O pahinga ka muna. Hinihingal ka na.', 1600);
+            holdHint.textContent = 'He paused to breathe. The NO button is not getting away that easily.';
+          });
+          scheduleNoPhase(button, state, NO_PULL_TWO_START, () => secondNoEscapeTug(button));
+          scheduleNoPhase(button, state, NO_BREATH_THREE_START, () => {
+            catchBreath(button, 'deep breath…');
+            holdHint.textContent = 'Almost there—one more breath, then the big roll.';
+          });
+          scheduleNoPhase(button, state, NO_FINAL_PULL_START, () => finalNoEscapeTug(button));
+          scheduleNoPhase(button, state, NO_ESCAPE_END, () => finishNoEscape(button));
+          holdHint.textContent = 'Keep holding red for about 21 seconds… he has to walk, breathe, tug, and roll it away.';
+        } else {
+          button.classList.remove('is-teasing');
+          say('O, seryoso?', 3000);
+          Invite.whisper('Kanina pa niya hinihintay yan.', 1600);
+          const target = button.getBoundingClientRect();
+          const origin = lockMascotPosition();
+          freeMascot.style.transition = 'transform 900ms cubic-bezier(.22,.8,.3,1)';
+          const dx = target.left + target.width * GRIP_POINT.buttonX - origin.width * GRIP_POINT.mascotX - origin.left;
+          const dy = target.top + target.height * GRIP_POINT.buttonY - origin.height * GRIP_POINT.mascotY - origin.top;
+          freeMascot.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+          playFrames(['walk', 'step'], 230, 900);
+          scheduleNoPhase(button, state, 940, () => {
+            resetHoldRing(button);
+            window.clearTimeout(state.completeTimer);
+            lockMascotPosition();
+            button.classList.add('is-nudged');
+            freeMascot.style.transition = 'transform 700ms cubic-bezier(.22,.8,.3,1)';
+            freeMascot.style.transform = 'translate3d(10px, 0, 0)';
+            playPushMascot(1700);
+          });
+          // Movement cancels accumulated progress. Start a fresh ring only when settled.
+          scheduleNoPhase(button, state, 1680, () => {
+            button.classList.add('is-holding');
+            state.completeTimer = window.setTimeout(() => completeHold(button), HOLD_DURATION);
+          });
+          holdHint.textContent = 'Keep holding YES until the ring completes.';
+        }
+        holdStates.set(button, state);
+      }
+
+      function resetHoldRing(button) {
+        button.classList.remove('is-holding');
+        if (holdStates.has(button)) Invite.track('hold_reset', button.dataset.choice);
+      }
+
+      holdButtons.forEach((button) => {
+        button.addEventListener('pointerdown', (event) => {
+          button.setPointerCapture?.(event.pointerId);
+          beginHold(button, event);
+        });
+        button.addEventListener('pointerup', () => clearHold(button));
+        button.addEventListener('pointercancel', () => clearHold(button));
+        button.addEventListener('lostpointercapture', () => clearHold(button));
+        button.addEventListener('pointerleave', (event) => {
+          if (!button.hasPointerCapture?.(event.pointerId)) clearHold(button);
+        });
+        button.addEventListener('click', (event) => event.preventDefault());
+        button.addEventListener('keydown', (event) => {
+          if ((event.key === 'Enter' || event.key === ' ') && !event.repeat) beginHold(button, event);
+        });
+        button.addEventListener('keyup', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') clearHold(button);
+        });
+        button.addEventListener('blur', () => clearHold(button));
+      });
+
+      window.addEventListener('blur', () => holdButtons.forEach(button => clearHold(button)));
+
+      foodCards.forEach((card) => {
+        card.addEventListener('click', () => {
+          say('');
+          Invite.hush();
+          const choice = card.dataset.food.replace(/[^\p{L}\p{N} ]/gu, '').trim();
+          if (selectedChoices.has(choice)) selectedChoices.delete(choice); else selectedChoices.add(choice);
+          card.setAttribute('aria-pressed', String(selectedChoices.has(choice)));
+          selectedFood = [...selectedChoices].join(', ');
+          Invite.track('selection', `${selectedChoices.has(choice) ? 'Selected' : 'Removed'}: ${choice}`);
+          selectionCopy.textContent = selectedFood;
+          confirmButton.classList.toggle('is-ready', selectedChoices.size > 0);
+          playMascot('nod', 'nice!');
+        });
+      });
+
+      confirmButton.addEventListener('click', () => {
+        if (!selectedFood) return;
+        document.querySelector('#finalDetail').textContent = `Pinili mo: ${selectedFood}. Usap na lang tayo kung kailan.`;
+        Invite.track('confirmed', selectedFood);
+        showScreen('yayScreen');
+        say('');
+        resetMascotHome();
+        playMascot('nod', 'yay!');
+      });
+
+      document.querySelector('#restartButton').addEventListener('click', () => showScreen('pickScreen'));
+      document.querySelector('#backButton').addEventListener('click', () => showScreen('askScreen'));
+      function finishDecline(source) {
+        holdButtons.forEach(button => clearHold(button, false));
+        returnChoices();
+        say('');
+        Invite.track('confirmed', `Pass (${source})`);
+        showScreen('noThanksScreen');
+        animateMascot('is-waving', '');
+        playFrames(['idle', 'wave', 'idle'], 260, 1000);
+      }
+      document.querySelector('#declineButton').addEventListener('click', () => finishDecline('ibang araw'));
+
+      function launchConfetti() {
+        const colors = ['#ff785f', '#49c7a1', '#ffd66b', '#8167df', '#ffffff'];
+        for (let index = 0; index < 48; index += 1) {
+          const piece = document.createElement('i');
+          piece.className = 'confetti';
+          piece.style.left = `${Math.random() * 100}vw`;
+          piece.style.background = colors[index % colors.length];
+          piece.style.setProperty('--drift', `${-160 + Math.random() * 320}px`);
+          piece.style.setProperty('--fall-time', `${1.4 + Math.random() * 1.35}s`);
+          piece.style.animationDelay = `${Math.random() * 0.35}s`;
+          document.body.append(piece);
+          piece.addEventListener('animationend', () => piece.remove(), { once: true });
+        }
+      }
+    </script>
+  </body>
+</html>

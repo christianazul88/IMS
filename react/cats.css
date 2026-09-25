@@ -1,0 +1,87 @@
+.cat-party {
+  position: relative;
+  display: block;
+  width: min(430px, 100%);
+  height: clamp(270px, 39vw, 390px);
+  margin: 0 auto 24px;
+  padding: 8px 10px 0;
+  isolation: isolate;
+}
+
+.cat-party::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  width: min(245px, 60%);
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(111, 77, 53, .22), rgba(111, 77, 53, 0) 72%);
+  transform: translateX(-50%);
+  filter: blur(3px);
+  z-index: -1;
+  animation: celebration-shadow 1.5s ease-in-out infinite;
+}
+
+.cat-party::after {
+  content: '✦  ✧  ✦';
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  color: #e4aa39;
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+  letter-spacing: .8em;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  z-index: 2;
+  animation: celebration-sparkles 1.5s ease-in-out infinite;
+}
+
+/* Ten actual transparent PNG frames, swapped every 150ms by cats.js. */
+.cat-frame {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 0;
+  z-index: 1;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 18px 13px rgba(111, 77, 53, .16));
+  transition: opacity 70ms linear;
+}
+
+.cat-frame.is-active { opacity: 1; }
+
+@keyframes celebration-shadow {
+  0%, 40%, 80%, 100% { transform: translateX(-50%) scaleX(1); opacity: .8; }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-50%) scaleX(.68); opacity: .34; }
+}
+
+@keyframes celebration-sparkles {
+  0%, 100% { opacity: .2; transform: translateX(-50%) translateY(10px) scale(.8); }
+  20%, 60% { opacity: .95; transform: translateX(-50%) translateY(-10px) scale(1.08); }
+  40%, 80% { opacity: .42; transform: translateX(-50%) translateY(3px) scale(.9); }
+}
+
+.free-mascot[hidden], .sidekick[hidden] { display: none; }
+
+@media (max-width: 700px) {
+  .cat-party {
+    width: calc(100% + 18px);
+    height: clamp(250px, 78vw, 330px);
+    margin-left: -9px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-party::before,
+  .cat-party::after { animation: none !important; }
+  .cat-frame { display: none; transition: none; }
+  .cat-frame:first-of-type { display: block; opacity: 1; }
+}
