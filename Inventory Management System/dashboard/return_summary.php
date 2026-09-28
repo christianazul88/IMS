@@ -93,6 +93,11 @@
         let returnSummaryLoaded = false;
 
         function module_fetchData(module_dateGross = null) {
+            // Range mode fires once after the first date is selected. Do not
+            // send an incomplete value to the backend.
+            if (module_dateGross && !module_dateGross.includes(' to ')) {
+                return;
+            }
             let module_bodyData = module_dateGross ? "module_date_range=" + encodeURIComponent(module_dateGross) : "";
 
             fetch("return_backend.php?wh=<?php echo $dashboard_wh;?>", {
@@ -127,7 +132,9 @@
 
         // Then listen if user selects a date range
         module_dateInput.addEventListener("change", function() {
-            module_fetchData(this.value);
+            if (this.value.includes(' to ')) {
+                module_fetchData(this.value);
+            }
         });
     });
 </script>

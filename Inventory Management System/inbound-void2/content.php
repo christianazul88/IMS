@@ -102,10 +102,12 @@ $stmt->execute();
 $purchased_order_result = $stmt->get_result();
 
 $products = [];
+$loaded_product_ids = [];
 $supplier = 0;
 if ($purchased_order_result && $purchased_order_result->num_rows > 0) {
     while ($row = $purchased_order_result->fetch_assoc()) {
         $product_id = $row['product_id'];
+        $loaded_product_ids[$product_id] = true;
         $prev_supplier = $row['supplier'];
 
         if($po_warehouse == 0){
@@ -136,6 +138,79 @@ if ($purchased_order_result && $purchased_order_result->num_rows > 0) {
     }
 }
 $stmt->close();
+
+// Additional products can be selected during receiving without being part of
+// the original PO. Those rows are written directly to `stocks`, so they are
+// not present in purchased_order_content. Include any product found under
+// this inbound reference that was not already loaded from the PO. The stock
+// rows use the same unique_key as the PO products, which also means the
+// existing per-barcode void actions work for these products automatically.
+$extra_products_query = "SELECT
+                            s.product_id,
+                            p.description,
+                            p.parent_barcode,
+                            b.brand_name,
+                            c.category_name
+                         FROM stocks s
+                         LEFT JOIN product p ON p.hashed_id = s.product_id
+                         LEFT JOIN brand b ON p.brand = b.hashed_id
+                         LEFT JOIN category c ON p.category = c.hashed_id
+                         WHERE s.unique_key = ?
+                           AND NOT EXISTS (
+                               SELECT 1
+                               FROM purchased_order_content poc_extra
+                               WHERE poc_extra.po_id = ?
+                                 AND poc_extra.product_id = s.product_id
+                           )
+                         GROUP BY s.product_id, p.description, p.parent_barcode,
+                                  b.brand_name, c.category_name";
+$extra_products_stmt = $conn->prepare($extra_products_query);
+$extra_products_stmt->bind_param("si", $unique_key, $po_id);
+$extra_products_stmt->execute();
+$extra_products_result = $extra_products_stmt->get_result();
+
+while ($extra_row = $extra_products_result->fetch_assoc()) {
+    $extra_product_id = $extra_row['product_id'];
+    if (isset($loaded_product_ids[$extra_product_id])) {
+        continue;
+    }
+
+    $extra_stocks_query = "SELECT s.unique_barcode, s.capital, s.item_status,
+                                  sup.supplier_name, sup.local_international
+                           FROM stocks s
+                           LEFT JOIN supplier sup ON sup.hashed_id = s.supplier
+                           WHERE s.unique_key = ? AND s.product_id = ?";
+    $extra_stock_stmt = $conn->prepare($extra_stocks_query);
+    $extra_stock_stmt->bind_param("ss", $unique_key, $extra_product_id);
+    $extra_stock_stmt->execute();
+    $extra_stocks_result = $extra_stock_stmt->get_result();
+
+    $extra_stocks = [];
+    while ($extra_stock_row = $extra_stocks_result->fetch_assoc()) {
+        $extra_stocks[] = $extra_stock_row;
+        if ($supplier == 0) {
+            $supplier = $extra_stock_row['supplier_name'] . " - " . $extra_stock_row['local_international'];
+        }
+    }
+    $extra_stock_stmt->close();
+
+    $products[] = [
+        'product_id'      => $extra_product_id,
+        // An extra product has no ordered quantity in the PO. Its received
+        // quantity is represented by the stock rows below.
+        'qty'             => 0,
+        'description'     => $extra_row['description'],
+        'parent_barcode'  => $extra_row['parent_barcode'],
+        'brand_name'      => $extra_row['brand_name'],
+        'category_name'   => $extra_row['category_name'],
+        'supplier'        => $prev_supplier ?? null,
+        'warehouse_name'  => $po_warehouse,
+        'stocks'          => $extra_stocks,
+        'is_extra'        => true,
+    ];
+    $loaded_product_ids[$extra_product_id] = true;
+}
+$extra_products_stmt->close();
 
 $total_products = count($products);
 $total_stocks    = array_sum(array_map(fn($p) => count($p['stocks']), $products));

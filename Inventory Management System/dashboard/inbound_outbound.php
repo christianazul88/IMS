@@ -157,7 +157,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // 🔥 Then listen if user selects a date range
     dateInput.addEventListener("change", function() {
-        fetchData(this.value);
+        if (this.value.includes(' to ')) {
+            fetchData(this.value);
+        }
     });
 });
 

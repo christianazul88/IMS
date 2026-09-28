@@ -53,7 +53,6 @@ if (isset($_GET['notnot'])) {
 <script src="../vendors/echarts/echarts.min.js"></script>
 <script src="../vendors/jquery/jquery.min.js"></script>
 <script src="../vendors/sortablejs/Sortable.min.js"></script>
-<script src="../vendors/select2-bootstrap-5-theme/select2-bootstrap-5-theme.min.css" rel="stylesheet"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
@@ -72,10 +71,16 @@ if (isset($_GET['notnot'])) {
     }
 </script>
 <script>
-    const lightbox = GLightbox({
-        selector: '[data-glightbox]'
+    // GLightbox is loaded near the end of the page. Initialize it after the
+    // window is ready so pages that do not load the optional asset do not
+    // throw a ReferenceError during dashboard rendering.
+    window.addEventListener('load', function () {
+        if (typeof window.GLightbox === 'function') {
+            window.lightbox = window.GLightbox({
+                selector: '[data-glightbox]'
+            });
+        }
     });
-
 </script>
 
 <audio id="notification-sound" src="../../assets/audio/mixkit-bell-notification-933.wav" preload="auto"></audio>

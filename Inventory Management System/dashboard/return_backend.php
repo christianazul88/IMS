@@ -12,7 +12,7 @@ function json_response($data = null, $httpStatus = 200) {
 
 $return_data = [];
 
-if (isset($_POST['module_date_range'])) {
+if (isset($_POST['module_date_range']) && strpos((string) $_POST['module_date_range'], ' to ') !== false) {
     $date_between = $_POST['module_date_range']; // example: 01/04/25 to 30/04/25
     list($start_date, $end_date) = explode(' to ', $date_between);
 

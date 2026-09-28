@@ -17,7 +17,7 @@ if (isset($_POST['date_between'])) {
     if(strpos($date_between, "to")!==false){
         list($start_date, $end_date) = explode(' to ', $date_between);
         // Convert to MySQL format Y-m-d
-        $start_date_mysql = DateTime::createFromFormat('d/m/y', $start_date)->format('Y-m-d') . " 00:00:00";
+        $start_date_mysql = DateTime::createFromFormat('d/m/y', $start_date)->format('Y-m-d');
         $end_date_mysql = DateTime::createFromFormat('d/m/y', $end_date)->format('Y-m-d');
 
         // Format for display
