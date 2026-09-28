@@ -128,7 +128,7 @@
                 <div class="card-header bg-transparent border-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <div>
                         <h3 class="h6 mb-1 fw-bold" id="ims-revenue-trend-title">Total Sales &amp; Profit</h3>
-                        <p class="text-600 small mb-0">Sales, profit, inbound receipts, and inventory value.</p>
+                        <p class="text-600 small mb-0">Sales, profit, inventory movements, and inventory value.</p>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2 ims-trend-controls">
                         <label class="d-flex align-items-center gap-2 mb-0 small text-600" for="ims-revenue-trend-metric">
@@ -154,7 +154,7 @@
                     </div>
                 </div>
                 <div class="card-body pt-0">
-                    <div id="ims-revenue-trend-chart" class="ims-revenue-trend-chart" role="img" aria-label="Line chart showing monthly sales, profit, inbound cost, and remaining inventory value"></div>
+                    <div id="ims-revenue-trend-chart" class="ims-revenue-trend-chart" role="img" aria-label="Line chart showing monthly sales, profit, inventory movements, and remaining inventory value"></div>
                 </div>
             </div>
         </div>
@@ -394,6 +394,7 @@
         const metric = document.getElementById("ims-revenue-trend-metric")?.value || "both";
         const showSales = metric === "both" || metric === "sales";
         const showProfit = metric === "both" || metric === "profit";
+        const showInventoryFlow = metric === "inventory";
         const showRemaining = metric === "inventory" || metric === "remaining";
         const showInbound = metric === "inventory" || metric === "inbound";
         const titleMap = {
@@ -463,6 +464,36 @@
                 itemStyle: { color: '#fff', borderColor: '#f58b1f', borderWidth: 2 },
                 areaStyle: { color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(245,139,31,.13)' }, { offset: 1, color: 'rgba(245,139,31,.012)' }]) },
                 data: trendPoints.map(function (point) { return point.inbound_cost; })
+            });
+        }
+
+        // Inventory Flow is built from the movement ledger returned by the
+        // backend. Outflows are intentionally negative so the chart shows
+        // the direction of stock value rather than hiding it in a total.
+        if (showInventoryFlow) {
+            const movementSeries = [
+                { name: 'Outbound Cost', key: 'outbound_cost', color: '#e55353', area: 'rgba(229,83,83,.08)', negative: true },
+                { name: 'Customer Returns', key: 'customer_return_cost', color: '#00a86b', area: 'rgba(0,168,107,.08)', negative: false },
+                { name: 'Supplier Returns', key: 'supplier_return_cost', color: '#9b59b6', area: 'rgba(155,89,182,.08)', negative: true },
+                { name: 'Transfer In', key: 'transfer_in_cost', color: '#20a4f3', area: 'rgba(32,164,243,.08)', negative: false },
+                { name: 'Transfer Out', key: 'transfer_out_cost', color: '#f58b1f', area: 'rgba(245,139,31,.08)', negative: true }
+            ];
+            movementSeries.forEach(function (movement) {
+                series.push({
+                    name: movement.name,
+                    type: 'line',
+                    smooth: .18,
+                    symbol: 'circle',
+                    symbolSize: 7,
+                    showSymbol: true,
+                    lineStyle: { width: 2, color: movement.color },
+                    itemStyle: { color: '#fff', borderColor: movement.color, borderWidth: 2 },
+                    areaStyle: { color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: movement.area }, { offset: 1, color: 'rgba(255,255,255,0)' }]) },
+                    data: trendPoints.map(function (point) {
+                        const value = Number(point[movement.key] || 0);
+                        return movement.negative ? -value : value;
+                    })
+                });
             });
         }
 

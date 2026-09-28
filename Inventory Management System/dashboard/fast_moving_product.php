@@ -1,7 +1,7 @@
 <div class="accordion" id="fast-moving-product-container">
   <div class="accordion-item">
     <h2 class="accordion-header" id="heading4">
-      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fastmovingproducts" aria-expanded="true" aria-controls="fastmovingproducts">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fastmovingproducts" aria-expanded="false" aria-controls="fastmovingproducts">
         Fast Moving Products
       </button>
     </h2>

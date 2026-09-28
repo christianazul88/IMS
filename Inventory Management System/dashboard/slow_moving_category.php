@@ -1,6 +1,6 @@
 <div class="accordion mb-3" id="slowmovingcat">
   <div class="accordion-item">
-    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#slowcategory" aria-expanded="true" aria-controls="collapse4">Slow Moving Category</button></h2>
+    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#slowcategory" aria-expanded="false" aria-controls="collapse4">Slow Moving Category</button></h2>
     <div class="accordion-collapse collapse" id="slowcategory" aria-labelledby="heading4" data-bs-parent="#accordionExample">
       <div class="accordion-body">
         <div id="slow-cat-container">
@@ -26,16 +26,27 @@
 
 <script>
 $(document).ready(function () {
-    $('#load-slow-cat-btn').click(function () {
+    const slowCategoryCollapse = document.getElementById('slowcategory');
+    let slowCategoryLoaded = false;
+
+    function loadSlowCategory() {
+        if (slowCategoryLoaded) return;
+        slowCategoryLoaded = true;
         $('#load-slow-cat-btn').hide();
         $('#loading-slow-cat-btn').show();
 
         $('#slow-cat-container').load('slow-cat.php?wh=<?php echo htmlspecialchars($dashboard_wh, ENT_QUOTES, "UTF-8"); ?>', function (response, status, xhr) {
             if (status === "error") {
+                slowCategoryLoaded = false;
                 $('#slow-cat-container').html("<div class='card-body text-center'><p>Error loading content. Please try again later.</p></div>");
                 console.error("Error:", xhr.status, xhr.statusText);
             }
         });
-    });
+    }
+
+    $('#load-slow-cat-btn').on('click', loadSlowCategory);
+    if (slowCategoryCollapse) {
+        slowCategoryCollapse.addEventListener('shown.bs.collapse', loadSlowCategory);
+    }
 });
 </script>

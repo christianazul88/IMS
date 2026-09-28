@@ -47,9 +47,31 @@ $imploded_warehouse_ids = $quoted_warehouse_ids
 // inventory.php expects this pre-quoted list from on_session.php.
 $user_warehouse_id = $imploded_warehouse_ids;
 
-$dashboard_widget_slot = static function (string $widget, string $label): void {
+$dashboard_widget_slot = static function (string $widget, string $label, ?string $accordion_title = null): void {
     $safe_widget = htmlspecialchars($widget, ENT_QUOTES, 'UTF-8');
     $safe_label = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+    if ($accordion_title !== null) {
+        $safe_title = htmlspecialchars($accordion_title, ENT_QUOTES, 'UTF-8');
+        $safe_id = preg_replace('/[^a-z0-9_-]+/i', '-', $widget);
+        echo <<<HTML
+<div class="dashboard-widget-slot dashboard-widget-accordion-slot" data-dashboard-widget="{$safe_widget}" data-dashboard-widget-on-open="true" data-dashboard-widget-embed="1" aria-live="polite">
+    <div class="accordion" id="dashboard-widget-accordion-{$safe_id}">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="dashboard-widget-heading-{$safe_id}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dashboard-widget-panel-{$safe_id}" aria-expanded="false" aria-controls="dashboard-widget-panel-{$safe_id}">{$safe_title}</button>
+            </h2>
+            <div class="accordion-collapse collapse" id="dashboard-widget-panel-{$safe_id}" aria-labelledby="dashboard-widget-heading-{$safe_id}" data-dashboard-widget-panel="true">
+                <div class="accordion-body" data-dashboard-widget-content="true">
+                    <div class="card border-0 shadow-sm"><div class="card-body py-4 text-center text-600"><span class="spinner-border spinner-border-sm text-primary me-2" role="status" aria-hidden="true"></span><span>Open to load this section.</span></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+HTML;
+        return;
+    }
+
     echo <<<HTML
 <div class="dashboard-widget-slot" data-dashboard-widget="{$safe_widget}" aria-live="polite">
     <div class="card border-0 shadow-sm">
@@ -298,21 +320,21 @@ HTML;
                 <?php if ($user_position_name === 'Superadmin'
                     || strpos((string) $access, 'promotion') !== false): ?>
                     <div class="col-lg-12 mb-3">
-                        <?php $dashboard_widget_slot('promotion', 'Loading promotion insights…'); ?>
+                        <?php $dashboard_widget_slot('promotion', 'Loading promotion insights…', 'For Promotions'); ?>
                     </div>
                 <?php endif; ?>
 
                 <?php if ($user_position_name === 'Superadmin'
                     || strpos((string) $access, 'under_safety') !== false): ?>
                     <div class="col-lg-12 mb-3">
-                        <?php $dashboard_widget_slot('under_safety', 'Loading under-safety items…'); ?>
+                        <?php $dashboard_widget_slot('under_safety', 'Loading under-safety items…', 'Under Safety Items'); ?>
                     </div>
                 <?php endif; ?>
 
                 <?php if ($user_position_name === 'Superadmin'
                     || strpos((string) $access, 'revenue_drop') !== false): ?>
                     <div class="col-lg-12 mb-3">
-                        <?php $dashboard_widget_slot('revenue_dropping', 'Loading revenue trends…'); ?>
+                        <?php $dashboard_widget_slot('revenue_dropping', 'Loading revenue trends…', 'Revenue Dropping'); ?>
                     </div>
                 <?php endif; ?>
 
@@ -335,22 +357,21 @@ HTML;
 </div>
 
 <script>
-// A few legacy dashboard modules mark their accordion button as expanded but
-// omit the panel's Bootstrap `show` class. Normalize that mismatch after the
-// complete page (including Bootstrap) is ready, and emit the same event that
-// a normal user click would emit so existing lazy loaders still run.
+// Keep legacy accordion markup accessible without opening collapsed cards on
+// page load. Some older modules used aria-expanded="true" even when their
+// panel was collapsed; opening them here defeated their lazy loaders.
 (function () {
     function normalizeExpandedAccordions() {
-        document.querySelectorAll('#ims-dashboard [data-bs-toggle="collapse"][aria-expanded="true"]').forEach(function (button) {
+        document.querySelectorAll('#ims-dashboard [data-bs-toggle="collapse"]').forEach(function (button) {
             var selector = button.getAttribute('data-bs-target');
             if (!selector) return;
 
             var panel = document.querySelector(selector);
-            if (!panel || panel.classList.contains('show')) return;
+            if (!panel) return;
 
-            button.classList.remove('collapsed');
-            panel.classList.add('show');
-            panel.dispatchEvent(new Event('shown.bs.collapse', { bubbles: true }));
+            var expanded = panel.classList.contains('show');
+            button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            button.classList.toggle('collapsed', !expanded);
         });
     }
 
@@ -360,6 +381,37 @@ HTML;
         document.addEventListener('DOMContentLoaded', normalizeExpandedAccordions);
     } else {
         normalizeExpandedAccordions();
+    }
+
+    // Some dashboard deployments do not load Bootstrap's JavaScript bundle on
+    // this page even though the accordion markup is present. Keep the cards
+    // usable in that case, and emit the same event used by the lazy loaders.
+    function installAccordionFallback() {
+        if (window.bootstrap && window.bootstrap.Collapse) return;
+        if (window.imsDashboardAccordionFallback) return;
+        window.imsDashboardAccordionFallback = true;
+
+        document.addEventListener('click', function (event) {
+            var button = event.target.closest('#ims-dashboard .accordion-button[data-bs-toggle="collapse"]');
+            if (!button) return;
+
+            var selector = button.getAttribute('data-bs-target');
+            var panel = selector ? document.querySelector(selector) : null;
+            if (!panel) return;
+
+            event.preventDefault();
+            var open = !panel.classList.contains('show');
+            panel.classList.toggle('show', open);
+            button.classList.toggle('collapsed', !open);
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            panel.dispatchEvent(new Event(open ? 'shown.bs.collapse' : 'hidden.bs.collapse', { bubbles: true }));
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', installAccordionFallback);
+    } else {
+        installAccordionFallback();
     }
 })();
 </script>
@@ -375,15 +427,17 @@ HTML;
     var warehouse = root.dataset.warehouse || '';
     var slots = Array.prototype.slice.call(root.querySelectorAll('[data-dashboard-widget]'));
 
-    function widgetUrl(widget) {
+    function widgetUrl(widget, slot) {
         var params = new URLSearchParams({ widget: widget });
         if (warehouse) params.set('wh', warehouse);
+        if (slot && slot.dataset.dashboardWidgetEmbed === '1') params.set('embed', '1');
         return endpoint + '?' + params.toString();
     }
 
     function showWidgetError(slot) {
-        slot.innerHTML = '<div class="card border-0 shadow-sm"><div class="card-body py-4 text-center text-danger">Unable to load this dashboard section. <button type="button" class="btn btn-link btn-sm p-0 dashboard-widget-retry">Retry</button></div></div>';
-        var retry = slot.querySelector('.dashboard-widget-retry');
+        var target = slot.querySelector('[data-dashboard-widget-content]') || slot;
+        target.innerHTML = '<div class="card border-0 shadow-sm"><div class="card-body py-4 text-center text-danger">Unable to load this dashboard section. <button type="button" class="btn btn-link btn-sm p-0 dashboard-widget-retry">Retry</button></div></div>';
+        var retry = target.querySelector('.dashboard-widget-retry');
         if (retry) retry.addEventListener('click', function () { loadSlot(slot); });
     }
 
@@ -394,7 +448,8 @@ HTML;
         if (!widget || !window.jQuery) return;
 
         slot.dataset.loading = 'true';
-        window.jQuery(slot).load(widgetUrl(widget), function (_response, status) {
+        var target = slot.querySelector('[data-dashboard-widget-content]') || slot;
+        window.jQuery(target).load(widgetUrl(widget, slot), function (_response, status) {
             delete slot.dataset.loading;
             if (status === 'error') {
                 showWidgetError(slot);
@@ -407,15 +462,27 @@ HTML;
         });
     }
 
-    // Load first-screen cards immediately. Below-the-fold SQL-heavy cards are
-    // requested only as they approach the viewport.
+    // Load first-screen summary cards immediately. Accordion-backed widgets
+    // wait for their panel to open; other deferred cards still use viewport
+    // loading as a fallback for pages that do not expose an accordion shell.
     var eagerWidgets = ['inventory_health'];
     slots.forEach(function (slot) {
         if (eagerWidgets.indexOf(slot.dataset.dashboardWidget) !== -1) loadSlot(slot);
     });
 
+    var onOpenSlots = slots.filter(function (slot) {
+        return slot.dataset.dashboardWidgetOnOpen === 'true';
+    });
+    onOpenSlots.forEach(function (slot) {
+        var panel = slot.querySelector('[data-dashboard-widget-panel]');
+        if (panel) {
+            panel.addEventListener('shown.bs.collapse', function () { loadSlot(slot); });
+        }
+    });
+
     var deferredSlots = slots.filter(function (slot) {
-        return eagerWidgets.indexOf(slot.dataset.dashboardWidget) === -1;
+        return eagerWidgets.indexOf(slot.dataset.dashboardWidget) === -1
+            && slot.dataset.dashboardWidgetOnOpen !== 'true';
     });
 
     if ('IntersectionObserver' in window) {
@@ -473,9 +540,23 @@ HTML;
     function initWarehousePreview() {
         var selector = window.jQuery ? window.jQuery('#dashboard-wh') : null;
         if (!selector || !selector.length) return;
-        loadWarehousePreview(selector.val());
+        var collapse = document.getElementById('fastmovingproducts');
+        var loaded = false;
+
+        function loadWhenOpened() {
+            if (loaded) return;
+            loaded = true;
+            loadWarehousePreview(selector.val());
+        }
+
+        if (collapse) {
+            collapse.addEventListener('shown.bs.collapse', loadWhenOpened);
+        } else {
+            loadWhenOpened();
+        }
+
         selector.off('change.dashboardPreview').on('change.dashboardPreview', function () {
-            loadWarehousePreview(this.value);
+            if (loaded) loadWarehousePreview(this.value);
         });
     }
 

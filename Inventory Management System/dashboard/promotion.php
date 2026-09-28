@@ -108,11 +108,14 @@ if ($promotion_product_res && $promotion_product_res->num_rows > 0) {
     }
 }
 ?>
+<?php $promotion_embed = (string) ($_GET['embed'] ?? '') === '1'; ?>
+<?php if (!$promotion_embed): ?>
 <div class="accordion" id="forPromotion">
   <div class="accordion-item">
-    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#promotion" aria-expanded="true" aria-controls="collapse4">For Promotions</button></h2>
+    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#promotion" aria-expanded="false" aria-controls="collapse4">For Promotions</button></h2>
     <div class="accordion-collapse collapse" id="promotion" aria-labelledby="heading4" data-bs-parent="#accordionExample">
       <div class="accordion-body">
+<?php endif; ?>
         <div class="header">
             <h6><a href="../Promotions/?wh=<?php echo $dashboard_wh;?>">View all for Promotion as of</a> <?php echo htmlspecialchars($date_today ?? '', ENT_QUOTES, 'UTF-8'); ?></h6>
         </div>
@@ -136,7 +139,9 @@ if ($promotion_product_res && $promotion_product_res->num_rows > 0) {
                 </tbody>
             </table>
         </div>
+<?php if (!$promotion_embed): ?>
       </div>
     </div>
   </div>
 </div>
+<?php endif; ?>

@@ -1,7 +1,7 @@
 <div class="accordion" id="inboundoutboundsummaryContainer">
   <div class="accordion-item">
     <h2 class="accordion-header" id="heading4">
-      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inboundoutboundsummary" aria-expanded="true" aria-controls="inboundoutboundsummary">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inboundoutboundsummary" aria-expanded="false" aria-controls="inboundoutboundsummary">
         Inbound Outbound Summary
       </button>
     </h2>
@@ -101,6 +101,9 @@ function currencyFormat(num) {
 
 document.addEventListener("DOMContentLoaded", function() {
     const dateInput = document.getElementById("timepicker2");
+    const summaryCollapse = document.getElementById("inboundoutboundsummary");
+    let summaryLoaded = false;
+    if (!dateInput || !summaryCollapse) return;
     // Render immediately once the request finishes; the old two-second delay
     // made a completed dashboard request look slow.
     const setTimeout = (callback) => callback();
@@ -152,8 +155,14 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
 
-    // 🔥 Fetch today's data immediately when page loads
-    fetchData();
+    // Fetch only after the collapsed card is opened. This keeps the initial
+    // dashboard request light while preserving date-range refreshes after it
+    // has been opened once.
+    summaryCollapse.addEventListener("shown.bs.collapse", function() {
+        if (summaryLoaded) return;
+        summaryLoaded = true;
+        fetchData();
+    });
 
     // 🔥 Then listen if user selects a date range
     dateInput.addEventListener("change", function() {

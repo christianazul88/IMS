@@ -57,17 +57,20 @@ if(empty($dashboard_wh)){
 
 
 $under_safety_res = $conn->query($under_safety_query);
+$under_safety_embed = (string) ($_GET['embed'] ?? '') === '1';
 
-if ($under_safety_res->num_rows > 0) {
+if ($under_safety_res->num_rows > 0 || $under_safety_embed) {
 ?>
 
-
+<?php if (!$under_safety_embed): ?>
 <div class="col-lg-12 mb-3">
     <div class="accordion" id="undersafetyitems">
         <div class="accordion-item">
-            <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#undersafety" aria-expanded="true" aria-controls="collapse4">Under Safety Items</button></h2>
+            <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#undersafety" aria-expanded="false" aria-controls="collapse4">Under Safety Items</button></h2>
             <div class="accordion-collapse collapse" id="undersafety" aria-labelledby="heading4" data-bs-parent="#accordionExample">
                 <div class="accordion-body">
+<?php endif; ?>
+<?php if ($under_safety_res->num_rows > 0): ?>
                     <table class="table mb-0 data-table fs-10" data-datatables="data-datatables">
                         <thead>
                             <tr>
@@ -103,11 +106,16 @@ if ($under_safety_res->num_rows > 0) {
                             ?>
                         </tbody>
                     </table>
+<?php else: ?>
+                    <div class="py-3 text-center text-600">No under-safety items found.</div>
+<?php endif; ?>
+<?php if (!$under_safety_embed): ?>
                 </div>
             </div>
         </div>
     </div>
 </div>
+<?php endif; ?>
 <?php 
 }
 ?>

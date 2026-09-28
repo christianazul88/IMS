@@ -1,6 +1,6 @@
 <div class="accordion" id="fastmovingcategorycontainer">
   <div class="accordion-item">
-    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fastmovingcategory" aria-expanded="true" aria-controls="fastmovingcategory">Fast Moving Category</button></h2>
+    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fastmovingcategory" aria-expanded="false" aria-controls="fastmovingcategory">Fast Moving Category</button></h2>
     <div class="accordion-collapse collapse" id="fastmovingcategory" aria-labelledby="heading4" data-bs-parent="#accordionExample">
       <div class="accordion-body">
         <div class="accordion-header">
@@ -31,7 +31,12 @@
 
 <script>
 $(document).ready(function () {
-    $('#load-now-btn').click(function () {
+    const categoryCollapse = document.getElementById('fastmovingcategory');
+    let categoryLoaded = false;
+
+    function loadFastCategory() {
+        if (categoryLoaded) return;
+        categoryLoaded = true;
         // Swap buttons
         $('#load-now-btn').hide();
         $('#loading-btn').show();
@@ -39,10 +44,16 @@ $(document).ready(function () {
         // Load entire card
         $('#fast-cat-container').load('fast-cat.php?wh=<?php echo htmlspecialchars($dashboard_wh, ENT_QUOTES, 'UTF-8'); ?>', function (response, status, xhr) {
             if (status === "error") {
+                categoryLoaded = false;
                 $('#fast-cat-container').html("<div class='card-body text-center'><p>Error loading content. Please try again later.</p></div>");
                 console.error("Error:", xhr.status, xhr.statusText);
             }
         });
-    });
+    }
+
+    $('#load-now-btn').on('click', loadFastCategory);
+    if (categoryCollapse) {
+        categoryCollapse.addEventListener('shown.bs.collapse', loadFastCategory);
+    }
 });
 </script>

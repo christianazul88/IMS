@@ -100,12 +100,14 @@ if ($revdrop_product_res->num_rows > 0) {
 }
 
 ?>
-
+<?php $revenue_drop_embed = (string) ($_GET['embed'] ?? '') === '1'; ?>
+<?php if (!$revenue_drop_embed): ?>
 <div class="accordion" id="rev_dropping_container">
   <div class="accordion-item">
-    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#rev_drop" aria-expanded="true" aria-controls="collapse4">Revenue Dropping</button></h2>
+    <h2 class="accordion-header" id="heading4"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#rev_drop" aria-expanded="false" aria-controls="collapse4">Revenue Dropping</button></h2>
     <div class="accordion-collapse collapse" id="rev_drop" aria-labelledby="heading4" data-bs-parent="#accordionExample">
       <div class="accordion-body">
+<?php endif; ?>
         <div class="accordion-header">
             <h6><a href="../Revenue Dropping/?wh=<?php echo $dashboard_wh;?>">View all Revenue Dropping</a> <?php echo $date_today; ?></h6>
         </div>
@@ -137,7 +139,9 @@ if ($revdrop_product_res->num_rows > 0) {
                 </tbody>
             </table>
         </div>
+<?php if (!$revenue_drop_embed): ?>
       </div>
     </div>
   </div>
 </div>
+<?php endif; ?>
