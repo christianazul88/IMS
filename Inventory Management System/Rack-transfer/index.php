@@ -5,6 +5,7 @@ include "../config/on_session.php";
 if(strpos($access, "rack_transfer")!==false || $user_position_name === "Administrator"){
 } else {
   header("Location: ../500/");
+  exit;
 }
 ?>
 <!DOCTYPE html>

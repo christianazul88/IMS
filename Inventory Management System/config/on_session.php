@@ -16,6 +16,27 @@ $user_bday = $_SESSION['birth_date'];
 $user_warehouse_ids = explode(",", $_SESSION['warehouse_ids']);
 $user_position_name = $_SESSION['position_name'];
 $access = $_SESSION['access'];
+
+// Refresh the position permissions from the database on every authenticated request.
+// Permission changes must take effect without requiring users to keep a stale session.
+if (!empty($user_position_id)) {
+    $position_stmt = $conn->prepare("SELECT position_name, access FROM user_position WHERE hashed_id = ? LIMIT 1");
+    if ($position_stmt) {
+        $position_stmt->bind_param("s", $user_position_id);
+        $position_stmt->execute();
+        $position_result = $position_stmt->get_result();
+
+        if ($position_row = $position_result->fetch_assoc()) {
+            $user_position_name = $position_row['position_name'];
+            $access = $position_row['access'] ?? '';
+            $_SESSION['position_name'] = $user_position_name;
+            $_SESSION['access'] = $access;
+        }
+
+        $position_stmt->close();
+    }
+}
+
 if(empty($_SESSION['pfp'])){
     $user_pfp = "def_pfp.png";
 } else {
