@@ -49,7 +49,13 @@ fputcsv($output, [
     'Prepared By',
     'Status',
     'Capital',
-    'Sold Price'
+    'Sold Price',
+    'RTS Ref.',
+    'RTS Outcome',
+    'RTS Reason',
+    'RTS Requested Date',
+    'RTS Completed Date',
+    'RTS Type'
 ]);
 
 $query = "
@@ -71,7 +77,13 @@ SELECT
     u.user_lname,
     oc.status AS outbound_status,
     s.capital,
-    oc.sold_price
+    oc.sold_price,
+    rts.rts_id AS rts_reference,
+    rts.status AS rts_status,
+    rts_log.reason AS rts_reason,
+    rts_log.date AS rts_requested_date,
+    COALESCE(rts.returned_date, rts_log.returned_date) AS rts_completed_date,
+    rts_log.`for` AS rts_type
 FROM outbound_content oc
 INNER JOIN stocks s
     ON s.unique_barcode = oc.unique_barcode
@@ -91,6 +103,22 @@ LEFT JOIN warehouse w
     ON w.hashed_id = ol.warehouse
 LEFT JOIN supplier sup
     ON sup.hashed_id = s.supplier
+LEFT JOIN (
+    /* One most-recent RTS reference per barcode avoids multiplying CSV rows. */
+    SELECT
+        rc.unique_barcode,
+        MAX(rl.id) AS latest_rts_id
+    FROM rts_content rc
+    INNER JOIN rts_logs rl
+        ON rl.id = rc.rts_id
+    GROUP BY rc.unique_barcode
+) latest_rts
+    ON latest_rts.unique_barcode = oc.unique_barcode
+LEFT JOIN rts_content rts
+    ON rts.unique_barcode = latest_rts.unique_barcode
+    AND rts.rts_id = latest_rts.latest_rts_id
+LEFT JOIN rts_logs rts_log
+    ON rts_log.id = rts.rts_id
 WHERE
     ol.date_sent BETWEEN '$startDate' AND '$endDate'
     $additional_query
@@ -107,6 +135,17 @@ while ($row = $result->fetch_assoc()) {
         case 2: $status = 'Voided'; break;
         case 6: $status = 'Outbounded'; break;
         default: $status = 'Unknown';
+    }
+
+    /* Return-to-supplier details stay blank when this barcode has no RTS row. */
+    $rts_outcome = '';
+    if ($row['rts_status'] !== null) {
+        switch ((int) $row['rts_status']) {
+            case 0: $rts_outcome = 'Returned'; break;
+            case 1: $rts_outcome = 'Returned and Refunded'; break;
+            case 2: $rts_outcome = 'Returned and Replaced'; break;
+            default: $rts_outcome = 'RTS status ' . $row['rts_status'];
+        }
     }
 
     fputcsv($output, [
@@ -126,7 +165,13 @@ while ($row = $result->fetch_assoc()) {
         $row['user_fname'] . ' ' . $row['user_lname'],
         $status,
         $row['capital'],
-        $row['sold_price']
+        $row['sold_price'],
+        $row['rts_reference'] ?? '',
+        $rts_outcome,
+        $row['rts_reason'] ?? '',
+        $row['rts_requested_date'] ?? '',
+        $row['rts_completed_date'] ?? '',
+        $row['rts_type'] ?? ''
     ]);
 }
 
