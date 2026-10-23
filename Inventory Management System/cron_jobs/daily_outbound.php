@@ -33,12 +33,18 @@ report_csv($output, [
     'Status',
     'Capital',
     'Sold Price',
-    'RTS Ref.',
-    'RTS Outcome',
-    'RTS Reason',
-    'RTS Requested Date',
-    'RTS Completed Date',
-    'RTS Type'
+    'Customer Return Status (as of export)',
+    'Customer Return Date',
+    'Customer Return Reason',
+    'Customer Return Fault',
+    'Customer Return Type',
+    'Customer Return Amount',
+    'Supplier RTS Ref.',
+    'Supplier RTS Outcome',
+    'Supplier RTS Reason',
+    'Supplier RTS Requested Date',
+    'Supplier RTS Completed Date',
+    'Supplier RTS Type'
 ]);
 
 $query = "
@@ -61,8 +67,15 @@ SELECT
     oc.status AS outbound_status,
     s.capital,
     oc.sold_price,
+    customer_return.id AS customer_return_id,
+    customer_return.date AS customer_return_date,
+    customer_return.reason AS customer_return_reason,
+    customer_return.fault AS customer_return_fault,
+    customer_return.fault_type AS customer_return_type,
+    customer_return.amount AS customer_return_amount,
     rts.rts_id AS rts_reference,
     rts.status AS rts_status,
+    rts_log.status AS rts_log_status,
     rts_log.reason AS rts_reason,
     rts_log.date AS rts_requested_date,
     COALESCE(rts.returned_date, rts_log.returned_date) AS rts_completed_date,
@@ -86,20 +99,52 @@ LEFT JOIN warehouse w
     ON w.hashed_id = ol.warehouse
 LEFT JOIN supplier sup
     ON sup.hashed_id = s.supplier
-LEFT JOIN (
-    /* One most-recent RTS reference per barcode avoids multiplying CSV rows. */
-    SELECT
-        rc.unique_barcode,
-        MAX(rc.id) AS latest_content_id
-    FROM rts_content rc
-    INNER JOIN rts_logs rl
-        ON rl.id = rc.rts_id
-    GROUP BY rc.unique_barcode
-) latest_rts
-    ON latest_rts.unique_barcode = oc.unique_barcode
+LEFT JOIN \x60returns\x60 customer_return
+    ON customer_return.id = (
+        /* Match the latest customer return in this outbound cycle only. */
+        SELECT r.id
+        FROM \x60returns\x60 r
+        WHERE r.unique_barcode = oc.unique_barcode
+          AND r.date >= ol.date_sent
+          AND NOT EXISTS (
+              SELECT 1
+              FROM outbound_content oc_next
+              INNER JOIN outbound_logs ol_next
+                  ON ol_next.hashed_id = oc_next.hashed_id
+              WHERE oc_next.unique_barcode = oc.unique_barcode
+                AND (
+                    ol_next.date_sent > ol.date_sent
+                    OR (ol_next.date_sent = ol.date_sent AND ol_next.id > ol.id)
+                )
+                AND ol_next.date_sent <= r.date
+          )
+        ORDER BY r.date DESC, r.id DESC
+        LIMIT 1
+    )
 LEFT JOIN rts_content rts
-    ON rts.unique_barcode = latest_rts.unique_barcode
-    AND rts.id = latest_rts.latest_content_id
+    ON rts.id = (
+        /* Restrict supplier RTS details to this outbound cycle and avoid duplicate rows. */
+        SELECT rc.id
+        FROM rts_content rc
+        INNER JOIN rts_logs rl
+            ON rl.id = rc.rts_id
+        WHERE rc.unique_barcode = oc.unique_barcode
+          AND rl.date >= ol.date_sent
+          AND NOT EXISTS (
+              SELECT 1
+              FROM outbound_content oc_next
+              INNER JOIN outbound_logs ol_next
+                  ON ol_next.hashed_id = oc_next.hashed_id
+              WHERE oc_next.unique_barcode = oc.unique_barcode
+                AND (
+                    ol_next.date_sent > ol.date_sent
+                    OR (ol_next.date_sent = ol.date_sent AND ol_next.id > ol.id)
+                )
+                AND ol_next.date_sent <= rl.date
+          )
+        ORDER BY rl.date DESC, rl.id DESC, rc.id DESC
+        LIMIT 1
+    )
 LEFT JOIN rts_logs rts_log
     ON rts_log.id = rts.rts_id
 WHERE
@@ -119,14 +164,20 @@ while ($row = $result->fetch_assoc()) {
         default: $status = 'Unknown';
     }
 
-    /* Return-to-supplier details stay blank when this barcode has no RTS row. */
+    $customer_return_status = $row['customer_return_id'] !== null
+        ? 'Returned by customer'
+        : 'No customer return recorded';
+
     $rts_outcome = '';
     if ($row['rts_status'] !== null) {
         switch ((int) $row['rts_status']) {
-            case 0: $rts_outcome = 'Returned'; break;
+            case 0: $rts_outcome = 'Returned to supplier'; break;
             case 1: $rts_outcome = 'Returned and Refunded'; break;
             case 2: $rts_outcome = 'Returned and Replaced'; break;
             default: $rts_outcome = 'RTS status ' . $row['rts_status'];
+        }
+        if ((int) $row['rts_log_status'] === 0) {
+            $rts_outcome .= ' (pending resolution)';
         }
     }
 
@@ -148,6 +199,12 @@ while ($row = $result->fetch_assoc()) {
         $status,
         $row['capital'],
         $row['sold_price'],
+        $customer_return_status,
+        $row['customer_return_date'] ?? '',
+        $row['customer_return_reason'] ?? '',
+        $row['customer_return_fault'] ?? '',
+        $row['customer_return_type'] ?? '',
+        $row['customer_return_amount'] ?? '',
         $row['rts_reference'] ?? '',
         $rts_outcome,
         $row['rts_reason'] ?? '',

@@ -71,6 +71,7 @@ function report_finish($output, string $kind, int $rows): void
     $csv = stream_get_contents($output);
     fclose($output);
     $name = $kind . '_' . $reportDate . '.csv';
+    $driveName = $kind . '_' . $reportDate . '.xlsx';
     $path = $storage . '/' . $name;
     if (file_put_contents($path . '.tmp', $csv, LOCK_EX) === false || !rename($path . '.tmp', $path)) {
         throw new RuntimeException('Cannot save local CSV.');
@@ -85,7 +86,9 @@ function report_finish($output, string $kind, int $rows): void
         if (!preg_match('~^https://script\.google\.com/macros/s/[a-zA-Z0-9_-]+/exec$~', $config['url'] ?? '') || empty($config['secret'])) {
             throw new RuntimeException('Invalid Drive receiver configuration.');
         }
-        $payload = json_encode(['name' => $name, 'csv' => $csv], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        // CSV is only the signed transport format. Apps Script converts it to a
+        // formatted Excel workbook in its matching Drive report folder.
+        $payload = json_encode(['name' => $driveName, 'csv' => $csv], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $body = json_encode(['payload' => $payload, 'signature' => hash_hmac('sha256', $payload, $config['secret'])], JSON_THROW_ON_ERROR);
         $ch = curl_init($config['url']);
         curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body,
@@ -97,8 +100,8 @@ function report_finish($output, string $kind, int $rows): void
         $error = curl_error($ch);
         curl_close($ch);
         $uploaded = $response === false ? null : json_decode($response, true);
-        if ($status !== 200 || !is_array($uploaded) || ($uploaded['ok'] ?? false) !== true || empty($uploaded['id']) || ($uploaded['name'] ?? '') !== $name) {
-            throw new RuntimeException('Local CSV saved; Drive upload failed (HTTP ' . $status . '). ' . $error);
+        if ($status !== 200 || !is_array($uploaded) || ($uploaded['ok'] ?? false) !== true || empty($uploaded['id']) || ($uploaded['name'] ?? '') !== $driveName || ($uploaded['mimeType'] ?? '') !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+            throw new RuntimeException('Local CSV saved; Drive upload failed (HTTP ' . $status . '). ' . $error . ' ' . (is_array($uploaded) ? ($uploaded['error'] ?? '') : ''));
         }
         $result['drive_id'] = $uploaded['id'];
     }

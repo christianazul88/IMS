@@ -19,6 +19,7 @@ config_file="$data_dir/upload.json"
 for file in "$runner" \
     "$project_root/cron_jobs/daily_inbound.php" \
     "$project_root/cron_jobs/daily_outbound.php" \
+    "$project_root/cron_jobs/daily_barcode_history.php" \
     "$project_root/cron_jobs/report_common.php"; do
     [[ -r "$file" ]] || { echo "Required report file is missing or unreadable: $file" >&2; exit 1; }
 done
@@ -35,6 +36,7 @@ done
 for file in "$runner" \
     "$project_root/cron_jobs/daily_inbound.php" \
     "$project_root/cron_jobs/daily_outbound.php" \
+    "$project_root/cron_jobs/daily_barcode_history.php" \
     "$project_root/cron_jobs/report_common.php"; do
     "$php_bin" -l "$file" >/dev/null
 done

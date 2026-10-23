@@ -21,7 +21,18 @@ SELECT
     CASE
         WHEN il.po_id IS NOT NULL AND poc.product_id IS NULL THEN 1
         ELSE 0
-    END AS is_additional
+    END AS is_additional,
+    customer_return.id AS customer_return_id,
+    customer_return.date AS customer_return_date,
+    customer_return.reason AS customer_return_reason,
+    rts.rts_id AS rts_reference,
+    rts.status AS rts_item_status,
+    rts.returned_date AS rts_item_completed_date,
+    rts_log.status AS rts_log_status,
+    rts_log.reason AS rts_reason,
+    rts_log.date AS rts_requested_date,
+    rts_log.returned_date AS rts_log_completed_date,
+    rts_log.\x60for\x60 AS rts_type
 FROM stocks s 
 LEFT JOIN product p ON p.hashed_id = s.product_id 
 LEFT JOIN brand b ON b.hashed_id = p.brand 
@@ -36,6 +47,27 @@ LEFT JOIN (
     SELECT DISTINCT po_id, product_id
     FROM purchased_order_content
 ) poc ON poc.po_id = il.po_id AND poc.product_id = s.product_id
+LEFT JOIN \x60returns\x60 customer_return
+    ON customer_return.id = (
+        SELECT r.id
+        FROM \x60returns\x60 r
+        WHERE r.unique_barcode = s.unique_barcode
+          AND r.date >= s.date
+        ORDER BY r.date DESC, r.id DESC
+        LIMIT 1
+    )
+LEFT JOIN rts_content rts
+    ON rts.id = (
+        SELECT rc.id
+        FROM rts_content rc
+        INNER JOIN rts_logs rl ON rl.id = rc.rts_id
+        WHERE rc.unique_barcode = s.unique_barcode
+          AND rl.date >= s.date
+        ORDER BY rl.date DESC, rl.id DESC, rc.id DESC
+        LIMIT 1
+    )
+LEFT JOIN rts_logs rts_log
+    ON rts_log.id = rts.rts_id
 WHERE s.date >= ? AND s.date < ? ORDER BY s.date, s.id
 ";
 
@@ -58,7 +90,16 @@ report_csv($output, [
     'Inbound ID',
     'Inbounded by',
     'PO Number',
-    'Item Type'
+    'Item Type',
+    'Customer Return Status (as of export)',
+    'Customer Return Date',
+    'Customer Return Reason',
+    'Supplier RTS Status (as of export)',
+    'Supplier RTS Ref.',
+    'Supplier RTS Reason',
+    'Supplier RTS Requested Date',
+    'Supplier RTS Completed Date',
+    'Supplier RTS Type'
 ]);
 
 while($row = $res->fetch_assoc()){
@@ -70,6 +111,22 @@ while($row = $res->fetch_assoc()){
     // PO reference, or fallback label when no PO can be reached
     $po_ref = !empty($row['po_id']) ? $row['po_id'] : 'No linked PO';
     $item_type = (int) ($row['is_additional'] ?? 0) === 1 ? 'Additional Item' : '';
+    $customer_return_status = $row['customer_return_id'] !== null
+        ? 'Returned by customer'
+        : 'No customer return recorded';
+
+    $rts_status = 'No supplier RTS recorded';
+    if ($row['rts_reference'] !== null) {
+        switch ((int) $row['rts_item_status']) {
+            case 0: $rts_status = 'Returned to supplier'; break;
+            case 1: $rts_status = 'Supplier refunded'; break;
+            case 2: $rts_status = 'Supplier replaced'; break;
+            default: $rts_status = 'RTS status ' . $row['rts_item_status'];
+        }
+        if ((int) $row['rts_log_status'] === 0) {
+            $rts_status .= ' (pending resolution)';
+        }
+    }
 
     report_csv($output, [
         $row['unique_barcode'],
@@ -85,7 +142,16 @@ while($row = $res->fetch_assoc()){
         $unique_key,
         $full_name,
         $po_ref,
-        $item_type
+        $item_type,
+        $customer_return_status,
+        $row['customer_return_date'] ?? '',
+        $row['customer_return_reason'] ?? '',
+        $rts_status,
+        $row['rts_reference'] ?? '',
+        $row['rts_reason'] ?? '',
+        $row['rts_requested_date'] ?? '',
+        $row['rts_item_completed_date'] ?? $row['rts_log_completed_date'] ?? '',
+        $row['rts_type'] ?? ''
     ]);
 }
 

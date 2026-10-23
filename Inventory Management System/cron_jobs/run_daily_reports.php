@@ -14,8 +14,10 @@ $lastDay = new DateTimeImmutable('yesterday midnight');
 $failed = false;
 for ($day = new DateTimeImmutable('2026-10-22'); $day <= $lastDay; $day = $day->modify('+1 day')) {
     $date = $day->format('Y-m-d');
-    foreach (['inbound', 'outbound'] as $kind) {
-        $receipt = $storage . '/' . $kind . '_' . $date . '.uploaded.json';
+    foreach (['inbound', 'outbound', 'barcode_history'] as $kind) {
+        // Format-specific receipts let the first Excel run migrate dates that
+        // already have receipts from the previous CSV uploader.
+        $receipt = $storage . '/' . $kind . '_' . $date . '.xlsx.uploaded.json';
         if (is_file($receipt)) { continue; }
         try {
             $pipes = [];
