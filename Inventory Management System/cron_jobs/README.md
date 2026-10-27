@@ -12,8 +12,10 @@ https://drive.google.com/drive/folders/1FG7fL_0EqiExd92K4MQKOUioFftiz9Z1
   RTS request, and supplier RTS resolution as its own event row.
 
 Each workbook has a bold, highlighted header row, frozen header, filters, and
-borders around the populated cells. Google Drive stores Excel workbooks; CSV
-is used only as the signed transport format between PHP and Apps Script.
+borders around the populated cells. The first rows give the report title,
+report date, and a short plain-language guide; the column headers begin on
+row 4. Google Drive stores Excel workbooks that open in Google Sheets; CSV is
+used only as the signed transport format between PHP and Apps Script.
 
 ## Schedule and VPS
 
@@ -70,17 +72,23 @@ they have since been sold. Outbound rows use `outbound_logs.date_sent`, include
 all order statuses, and remain present if the stock row is missing. These are
 activity reports, not paid-only or net-sales reports.
 
-Inbound and Outbound include additional columns for the latest known customer
-return and supplier RTS information associated with the relevant item
-lifecycle. The daily Barcode History workbook is the detailed audit trail:
-each event gets its own row, with the barcode, event date/type, related
-inbound/outbound/order references, return reason or RTS reason, status/outcome,
-amount, and recorded-by user where available. A customer return is associated
-with the most recent preceding outbound transaction. A supplier RTS request
-is connected to its `rts_content` barcode and carries the original inbound ID
-and latest prior outbound context where available. A resolution is a separate
-event when its returned date is recorded. This avoids collapsing multiple
-events for one barcode into a single history row.
+The Inbound workbook lists items received on the report date and includes only
+Supplier Return (RTS) details. RTS means **Return to Supplier**. Its status,
+reason, reference, request date, completion date, and requested outcome
+(refund or replacement) describe supplier-return activity for the barcode as
+of the report run.
+
+The Outbound workbook lists items sent to customers on the report date and
+includes only customer-return details. Those details are matched to that same
+outbound cycle; Supplier RTS information is not shown in this workbook.
+
+The Barcode History workbook in **Returns & Supplier RTS** is a separate
+timeline. Each row represents one event, so a barcode can appear several
+times. Customer-return events link to the relevant outbound order. Supplier
+RTS request and resolution events link to the original inbound record and do
+not include a customer order link. An RTS request and its later refund or
+replacement appear as separate events. This workbook is an event history, not
+a list of unique barcodes or a count of returns.
 
 Some source tables do not directly identify which outbound cycle a later
 return belongs to; in those cases the report uses the nearest preceding
@@ -117,4 +125,9 @@ The local database was checked for October 22, 2026: 75 inbound rows, 161
 outbound rows, and 236 history events. An older date with return and RTS data
 was also checked. The Apps Script receiver was deployed and tested end to end
 by uploading `barcode_history_2026-01-22.xlsx`; the resulting workbook opened
-in Drive with the formatted `Barcode History` tab.
+in Drive as a formatted workbook with its headers and borders.
+
+The clearer titles, guides, and separation of return fields apply to reports
+created after these updated files are deployed to the VPS. Existing Drive
+workbooks are historical copies and are not rewritten by a code deployment;
+rerun an affected date if an older report also needs the new layout.

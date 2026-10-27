@@ -6,22 +6,22 @@ $rows = 0;
 
 report_csv($output, [
     'Event Date',
-    'Event Type',
+    'Activity Type',
     'Barcode',
     'Description',
     'Brand',
     'Category',
     'Supplier',
     'Warehouse',
-    'Inbound ID',
-    'Outbound No.',
-    'Order No.',
+    'Related Inbound ID',
+    'Related Outbound Reference',
+    'Customer Order Number',
     'Customer',
     'Reason',
-    'Fault / RTS For',
-    'Fault Type',
-    'Status / Outcome',
-    'Event Reference',
+    'Customer Return Fault / Supplier Requested Outcome',
+    'Customer Return Fault Type',
+    'Result / Status',
+    'Reference No.',
     'Amount',
     'Recorded By'
 ]);
@@ -59,7 +59,7 @@ function history_emit(mysqli_result $result): void
 history_emit(report_query("
     SELECT
         s.date AS event_date,
-        'Inbound Receipt' AS event_type,
+        'Item received (Inbound)' AS event_type,
         s.unique_barcode,
         p.description,
         b.brand_name,
@@ -93,7 +93,7 @@ history_emit(report_query("
 history_emit(report_query("
     SELECT
         ol.date_sent AS event_date,
-        'Outbound Shipment' AS event_type,
+        'Item sent to customer (Outbound)' AS event_type,
         oc.unique_barcode,
         p.description,
         b.brand_name,
@@ -134,7 +134,7 @@ history_emit(report_query("
 history_emit(report_query("
     SELECT
         r.date AS event_date,
-        'Customer Return' AS event_type,
+        'Item returned by customer' AS event_type,
         r.unique_barcode,
         p.description,
         b.brand_name,
@@ -178,7 +178,7 @@ history_emit(report_query("
 history_emit(report_query("
     SELECT
         rl.date AS event_date,
-        'Supplier RTS Request' AS event_type,
+        'Item sent back to supplier (RTS)' AS event_type,
         rc.unique_barcode,
         p.description,
         b.brand_name,
@@ -186,13 +186,13 @@ history_emit(report_query("
         sup.supplier_name,
         w.warehouse_name,
         s.inbound_id,
-        ol.hashed_id AS outbound_num,
-        ol.order_num,
-        ol.customer_fullname AS customer_name,
+        '' AS outbound_num,
+        '' AS order_num,
+        '' AS customer_name,
         rl.reason,
         rl.\x60for\x60 AS fault_or_rts_for,
         '' AS fault_type,
-        'RTS recorded for supplier return' AS status_outcome,
+        'Supplier return request logged' AS status_outcome,
         CONCAT('RTS #', rl.id) AS event_reference,
         '' AS amount,
         TRIM(CONCAT(COALESCE(u.user_fname, ''), ' ', COALESCE(u.user_lname, ''))) AS recorded_by
@@ -205,16 +205,6 @@ history_emit(report_query("
     LEFT JOIN supplier sup ON sup.hashed_id = rl.supplier
     LEFT JOIN warehouse w ON w.hashed_id = rl.warehouse
     LEFT JOIN users u ON u.hashed_id = rl.user_id
-    LEFT JOIN outbound_logs ol
-        ON ol.id = (
-            SELECT ol2.id
-            FROM outbound_content oc2
-            INNER JOIN outbound_logs ol2 ON ol2.hashed_id = oc2.hashed_id
-            WHERE oc2.unique_barcode = rc.unique_barcode
-              AND ol2.date_sent <= rl.date
-            ORDER BY ol2.date_sent DESC, ol2.id DESC, oc2.id DESC
-            LIMIT 1
-        )
     WHERE rl.date >= ? AND rl.date < ?
     ORDER BY rl.date, rl.id, rc.id
 "));
@@ -223,7 +213,7 @@ history_emit(report_query("
 history_emit(report_query("
     SELECT
         COALESCE(rc.returned_date, rl.returned_date) AS event_date,
-        'Supplier RTS Resolution' AS event_type,
+        'Supplier return outcome recorded (RTS)' AS event_type,
         rc.unique_barcode,
         p.description,
         b.brand_name,
@@ -231,9 +221,9 @@ history_emit(report_query("
         sup.supplier_name,
         w.warehouse_name,
         s.inbound_id,
-        ol.hashed_id AS outbound_num,
-        ol.order_num,
-        ol.customer_fullname AS customer_name,
+        '' AS outbound_num,
+        '' AS order_num,
+        '' AS customer_name,
         rl.reason,
         rl.\x60for\x60 AS fault_or_rts_for,
         '' AS fault_type,
@@ -254,16 +244,6 @@ history_emit(report_query("
     LEFT JOIN supplier sup ON sup.hashed_id = rl.supplier
     LEFT JOIN warehouse w ON w.hashed_id = rl.warehouse
     LEFT JOIN users u ON u.hashed_id = rl.user_id
-    LEFT JOIN outbound_logs ol
-        ON ol.id = (
-            SELECT ol2.id
-            FROM outbound_content oc2
-            INNER JOIN outbound_logs ol2 ON ol2.hashed_id = oc2.hashed_id
-            WHERE oc2.unique_barcode = rc.unique_barcode
-              AND ol2.date_sent <= COALESCE(rc.returned_date, rl.returned_date)
-            ORDER BY ol2.date_sent DESC, ol2.id DESC, oc2.id DESC
-            LIMIT 1
-        )
     WHERE COALESCE(rc.returned_date, rl.returned_date) >= ?
       AND COALESCE(rc.returned_date, rl.returned_date) < ?
     ORDER BY COALESCE(rc.returned_date, rl.returned_date), rl.id, rc.id

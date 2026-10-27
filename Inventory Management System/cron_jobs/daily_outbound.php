@@ -19,7 +19,7 @@ report_csv($output, [
     'Classification',
     'Category',
     'Order No.',
-    'Outbound No.',
+    'Outbound Reference',
     'Customer',
     'Date Sent',
     'Supplier',
@@ -30,21 +30,15 @@ report_csv($output, [
     'Barcode',
     'Batch Code',
     'Prepared By',
-    'Status',
-    'Capital',
-    'Sold Price',
-    'Customer Return Status (as of export)',
+    'Outbound Status',
+    'Unit Cost',
+    'Selling Price',
+    'Customer Return Status (as of report run)',
     'Customer Return Date',
-    'Customer Return Reason',
-    'Customer Return Fault',
-    'Customer Return Type',
-    'Customer Return Amount',
-    'Supplier RTS Ref.',
-    'Supplier RTS Outcome',
-    'Supplier RTS Reason',
-    'Supplier RTS Requested Date',
-    'Supplier RTS Completed Date',
-    'Supplier RTS Type'
+    'Reason Given for Customer Return',
+    'Reported Item Fault',
+    'Customer Return Fault Type',
+    'Customer Return Amount'
 ]);
 
 $query = "
@@ -72,14 +66,7 @@ SELECT
     customer_return.reason AS customer_return_reason,
     customer_return.fault AS customer_return_fault,
     customer_return.fault_type AS customer_return_type,
-    customer_return.amount AS customer_return_amount,
-    rts.rts_id AS rts_reference,
-    rts.status AS rts_status,
-    rts_log.status AS rts_log_status,
-    rts_log.reason AS rts_reason,
-    rts_log.date AS rts_requested_date,
-    COALESCE(rts.returned_date, rts_log.returned_date) AS rts_completed_date,
-    rts_log.`for` AS rts_type
+    customer_return.amount AS customer_return_amount
 FROM outbound_content oc
 LEFT JOIN stocks s
     ON s.unique_barcode = oc.unique_barcode
@@ -121,32 +108,6 @@ LEFT JOIN \x60returns\x60 customer_return
         ORDER BY r.date DESC, r.id DESC
         LIMIT 1
     )
-LEFT JOIN rts_content rts
-    ON rts.id = (
-        /* Restrict supplier RTS details to this outbound cycle and avoid duplicate rows. */
-        SELECT rc.id
-        FROM rts_content rc
-        INNER JOIN rts_logs rl
-            ON rl.id = rc.rts_id
-        WHERE rc.unique_barcode = oc.unique_barcode
-          AND rl.date >= ol.date_sent
-          AND NOT EXISTS (
-              SELECT 1
-              FROM outbound_content oc_next
-              INNER JOIN outbound_logs ol_next
-                  ON ol_next.hashed_id = oc_next.hashed_id
-              WHERE oc_next.unique_barcode = oc.unique_barcode
-                AND (
-                    ol_next.date_sent > ol.date_sent
-                    OR (ol_next.date_sent = ol.date_sent AND ol_next.id > ol.id)
-                )
-                AND ol_next.date_sent <= rl.date
-          )
-        ORDER BY rl.date DESC, rl.id DESC, rc.id DESC
-        LIMIT 1
-    )
-LEFT JOIN rts_logs rts_log
-    ON rts_log.id = rts.rts_id
 WHERE
     ol.date_sent >= ? AND ol.date_sent < ? ORDER BY ol.date_sent, ol.id, oc.id
 ";
@@ -167,19 +128,6 @@ while ($row = $result->fetch_assoc()) {
     $customer_return_status = $row['customer_return_id'] !== null
         ? 'Returned by customer'
         : 'No customer return recorded';
-
-    $rts_outcome = '';
-    if ($row['rts_status'] !== null) {
-        switch ((int) $row['rts_status']) {
-            case 0: $rts_outcome = 'Returned to supplier'; break;
-            case 1: $rts_outcome = 'Returned and Refunded'; break;
-            case 2: $rts_outcome = 'Returned and Replaced'; break;
-            default: $rts_outcome = 'RTS status ' . $row['rts_status'];
-        }
-        if ((int) $row['rts_log_status'] === 0) {
-            $rts_outcome .= ' (pending resolution)';
-        }
-    }
 
     report_csv($output, [
         $row['classification_name'],
@@ -204,13 +152,7 @@ while ($row = $result->fetch_assoc()) {
         $row['customer_return_reason'] ?? '',
         $row['customer_return_fault'] ?? '',
         $row['customer_return_type'] ?? '',
-        $row['customer_return_amount'] ?? '',
-        $row['rts_reference'] ?? '',
-        $rts_outcome,
-        $row['rts_reason'] ?? '',
-        $row['rts_requested_date'] ?? '',
-        $row['rts_completed_date'] ?? '',
-        $row['rts_type'] ?? ''
+        $row['customer_return_amount'] ?? ''
     ]);
 }
 

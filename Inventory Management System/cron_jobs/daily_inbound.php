@@ -22,9 +22,6 @@ SELECT
         WHEN il.po_id IS NOT NULL AND poc.product_id IS NULL THEN 1
         ELSE 0
     END AS is_additional,
-    customer_return.id AS customer_return_id,
-    customer_return.date AS customer_return_date,
-    customer_return.reason AS customer_return_reason,
     rts.rts_id AS rts_reference,
     rts.status AS rts_item_status,
     rts.returned_date AS rts_item_completed_date,
@@ -47,15 +44,6 @@ LEFT JOIN (
     SELECT DISTINCT po_id, product_id
     FROM purchased_order_content
 ) poc ON poc.po_id = il.po_id AND poc.product_id = s.product_id
-LEFT JOIN \x60returns\x60 customer_return
-    ON customer_return.id = (
-        SELECT r.id
-        FROM \x60returns\x60 r
-        WHERE r.unique_barcode = s.unique_barcode
-          AND r.date >= s.date
-        ORDER BY r.date DESC, r.id DESC
-        LIMIT 1
-    )
 LEFT JOIN rts_content rts
     ON rts.id = (
         SELECT rc.id
@@ -84,22 +72,19 @@ report_csv($output, [
     'Category',
     'Supplier',
     'Supplier Info',
-    'Unit Capital',
+    'Unit Cost',
     'Warehouse',
     'Date Acquired',
-    'Inbound ID',
-    'Inbounded by',
-    'PO Number',
-    'Item Type',
-    'Customer Return Status (as of export)',
-    'Customer Return Date',
-    'Customer Return Reason',
-    'Supplier RTS Status (as of export)',
-    'Supplier RTS Ref.',
-    'Supplier RTS Reason',
-    'Supplier RTS Requested Date',
-    'Supplier RTS Completed Date',
-    'Supplier RTS Type'
+    'Inbound Reference',
+    'Received By',
+    'Purchase Order',
+    'Receipt Type',
+    'Supplier Return (RTS) Status (as of report run)',
+    'Supplier Return Reference',
+    'Reason for Supplier Return',
+    'Supplier Return Requested On',
+    'Supplier Return Completed On',
+    'Supplier Return Requested Outcome'
 ]);
 
 while($row = $res->fetch_assoc()){
@@ -111,20 +96,19 @@ while($row = $res->fetch_assoc()){
     // PO reference, or fallback label when no PO can be reached
     $po_ref = !empty($row['po_id']) ? $row['po_id'] : 'No linked PO';
     $item_type = (int) ($row['is_additional'] ?? 0) === 1 ? 'Additional Item' : '';
-    $customer_return_status = $row['customer_return_id'] !== null
-        ? 'Returned by customer'
-        : 'No customer return recorded';
-
-    $rts_status = 'No supplier RTS recorded';
+    $rts_status = 'No supplier return recorded';
     if ($row['rts_reference'] !== null) {
         switch ((int) $row['rts_item_status']) {
-            case 0: $rts_status = 'Returned to supplier'; break;
-            case 1: $rts_status = 'Supplier refunded'; break;
-            case 2: $rts_status = 'Supplier replaced'; break;
-            default: $rts_status = 'RTS status ' . $row['rts_item_status'];
+            case 0: $rts_status = 'Sent back to supplier'; break;
+            case 1: $rts_status = 'Supplier refund recorded'; break;
+            case 2: $rts_status = 'Supplier replacement recorded'; break;
+            default: $rts_status = 'Supplier return recorded; outcome not specified';
         }
-        if ((int) $row['rts_log_status'] === 0) {
-            $rts_status .= ' (pending resolution)';
+        if (
+            (int) $row['rts_item_status'] === 0
+            && (int) $row['rts_log_status'] === 0
+        ) {
+            $rts_status .= ' — waiting for supplier outcome';
         }
     }
 
@@ -143,9 +127,6 @@ while($row = $res->fetch_assoc()){
         $full_name,
         $po_ref,
         $item_type,
-        $customer_return_status,
-        $row['customer_return_date'] ?? '',
-        $row['customer_return_reason'] ?? '',
         $rts_status,
         $row['rts_reference'] ?? '',
         $row['rts_reason'] ?? '',

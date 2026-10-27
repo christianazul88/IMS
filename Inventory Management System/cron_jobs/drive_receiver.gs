@@ -87,34 +87,67 @@ function createWorkbookBlob(kind, fileName, table) {
   };
   const preferredWidths = {
     Barcode: 21, Description: 38, Supplier: 27, Customer: 30,
-    'RTS Reason': 34, 'Inbounded by': 25, 'Prepared By': 25,
+    'Supplier Return (RTS) Status (as of report run)': 48,
+    'Reason for Supplier Return': 36, 'Supplier Return Reference': 28,
+    'Received By': 25, 'Prepared By': 25,
     Warehouse: 24, 'Date Acquired': 22, 'Date Sent': 22,
-    'Event Date': 22, 'Event Type': 25, 'Reason': 40,
-    'Status / Outcome': 36, 'Event Reference': 38, 'Inbound ID': 16,
-    'Outbound No.': 34, 'Order No.': 24, 'Customer': 30,
-    'Fault / RTS For': 24, 'Fault Type': 22, 'Recorded By': 25
+    'Event Date': 22, 'Activity Type': 42, 'Reason': 40,
+    'Result / Status': 36, 'Reference No.': 30,
+    'Related Inbound ID': 22, 'Related Outbound Reference': 34,
+    'Customer Order Number': 24, 'Customer': 30,
+    'Customer Return Fault / Supplier Requested Outcome': 42,
+    'Customer Return Fault Type': 26, 'Recorded By': 25
   };
+  const reportDate = (fileName.match(/_(\d{4}-\d{2}-\d{2})\.xlsx$/) || [])[1] || '';
+  const reportGuides = {
+    inbound: {
+      title: 'Daily Inbound Report',
+      note: 'Each row is an item received on this date. RTS means Return to Supplier; those columns show later supplier-return activity for these barcodes, as of the report run. Customer returns belong in the Outbound report.'
+    },
+    outbound: {
+      title: 'Daily Outbound Report',
+      note: 'Each row is an item sent to a customer on this date. Customer Returns are items brought back by customers; these details match the same outbound transaction. Supplier RTS details belong in the Inbound report.'
+    },
+    barcode_history: {
+      title: 'Returns & Supplier RTS — Barcode Activity History',
+      note: 'Each row is one event, so a barcode can appear more than once. Customer Returns link to an outbound order; Return to Supplier (RTS) events link to the original inbound record. These are separate processes.'
+    }
+  };
+  const guide = reportGuides[kind] || {title: 'Daily Inventory Report', note: ''};
+  const displayTable = [
+    [guide.title],
+    [`Report date: ${reportDate}`],
+    [guide.note],
+    ...table
+  ];
+  const headerRowNumber = 4;
+  const lastColumn = columnName(table[0].length);
   const cols = table[0].map((title, index) =>
     `<col min="${index + 1}" max="${index + 1}" width="${preferredWidths[title] || 20}" customWidth="1"/>`
   ).join('');
-  const rows = table.map((row, rowIndex) => {
+  const rows = displayTable.map((row, rowIndex) => {
     const cells = row.map((value, columnIndex) => {
       const ref = columnName(columnIndex + 1) + (rowIndex + 1);
-      const style = rowIndex === 0 ? 1 : 2;
+      const style = rowIndex === 0 ? 3 : rowIndex === headerRowNumber - 1 ? 1 : rowIndex < headerRowNumber - 1 ? 4 : 2;
       return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(value)}</t></is></c>`;
     }).join('');
-    return `<row r="${rowIndex + 1}"${rowIndex === 0 ? ' ht="34" customHeight="1"' : ''}>${cells}</row>`;
+    const height = rowIndex === 0 ? 34 : rowIndex === 2 ? 44 : rowIndex === headerRowNumber - 1 ? 38 : 22;
+    return `<row r="${rowIndex + 1}" ht="${height}" customHeight="1">${cells}</row>`;
   }).join('');
-  const lastCell = columnName(table[0].length) + table.length;
-  const filter = table.length > 1 ? `<autoFilter ref="A1:${lastCell}"/>` : '';
+  const lastCell = lastColumn + displayTable.length;
+  const filter = `<autoFilter ref="A${headerRowNumber}:${lastCell}"/>`;
+  const mergedGuides = [1, 2, 3].map(row =>
+    `<mergeCell ref="A${row}:${lastColumn}${row}"/>`
+  ).join('');
+  const merges = `<mergeCells count="3">${mergedGuides}</mergeCells>`;
 
   const parts = [
     ['[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
     ['_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
-    ['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView xWindow="0" yWindow="0" windowWidth="24000" windowHeight="12000"/></bookViews><sheets><sheet name="${kind === 'inbound' ? 'Inbound' : kind === 'outbound' ? 'Outbound' : 'Barcode History'}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView xWindow="0" yWindow="0" windowWidth="24000" windowHeight="12000"/></bookViews><sheets><sheet name="${kind === 'inbound' ? 'Inbound' : kind === 'outbound' ? 'Outbound' : 'Returns &amp; Supplier RTS'}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
     ['xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
-    ['xl/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF202124"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8EAED"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFDADCE0"/></left><right style="thin"><color rgb="FFDADCE0"/></right><top style="thin"><color rgb="FFDADCE0"/></top><bottom style="thin"><color rgb="FFDADCE0"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`],
-    ['xl/worksheets/sheet1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${lastCell}"/><sheetViews><sheetView showGridLines="1" tabSelected="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>${cols}</cols><sheetData>${rows}</sheetData>${filter}<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/></worksheet>`]
+    ['xl/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF202124"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="16"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><sz val="10"/><color rgb="FF44546A"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8EAED"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/><bgColor rgb="FF1F4E78"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor rgb="FFD9EAF7"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFDADCE0"/></left><right style="thin"><color rgb="FFDADCE0"/></right><top style="thin"><color rgb="FFDADCE0"/></top><bottom style="thin"><color rgb="FFDADCE0"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`],
+    ['xl/worksheets/sheet1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${lastCell}"/><sheetViews><sheetView showGridLines="1" tabSelected="1" workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A5" sqref="A5"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>${cols}</cols><sheetData>${rows}</sheetData>${filter}${merges}<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/></worksheet>`]
   ];
   const blobs = parts.map(([path, content]) => Utilities.newBlob(content, 'application/xml', path));
   const zipped = Utilities.zip(blobs, fileName);
