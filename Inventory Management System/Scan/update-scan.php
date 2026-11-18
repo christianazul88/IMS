@@ -201,7 +201,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $needsInsert = false;
 
-    if ($stock_item_status != 0) {
+    if($stock_item_status == 4){
+        $needsInsert = false;
+        die("barcode is about to be returned to supplier!");
+    } elseif ($stock_item_status != 0) {
         $outbounded_option = "yes";
         $needsInsert = true;
     }
