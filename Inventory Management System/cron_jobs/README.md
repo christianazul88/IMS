@@ -131,3 +131,31 @@ The clearer titles, guides, and separation of return fields apply to reports
 created after these updated files are deployed to the VPS. Existing Drive
 workbooks are historical copies and are not rewritten by a code deployment;
 rerun an affected date if an older report also needs the new layout.
+
+## Ending inventory snapshots
+
+`daily_ending_inventory.php` takes a current Asia/Manila snapshot. It includes
+statuses Available, Enroute, For Enroute, and Pending return to supplier; it
+excludes sold stock and fails if eligible barcodes are blank or duplicated.
+It saves one CSV per warehouse and sends it through the same signed receiver
+to the **Ending Inventory** folder under the shared reports folder. The CSV
+contains the snapshot time. This is not a historical report: it must be run
+near the end of the day, and missed days cannot be reconstructed from the
+current stock table.
+
+The receiver must first be deployed with ending-inventory support. On the VPS,
+the separate `IMS_ENDING_INVENTORY` cron entry runs at 23:55 Manila time (15:55
+UTC) as `imsreports`. It saves local CSVs under `IMS_REPORT_DIR` and uses that
+directory's existing `upload.json`. A rerun for the same date replaces the
+same-named Drive files. To retry an upload without recapturing stock:
+
+```bash
+IMS_REPORT_DIR=/var/lib/ims-daily-reports /opt/lampp/bin/php \
+  "/opt/lampp/htdocs/IMS/Inventory Management System/cron_jobs/daily_ending_inventory.php" \
+  --upload-only=2026-11-22
+```
+
+For a local CSV-only test, add `--local-only` and optionally
+`--output-dir=/path/to/directory`. Review `/var/lib/ims-daily-reports/ending_inventory.log`
+for scheduled-run output and errors. Uploading failures leave the saved CSVs
+available for `--upload-only` retries.

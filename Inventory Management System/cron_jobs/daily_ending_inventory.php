@@ -3,8 +3,10 @@
  * Current inventory snapshot, one CSV per warehouse. Run near the end of the
  * day in Asia/Manila. This is not a historical reconstruction.
  *
- * php daily_ending_inventory.php --output-dir=/path/to/reports
- * If omitted, IMS_REPORT_DIR or the private daily-report directory is used.
+ * php daily_ending_inventory.php [--output-dir=/path/to/reports] [--local-only]
+ * php daily_ending_inventory.php --upload-only=YYYY-MM-DD
+ * Uses IMS_REPORT_DIR/upload.json for signed uploads to the Drive receiver.
+ * Upload-only retries an already saved snapshot without recapturing inventory.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
@@ -22,7 +24,7 @@ date_default_timezone_set('Asia/Manila');
 $conn->set_charset('utf8mb4');
 $conn->query("SET time_zone = '+08:00'");
 
-$options = getopt('', ['output-dir:']);
+$options = getopt('', ['output-dir:', 'local-only', 'upload-only:']);
 $directory = $options['output-dir'] ?? getenv('IMS_REPORT_DIR');
 if (!$directory) {
     $directory = PHP_OS_FAMILY === 'Windows'
@@ -46,6 +48,62 @@ function ending_csv_row($file, array $fields): void
     if (fputcsv($file, $fields, ',', '"', '') === false) {
         throw new RuntimeException('Unable to write CSV row.');
     }
+}
+
+function ending_upload(string $path, string $configDirectory): array
+{
+    $configPath = rtrim($configDirectory, '/\\') . '/upload.json';
+    if (!is_file($configPath)) {
+        throw new RuntimeException('CSV saved; Drive upload config not found: ' . $configPath);
+    }
+    $config = json_decode(file_get_contents($configPath), true, 512, JSON_THROW_ON_ERROR);
+    if (!preg_match('~^https://script\.google\.com/macros/s/[a-zA-Z0-9_-]+/exec$~', $config['url'] ?? '') || empty($config['secret'])) {
+        throw new RuntimeException('Invalid Drive receiver configuration.');
+    }
+    $csv = file_get_contents($path);
+    if ($csv === false) {
+        throw new RuntimeException('Cannot read CSV: ' . $path);
+    }
+    $name = basename($path);
+    $payload = json_encode(['name' => $name, 'csv' => $csv], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    $body = json_encode(['payload' => $payload, 'signature' => hash_hmac('sha256', $payload, $config['secret'])], JSON_THROW_ON_ERROR);
+    $ch = curl_init($config['url']);
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5, CURLOPT_CONNECTTIMEOUT => 20,
+        CURLOPT_TIMEOUT => 180, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS]);
+    $response = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    $uploaded = $response === false ? null : json_decode($response, true);
+    if ($status !== 200 || !is_array($uploaded) || ($uploaded['ok'] ?? false) !== true || empty($uploaded['id']) || ($uploaded['name'] ?? '') !== $name || ($uploaded['mimeType'] ?? '') !== 'text/csv' || ($uploaded['folder'] ?? '') !== 'ending_inventory') {
+        throw new RuntimeException('CSV saved; Drive upload failed for ' . $name . ' (HTTP ' . $status . '). ' . $error . ' ' . (is_array($uploaded) ? ($uploaded['error'] ?? '') : ''));
+    }
+    return $uploaded;
+}
+
+$configDirectory = getenv('IMS_REPORT_DIR') ?: (PHP_OS_FAMILY === 'Windows'
+    ? 'C:/xampp/IMS-private/IMS-daily-reports'
+    : rtrim(getenv('HOME') ?: sys_get_temp_dir(), '/\\') . '/.local/share/ims-daily-reports');
+if (isset($options['upload-only'])) {
+    if (isset($options['local-only'])) {
+        throw new InvalidArgumentException('--upload-only and --local-only cannot be combined.');
+    }
+    $retryDate = $options['upload-only'];
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $retryDate);
+    if (!$date || $date->format('Y-m-d') !== $retryDate) {
+        throw new InvalidArgumentException('Use --upload-only=YYYY-MM-DD');
+    }
+    $paths = glob(rtrim($directory, '/\\') . '/ending_inventory_' . $retryDate . '_*.csv');
+    if (!$paths) {
+        throw new RuntimeException('No saved ending inventory files for ' . $retryDate);
+    }
+    foreach ($paths as $path) {
+        $uploaded = ending_upload($path, $configDirectory);
+        echo json_encode(['path' => $path, 'drive_id' => $uploaded['id']], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
+    }
+    exit(0);
 }
 
 $labels = [0 => 'Available', 2 => 'Enroute', 3 => 'For Enroute', 4 => 'Pending return to supplier'];
@@ -119,7 +177,15 @@ try {
         if (!rename($report['temp'], $report['path'])) {
             throw new RuntimeException('Cannot save CSV: ' . $report['path']);
         }
-        echo json_encode(['warehouse' => $report['warehouse'], 'rows' => $report['rows'], 'path' => $report['path']], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL;
+    }
+    // Save the full snapshot first, so failed uploads can be retried unchanged.
+    foreach ($staged as $report) {
+        $result = ['warehouse' => $report['warehouse'], 'rows' => $report['rows'], 'path' => $report['path']];
+        if (!isset($options['local-only'])) {
+            $uploaded = ending_upload($report['path'], $configDirectory);
+            $result['drive_id'] = $uploaded['id'];
+        }
+        echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL;
     }
     echo json_encode(['snapshot' => $capturedAt->format('Y-m-d H:i:s P'), 'warehouses' => count($staged), 'total_rows' => $total], JSON_THROW_ON_ERROR) . PHP_EOL;
 } catch (Throwable $error) {
