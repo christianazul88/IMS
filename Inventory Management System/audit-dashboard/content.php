@@ -1312,7 +1312,6 @@ if ($total_expected_qty == 0) {
                     WHERE aa.audit_id = ?
                     $additional_query
                     ORDER BY aas.id ASC
-                    LIMIT 100
                 ";
 
                 $stmt = $conn->prepare($audit_assignment_staffs_query);
