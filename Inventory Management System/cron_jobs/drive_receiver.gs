@@ -4,7 +4,8 @@
 const REPORT_FOLDERS = {
   inbound: '1pgofU7y8uC4Gnj1qFM4_KbhGPqbMg01b',
   outbound: '1jAefS1MeW2ccNmipPjg23wulSzmFcOww',
-  barcode_history: '1bYtJCXUGEkWcIlrdh2O-DTNIGSK9kTGe'
+  barcode_history: '1bYtJCXUGEkWcIlrdh2O-DTNIGSK9kTGe',
+  ending_inventory: '1b-uZDFp-y1OgbiJkEHV5UvCR1SROHn8j'
 };
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -24,11 +25,13 @@ function doPost(e) {
     // Accept the prior PHP uploader's .csv request name during VPS rollout.
     // The Drive artifact is always a formatted .xlsx workbook.
     const nameMatch = /^(inbound|outbound|barcode_history)_(\d{4}-\d{2}-\d{2})\.(?:csv|xlsx)$/.exec(report.name || '');
-    if (!nameMatch || typeof report.csv !== 'string' || !report.csv.length) {
+    const endingMatch = /^ending_inventory_(\d{4}-\d{2}-\d{2})_([A-Za-z0-9_-]{1,60})_([a-f0-9]{64})\.csv$/.exec(report.name || '');
+    if ((!nameMatch && !endingMatch) || typeof report.csv !== 'string' || !report.csv.length) {
       throw new Error('Invalid report');
     }
-    const kind = nameMatch[1];
-    const fileName = kind + '_' + nameMatch[2] + '.xlsx';
+    const kind = endingMatch ? 'ending_inventory' : nameMatch[1];
+    const fileName = endingMatch ? report.name : kind + '_' + nameMatch[2] + '.xlsx';
+    const mimeType = endingMatch ? 'text/csv' : XLSX_MIME;
     const values = Utilities.parseCsv(report.csv);
     if (!values.length || !values[0].length) throw new Error('Report has no header row');
     const columns = Math.max.apply(null, values.map(row => row.length));
@@ -46,12 +49,14 @@ function doPost(e) {
     if (matches.hasNext()) {
       previousFile = matches.next();
       if (matches.hasNext()) throw new Error('Duplicate report filenames need review');
-      if (previousFile.getMimeType() !== XLSX_MIME) {
-        throw new Error('An existing file has the report filename but is not an Excel workbook');
+      if (previousFile.getMimeType() !== mimeType) {
+        throw new Error('An existing file has the report filename but a different file type');
       }
     }
 
-    const workbook = createWorkbookBlob(kind, fileName, table);
+    const workbook = endingMatch
+      ? Utilities.newBlob(report.csv, 'text/csv', fileName)
+      : createWorkbookBlob(kind, fileName, table);
     if (previousFile) previousFile.setTrashed(true);
     let file;
     try {
@@ -62,7 +67,7 @@ function doPost(e) {
     }
     // Echo the request name so both the old CSV-name client and the new XLSX
     // client can verify their upload; Drive always stores fileName above.
-    return json({ok: true, id: file.getId(), name: report.name, mimeType: XLSX_MIME, folder: kind});
+    return json({ok: true, id: file.getId(), name: report.name, mimeType: mimeType, folder: kind});
   } catch (error) {
     console.error(error.message);
     return json({ok: false, error: error.message});
