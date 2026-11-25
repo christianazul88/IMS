@@ -5,12 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#080508">
   <title>Lorilay!</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --ui-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      --ink: #f6ecef;
+      --muted: #a89ba2;
+      --dim: #7c6f76;
+      --rose: #ff9db4;
+      --panel: rgba(21, 15, 19, .74);
+      --line: rgba(255, 255, 255, .09);
+    }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
     body {
       background: radial-gradient(circle at 50% 42%, #30131e 0%, #170b13 38%, #080508 78%);
       font-family: Arial, sans-serif;
     }
+    [hidden] { display: none !important; }
     canvas {
       display: block;
       width: 100%;
@@ -24,6 +37,8 @@
       touch-action: none;
     }
     #rose:active { cursor: grabbing; }
+
+    /* ---------- Intro ---------- */
     #intro {
       position: fixed;
       z-index: 4;
@@ -39,7 +54,6 @@
       color: #f9e9ed;
       text-align: center;
     }
-    #intro[hidden] { display: none; }
     #intro-message {
       min-height: 3em;
       width: min(760px, 100%);
@@ -65,127 +79,402 @@
       pointer-events: none;
       transition: opacity .5s ease, transform .5s ease;
       padding: 12px 30px;
-      border-color: #f2b7d5aa;
+      border: 1px solid #f2b7d5aa;
       background: #713882;
-      box-shadow: 0 0 24px #a85dc888;
-    }
-    #intro.ready #intro-button {
-      opacity: 1;
-      transform: none;
-      pointer-events: auto;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      #intro-button { transition: none; }
-      #intro-message .word { transition: none; }
-    }
-    button {
-      pointer-events: auto;
-      border: 1px solid #f0b9c266;
-      background: #2c1725c9;
       color: #ffe4e7;
       font: 600 12px Arial, sans-serif;
       letter-spacing: .03em;
       cursor: pointer;
       backdrop-filter: blur(12px);
+      box-shadow: 0 0 24px #a85dc888;
     }
-    button:hover, button:focus-visible { background: #663044e6; outline-color: #ff9ca8; }
+    #intro-button:hover, #intro-button:focus-visible { filter: brightness(1.15); outline-color: #ff9ca8; }
+    #intro.ready #intro-button {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+
+    /* ---------- Dock: start button, player, playlist ---------- */
     #audio-dock {
       position: fixed;
-      z-index: 2;
-      left: 50%;
-      bottom: calc(22px + env(safe-area-inset-bottom, 0px));
-      transform: translateX(-50%);
+      z-index: 3;
+      left: 0;
+      right: 0;
+      bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+      box-sizing: border-box;
+      padding: 0 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 12px;
+      font-family: var(--ui-font);
+      pointer-events: none;
     }
-    #audio-dock [hidden], #resume[hidden] { display: none; }
+    #audio-dock > * { pointer-events: auto; }
+
     #sound-hint {
       color: #ffdbe4;
-      font: 600 11px Arial, sans-serif;
-      letter-spacing: .26em;
+      font: 600 11px var(--ui-font);
+      letter-spacing: .24em;
       text-transform: lowercase;
       text-shadow: 0 0 16px #f37b9a88;
     }
-    #start-audio {
-      width: 58px;
-      height: 58px;
-      padding: 0 0 0 3px;
-      border-color: #ffc4d7aa;
-      border-radius: 50%;
-      background: #a63a61d9;
-      box-shadow: 0 0 25px #da5f8999;
-      font-size: 22px;
-    }
-    #mini-player {
+
+    .start-btn {
+      all: unset;
       box-sizing: border-box;
-      width: min(328px, calc(100vw - 32px));
-      padding: 10px 12px 9px;
-      border-radius: 999px;
-      border: 1px solid #ffffff26;
-      background: #1a171ac9;
-      box-shadow: 0 18px 50px #0008;
-      backdrop-filter: blur(18px);
-    }
-    .player-row { display: flex; align-items: center; gap: 10px; }
-    .cover {
+      position: relative;
       display: grid;
       place-items: center;
-      flex: 0 0 42px;
-      width: 42px;
-      height: 42px;
-      border-radius: 9px;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      color: #fff;
+      background: linear-gradient(145deg, #c94a6f, #8f2a4a);
+      box-shadow: inset 0 0 0 1px #ffffff30, 0 10px 34px #da5f8977;
+      cursor: pointer;
+      transition: transform .2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .start-btn:hover { transform: scale(1.06); }
+    .start-btn:active { transform: scale(.96); }
+    .start-btn svg { width: 26px; height: 26px; margin-left: 3px; fill: currentColor; }
+    .start-btn::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1px solid #ff9fb8;
+      opacity: 0;
+      animation: ring 2.8s ease-out infinite;
+    }
+    @keyframes ring {
+      0%   { transform: scale(.88); opacity: .55; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+
+    .start-btn:focus-visible, .ctl:focus-visible, .track:focus-visible {
+      outline: 2px solid #ffb3c4;
+      outline-offset: 3px;
+    }
+
+    /* Player card */
+    .player {
+      box-sizing: border-box;
+      width: min(360px, 100%);
+      padding: 14px 16px 10px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: 0 18px 50px #0009;
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      color: var(--ink);
+      animation: rise .55s cubic-bezier(.2,.8,.2,1) both;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .now { display: flex; align-items: center; gap: 12px; }
+    .cover {
+      flex: 0 0 44px;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 11px;
       background: radial-gradient(circle at 35% 30%, #e87893, #682039 68%, #25121e);
-      color: #ffe7ed;
-      font-size: 21px;
       box-shadow: inset 0 0 0 1px #ffffff22;
     }
-    .track-meta { min-width: 0; flex: 1; color: #fff; }
-    .track-meta .eyebrow { display: block; color: #eea9bc; font: 700 8px Arial, sans-serif; letter-spacing: .16em; }
-    .track-meta strong { display: block; margin-top: 2px; font: 700 13px Arial, sans-serif; white-space: nowrap; }
-    .track-meta small { display: block; margin-top: 2px; color: #c7b9c0; font: 11px Arial, sans-serif; }
-    #toggle-audio {
-      flex: 0 0 34px;
-      width: 34px;
-      height: 34px;
-      padding: 0;
+    .meta { min-width: 0; flex: 1; }
+    .meta .title, .meta .artist {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .meta .title { font-weight: 700; font-size: 14px; line-height: 1.3; }
+    .meta .artist { margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--muted); }
+
+    .seek { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .seek time {
+      flex: 0 0 auto;
+      min-width: 32px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .seek time:last-child { text-align: right; }
+    #seek {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      min-width: 0;
+      height: 18px;
+      margin: 0;
+      background: transparent;
+      cursor: pointer;
+      --p: 0%;
+    }
+    #seek:disabled { opacity: .5; cursor: default; }
+    #seek:focus-visible { outline: none; }
+    #seek::-webkit-slider-runnable-track {
+      height: 3px;
+      border-radius: 3px;
+      background: linear-gradient(to right, #ffc2d1 var(--p), #ffffff2e var(--p));
+    }
+    #seek::-moz-range-track { height: 3px; border-radius: 3px; background: #ffffff2e; }
+    #seek::-moz-range-progress { height: 3px; border-radius: 3px; background: #ffc2d1; }
+    #seek::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 11px;
+      height: 11px;
+      margin-top: -4px;
       border: 0;
       border-radius: 50%;
-      background: #e5f5e5;
-      color: #172817;
-      font-size: 14px;
+      background: #fff;
+      box-shadow: 0 0 0 4px #ffffff1f;
+      transform: scale(0);
+      transition: transform .15s ease;
     }
-    .progress-row { display: flex; align-items: center; gap: 8px; margin: 7px 3px 0; }
-    .progress-row time { color: #a99ba2; font: 9px Arial, sans-serif; }
-    .progress-track { flex: 1; height: 3px; border-radius: 3px; background: #ffffff35; overflow: hidden; }
-    #progress-fill { width: 0; height: 100%; border-radius: inherit; background: #d9f0d9; }
+    #seek::-moz-range-thumb {
+      width: 11px;
+      height: 11px;
+      border: 0;
+      border-radius: 50%;
+      background: #fff;
+      transform: scale(0);
+      transition: transform .15s ease;
+    }
+    #seek:hover::-webkit-slider-thumb, #seek:focus-visible::-webkit-slider-thumb, #seek:active::-webkit-slider-thumb { transform: scale(1); }
+    #seek:hover::-moz-range-thumb, #seek:focus-visible::-moz-range-thumb, #seek:active::-moz-range-thumb { transform: scale(1); }
+
+    .controls {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .ctl {
+      all: unset;
+      box-sizing: border-box;
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      color: #e9dde1;
+      cursor: pointer;
+      transition: background .2s ease, color .2s ease, transform .15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ctl:hover { background: #ffffff14; color: #fff; }
+    .ctl:active { transform: scale(.93); }
+    .ctl svg { width: 20px; height: 20px; fill: currentColor; }
+    .ctl.main { width: 48px; height: 48px; background: #f6ecef; color: #1a0f14; }
+    .ctl.main:hover { background: #fff; color: #000; }
+    .ctl.main svg { width: 22px; height: 22px; }
+    .ctl.list { position: absolute; right: -6px; }
+    .ctl.list[aria-expanded="true"] { color: var(--rose); background: #ff9db41f; }
+    .ctl.sm { width: 32px; height: 32px; }
+    .ctl.sm svg { width: 16px; height: 16px; }
+
+    .i-pause { display: none; }
+    .is-playing .i-play { display: none; }
+    .is-playing .i-pause { display: block; }
+
+    /* Equalizer bars (cover + active track) */
+    .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; color: var(--rose); }
+    .eq i {
+      display: block;
+      width: 3px;
+      height: 100%;
+      border-radius: 2px;
+      background: currentColor;
+      transform: scaleY(.25);
+      transform-origin: bottom;
+    }
+    .is-playing .eq i { animation: eq 1.2s ease-in-out infinite; }
+    .eq i:nth-child(2) { animation-delay: -.45s; }
+    .eq i:nth-child(3) { animation-delay: -.85s; }
+    @keyframes eq {
+      0%, 100% { transform: scaleY(.25); }
+      50%      { transform: scaleY(1); }
+    }
+    .cover .eq { height: 20px; gap: 3px; color: #ffe7ed; }
+    .cover .eq i { width: 4px; }
+
+    /* Playlist (hideable) */
+    .playlist {
+      box-sizing: border-box;
+      width: min(360px, 100%);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid transparent;
+      border-radius: 20px;
+      background: var(--panel);
+      box-shadow: 0 18px 50px #0009;
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      color: var(--ink);
+      max-height: 0;
+      margin-bottom: -12px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(10px);
+      transition: max-height .4s cubic-bezier(.4,0,.2,1), margin .4s cubic-bezier(.4,0,.2,1),
+        opacity .3s ease, transform .4s cubic-bezier(.4,0,.2,1), visibility 0s linear .4s;
+    }
+    .playlist.open {
+      max-height: min(44vh, 312px);
+      margin-bottom: 0;
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+      border-color: var(--line);
+      transition-delay: 0s;
+    }
+    .pl-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 10px 4px 18px;
+    }
+    .pl-head h2 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--ink); }
+    .pl-head h2 span { margin-left: 8px; font-weight: 500; color: var(--dim); }
+    .pl-list {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      margin: 0;
+      padding: 2px 8px 10px;
+      list-style: none;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: #ffffff30 transparent;
+    }
+    .track {
+      all: unset;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background .2s ease, color .2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .track:hover { background: #ffffff0d; color: var(--ink); }
+    .track .idx, .track .eq { flex: 0 0 20px; justify-content: center; }
+    .track .idx { font-size: 11px; font-weight: 600; text-align: center; color: var(--dim); font-variant-numeric: tabular-nums; }
+    .track .eq { display: none; }
+    .track.active .idx { display: none; }
+    .track.active .eq { display: inline-flex; }
+    .t-meta { min-width: 0; flex: 1; }
+    .t-title, .t-artist { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-title { font-size: 13px; font-weight: 600; }
+    .t-artist { margin-top: 1px; font-size: 11.5px; font-weight: 500; color: var(--dim); }
+    .track.active .t-title { color: #fff; }
+    .track.active .t-artist { color: var(--rose); }
+    .track.missing { opacity: .35; }
+
+    /* On wide screens the playlist is a side panel so it never covers the rose */
+    @media (min-width: 900px) {
+      .playlist {
+        position: fixed;
+        right: 24px;
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+        width: 300px;
+        margin-bottom: 0;
+        transform: translateX(18px);
+      }
+      .playlist.open { max-height: min(70vh, 420px); transform: none; }
+    }
     @media (max-width: 420px) {
       #intro-message { font-size: 18px; letter-spacing: .08em; }
-      #mini-player { width: min(310px, calc(100vw - 28px)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #intro-button, #intro-message .word, .playlist, .ctl, .track, .start-btn { transition: none; }
+      .eq i, .start-btn::after, .player { animation: none !important; }
     }
   </style>
 </head>
 <body>
-  <canvas id="rose" role="img" aria-label="A spinning red rose made entirely from the repeated word Lorilay!"></canvas>
+  <!-- Icon sprite -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.2 5.2c-.7-.4-1.7.1-1.7 1v11.6c0 .9 1 1.4 1.7 1l9.8-5.8c.7-.4.7-1.5 0-1.9z"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.2" y="5" width="4" height="14" rx="1.3"/><rect x="13.8" y="5" width="4" height="14" rx="1.3"/></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24"><rect x="5" y="5.2" width="2.4" height="13.6" rx="1.2"/><path d="M18.6 6.2v11.6c0 .8-.9 1.3-1.6.9l-8.4-5.8c-.6-.4-.6-1.2 0-1.6L17 5.3c.7-.5 1.6 0 1.6.9z"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><g transform="translate(24 0) scale(-1 1)"><rect x="5" y="5.2" width="2.4" height="13.6" rx="1.2"/><path d="M18.6 6.2v11.6c0 .8-.9 1.3-1.6.9l-8.4-5.8c-.6-.4-.6-1.2 0-1.6L17 5.3c.7-.5 1.6 0 1.6.9z"/></g></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M4 6.5h16M4 11.5h16M4 16.5h7" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M15 14.2v5.2c0 .5.5.8.9.5l3.9-2.6c.4-.3.4-.8 0-1.1l-3.9-2.6c-.4-.3-.9 0-.9.5z"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></symbol>
+    </defs>
+  </svg>
+
+  <canvas id="rose" role="img" aria-label="A slowly turning red rose made entirely from the repeated word Lorilay!"></canvas>
   <div id="intro" aria-label="Apaka busy mo be, wala ka nang time, sakalin kita e">
     <div id="intro-message" aria-hidden="true"></div>
     <button id="intro-button" type="button">For you ✦</button>
   </div>
+
   <div id="audio-dock">
-    <div id="sound-hint">sound on</div>
-    <button id="start-audio" type="button" aria-label="Play inangyan">▶</button>
-    <div id="mini-player" role="group" aria-label="Music player" hidden>
-      <div class="player-row">
-        <div class="cover" aria-hidden="true">♪</div>
-        <div class="track-meta"><span class="eyebrow">NOW PLAYING</span><strong>Ang cold mo be</strong><small>Chan</small></div>
-        <button id="toggle-audio" type="button" aria-label="Pause music">Ⅱ</button>
+    <div id="sound-hint">press play · sound on</div>
+    <button id="start-audio" class="start-btn" type="button" aria-label="Play">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>
+    </button>
+
+    <aside id="playlist" class="playlist" aria-label="Playlist" inert>
+      <div class="pl-head">
+        <h2>Playlist<span id="pl-count"></span></h2>
+        <button id="pl-close" class="ctl sm" type="button" aria-label="Hide playlist">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg>
+        </button>
       </div>
-      <div class="progress-row"><time id="elapsed">0:00</time><div class="progress-track"><div id="progress-fill"></div></div><time id="duration">0:00</time></div>
-    </div>
+      <ul id="pl-list" class="pl-list"></ul>
+    </aside>
+
+    <section id="mini-player" class="player" role="group" aria-label="Music player" hidden>
+      <div class="now">
+        <div class="cover" aria-hidden="true"><span class="eq"><i></i><i></i><i></i></span></div>
+        <div class="meta"><span class="title" id="track-title"></span><span class="artist" id="track-artist"></span></div>
+      </div>
+      <div class="seek">
+        <time id="elapsed">0:00</time>
+        <input id="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek" disabled>
+        <time id="duration">0:00</time>
+      </div>
+      <div class="controls">
+        <button id="prev" class="ctl" type="button" aria-label="Previous track">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-prev"/></svg>
+        </button>
+        <button id="toggle-audio" class="ctl main" type="button" aria-label="Play">
+          <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-pause"/></svg>
+        </button>
+        <button id="next" class="ctl" type="button" aria-label="Next track">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-next"/></svg>
+        </button>
+        <button id="toggle-list" class="ctl list" type="button" aria-label="Show playlist" aria-expanded="false" aria-controls="playlist">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-list"/></svg>
+        </button>
+      </div>
+    </section>
   </div>
+
   <button id="resume" type="button" hidden tabindex="-1" aria-hidden="true"></button>
-  <audio id="song" preload="metadata" src="Taylor Swift - Down Bad (Official Lyric Video).mp3"></audio>
+  <audio id="song" preload="metadata"></audio>
+
   <script>
     (() => {
       // oh bat chinecheck mo source code ko, akala ko ba busy ka, nakakapagod na, maghihintay ka maghapon tas tutulugan ka lang, block mo na lang ako taeng yan
@@ -201,19 +490,32 @@
       const introStart = performance.now() + 300;
       const resumeButton = document.getElementById('resume');
       const song = document.getElementById('song');
+      const dock = document.getElementById('audio-dock');
       const soundHint = document.getElementById('sound-hint');
       const startAudioButton = document.getElementById('start-audio');
       const miniPlayer = document.getElementById('mini-player');
       const toggleAudioButton = document.getElementById('toggle-audio');
+      const prevButton = document.getElementById('prev');
+      const nextButton = document.getElementById('next');
+      const listButton = document.getElementById('toggle-list');
+      const titleLabel = document.getElementById('track-title');
+      const artistLabel = document.getElementById('track-artist');
       const elapsedLabel = document.getElementById('elapsed');
       const durationLabel = document.getElementById('duration');
-      const progressFill = document.getElementById('progress-fill');
+      const seek = document.getElementById('seek');
+      const playlist = document.getElementById('playlist');
+      const playlistClose = document.getElementById('pl-close');
+      const playlistList = document.getElementById('pl-list');
+      const playlistCount = document.getElementById('pl-count');
       const phrases = ['ayaw na ba', 'cold mo na e', 'block mo na kaya be?'];
       const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       const redShades = ['#8c0e22', '#a90f27', '#c81530', '#dc2338', '#ec3446', '#f24d58', '#ff6970'];
       const greenShades = ['#25543b', '#326e48', '#408b55', '#55a969'];
       const coreShades = ['#a93525', '#c7512b', '#df7134', '#e99a49'];
+
+      const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+      const clamp01 = value => clamp(value, 0, 1);
 
       // Each colored image contains only the same word on transparency.
       function wordImage(color) {
@@ -241,28 +543,96 @@
       const greenImages = greenShades.map(wordImage);
       const coreImages = coreShades.map(wordImage);
 
-      // Each falling petal is a transparent image made solely of phrase text.
-      function fallingPetalImage(phrase, color) {
+      // Falling petals: a real rose-petal outline (rounded shoulders, a small notch at the tip),
+      // filled with rows of tiny phrase text so they still read as "made of words".
+      const PETAL_W = 160, PETAL_H = 200;           // texture size (drawn in a 128x160 space, scaled 1.25x)
+      const PETAL_K = .5, PETAL_MIN = 64, PETAL_MAX = 104; // on-screen size tuning (px)
+      const petalTones = [
+        { a: '#5e0d24', b: '#92183a', c: '#c8335b', text: '#ff8fa9', glow: '#d7496e' },
+        { a: '#7b1330', b: '#b52749', c: '#e6516f', text: '#ffb3c4', glow: '#f16d88' },
+        { a: '#9d1f40', b: '#d94361', c: '#ff8199', text: '#ffd3dc', glow: '#ff92a6' },
+      ];
+      function petalOutline(pen, shape) {
+        const { wide, lean, notch } = shape;
+        const x = 64;
+        pen.beginPath();
+        pen.moveTo(x + lean * .2, 152);
+        pen.bezierCurveTo(x - 31 * wide, 144, x - 56 * wide, 108, x - 55 * wide, 68);
+        pen.bezierCurveTo(x - 54 * wide, 30, x - 24 * wide, 1, x + lean, 16 + notch);
+        pen.bezierCurveTo(x + 24 * wide, 1, x + 54 * wide, 30, x + 55 * wide, 68);
+        pen.bezierCurveTo(x + 56 * wide, 108, x + 31 * wide, 144, x + lean * .2, 152);
+        pen.closePath();
+      }
+      function fallingPetalImage(phrase, tone, shape) {
         const image = document.createElement('canvas');
-        image.width = 240;
-        image.height = 170;
+        image.width = PETAL_W;
+        image.height = PETAL_H;
         const pen = image.getContext('2d');
+        pen.scale(PETAL_W / 128, PETAL_H / 160);
+
+        // soft glow behind the petal
+        pen.save();
+        petalOutline(pen, shape);
+        pen.shadowColor = tone.glow;
+        pen.shadowBlur = 7;
+        pen.globalAlpha = .6;
+        pen.fillStyle = tone.b;
+        pen.fill();
+        pen.restore();
+
+        // body, clipped to the petal outline
+        pen.save();
+        petalOutline(pen, shape);
+        pen.clip();
+        const body = pen.createLinearGradient(0, 152, 0, 8);
+        body.addColorStop(0, tone.a);
+        body.addColorStop(.5, tone.b);
+        body.addColorStop(1, tone.c);
+        pen.fillStyle = body;
+        pen.fillRect(0, 0, 128, 160);
+
+        // a few rows of the phrase, each sized to fit the petal's width at that height
         pen.textAlign = 'center';
         pen.textBaseline = 'middle';
-        pen.font = 'italic bold 24px Georgia, serif';
-        pen.fillStyle = color;
-        pen.shadowColor = color;
-        pen.shadowBlur = 7;
-        for (let row = 0; row < 5; row++) {
-          const t = (row + .5) / 5;
-          const petalWidth = 205 * Math.pow(Math.sin(Math.PI * t), 1.3) * (1.2 - t * .3);
-          pen.globalAlpha = .82 + .18 * Math.sin(Math.PI * t);
-          pen.fillText(phrase, 120 + 7 * Math.sin(Math.PI * t), 23 + row * 31, petalWidth);
+        pen.fillStyle = '#fff4f6';
+        pen.shadowColor = tone.a;
+        pen.shadowBlur = 2;
+        petalOutline(pen, shape);
+        const rows = [34, 60, 86, 112, 136];
+        for (const y of rows) {
+          let left = null, right = null;
+          for (let x = 0; x <= 128; x += 2) {
+            if (pen.isPointInPath(x * PETAL_W / 128, y * PETAL_H / 160)) {
+              if (left === null) left = x;
+              right = x;
+            }
+          }
+          if (left === null) continue;
+          const room = (right - left) * .84;
+          pen.font = 'italic 700 15px Georgia, serif';
+          const natural = pen.measureText(phrase).width;
+          const size = Math.max(8, Math.min(15, 15 * room / natural));
+          pen.font = `italic 700 ${size}px Georgia, serif`;
+          pen.fillText(phrase, (left + right) / 2 + shape.lean * .3, y);
         }
+        pen.restore();
+
+        // thin rim light so the edge reads as a petal
+        pen.save();
+        petalOutline(pen, shape);
+        pen.lineWidth = 1.6;
+        pen.strokeStyle = tone.text;
+        pen.globalAlpha = .55;
+        pen.stroke();
+        pen.restore();
         return image;
       }
-      const petalImages = phrases.flatMap(phrase =>
-        ['#d7496e', '#f16d88', '#ff92a6'].map(color => fallingPetalImage(phrase, color)));
+      const petalImages = phrases.flatMap(phrase => petalTones.flatMap(tone =>
+        [0, 1].map(() => fallingPetalImage(phrase, tone, {
+          wide: .86 + Math.random() * .1,
+          lean: (Math.random() - .5) * 10,
+          notch: 3 + Math.random() * 4,
+        }))));
 
       const vec = (x = 0, y = 0, z = 0) => ({ x, y, z });
       const add = (a, b) => vec(a.x + b.x, a.y + b.y, a.z + b.z);
@@ -348,14 +718,15 @@
         place(p, tangent, normal, .23, coreImages[Math.floor(random() * coreImages.length)],
           'core', .18, head);
       }
+      const STEM_BOTTOM = -4.3;
       const stem = y => vec(.11 * Math.sin(-y * .7), y, 0);
-      for (let y = .95; y > -2.45; y -= .22) {
+      for (let y = .95; y > STEM_BOTTOM; y -= .22) {
         for (let side = 0; side < 4; side++) {
           const angle = side * Math.PI / 2 + y * 1.1;
           const normal = vec(Math.cos(angle), 0, Math.sin(angle));
           place(add(stem(y), scale(normal, .07)), vec(.1, 1, 0), normal, .42,
             greenImages[Math.floor(random() * greenImages.length)],
-            'stem', .02 + (y + 2.45) / 3.4 * .32, stem(-2.45));
+            'stem', .02 + (y - STEM_BOTTOM) / (.95 - STEM_BOTTOM) * .32, stem(STEM_BOTTOM));
         }
       }
       [[-.28, Math.PI + .7], [-.75, .15], [-1.58, Math.PI + .2]].forEach(([y, direction]) => {
@@ -383,8 +754,12 @@
       let shownWords = 0;
       const pointers = new Map();
       let pinchDistance = 0;
+      let started = false;        // nothing blooms or moves until the user presses play
       let bloomStart = Infinity;
+      let petalGate = 0;
       let revealAt = null;
+      const BLOOM_MS = 6800;
+      const TILT_MIN = -.25, TILT_MAX = .72, DIST_MIN = 5.8, DIST_MAX = 12;
       const drawOrder = records.map(item => ({ item, depth: 0 }));
       const fallingPetals = [];
       const ease = value => {
@@ -392,33 +767,81 @@
         return t * t * (3 - 2 * t);
       };
 
-      function resetFallingPetal(petal, anywhere = false) {
-        petal.image = petalImages[Math.floor(random() * petalImages.length)];
-        petal.x = (random() - .5) * 10;
-        petal.y = anywhere ? -3.7 + random() * 8.5 : 4.7 + random() * 1.5;
-        petal.z = (random() - .5) * 7;
-        petal.velocity = -.05 - random() * .08;
-        petal.gravity = .025 + random() * .025;
-        petal.terminal = .22 + random() * .12;
-        petal.drift = (random() - .5) * .06;
-        petal.phase = random() * Math.PI * 2;
-        petal.flutter = .8 + random() * .8;
-        petal.turn = random() * Math.PI * 2;
-        petal.turnSpeed = (random() - .5) * .55;
-        petal.size = .75 + random() * .55;
-        petal.alpha = .78 + random() * .2;
+      // ---------- Camera choreography ----------
+      // A slow looping "shoot": gentle turns, a small sway back, a low hero angle,
+      // a pull-back, and a high look into the bloom. Catmull-Rom keeps it fluid.
+      const SHOT_MS = 9500;
+      const shots = [ // [yaw deg, tilt rad, distance]
+        [0,   .56, 8.7],
+        [42,  .44, 8.2],
+        [96,  .64, 8.9],
+        [82,  .52, 7.9],   // sway back
+        [168, .34, 8.5],   // low hero angle
+        [236, .50, 9.6],   // pull back
+        [250, .66, 8.4],   // high, into the bloom
+        [318, .46, 8.0],
+      ];
+      function spline(p0, p1, p2, p3, t) {
+        const t2 = t * t, t3 = t2 * t;
+        return .5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+      }
+      function direct(time) {
+        const n = shots.length;
+        const f = time / SHOT_MS;
+        const i = Math.floor(f), t = f - i;
+        const get = (k, col) => {
+          const wraps = Math.floor(k / n);
+          return shots[((k % n) + n) % n][col] + (col === 0 ? wraps * 360 : 0);
+        };
+        const pick = col => spline(get(i - 1, col), get(i, col), get(i + 1, col), get(i + 2, col), t);
+        return { yaw: pick(0) * Math.PI / 180, tilt: pick(1), dist: pick(2) };
+      }
+      // The director adds only *changes* in motion, so anything the person does by hand
+      // (drag, pinch, wheel) stays where they left it and the choreography carries on from there.
+      let lastShot = null;
+      function steerCamera() {
+        if (!started || reducedMotion) return;
+        const d = direct(sceneTime);
+        if (lastShot) {
+          const weight = ease(sceneTime / 5000); // eases in after pressing play
+          angle += (d.yaw - lastShot.yaw) * weight;
+          tilt = clamp(tilt + (d.tilt - lastShot.tilt) * weight, TILT_MIN, TILT_MAX);
+          distance = clamp(distance + (d.dist - lastShot.dist) * weight, DIST_MIN, DIST_MAX);
+        }
+        lastShot = d;
       }
 
-      // Gravity, drag, sway, and tumble make the text petals float down slowly.
+      function resetFallingPetal(petal, mode = 'top') {
+        petal.image = petalImages[Math.floor(random() * petalImages.length)];
+        petal.x = (random() - .5) * 10;
+        petal.y = mode === 'anywhere' ? -3.7 + random() * 8.5 :
+          mode === 'stagger' ? 3.9 + random() * 3.4 : 4.7 + random() * 1.5;
+        petal.z = (random() - .5) * 7;
+        petal.velocity = -.04 - random() * .06;
+        petal.gravity = .02 + random() * .02;
+        petal.terminal = .15 + random() * .11;
+        petal.drift = (random() - .5) * .05;
+        petal.phase = random() * Math.PI * 2;
+        petal.flutter = .8 + random() * .8;
+        petal.rot = (random() - .5) * 1.2;
+        petal.spin = (random() - .5) * .45;
+        petal.flip = random() * Math.PI * 2;
+        petal.flipSpeed = .6 + random() * 1.1;
+        petal.size = .75 + random() * .55;
+        petal.alpha = .8 + random() * .2;
+      }
+
+      // Gravity, drag, sway, and a soft flip make the text petals float down slowly.
       function moveFallingPetals(delta, time) {
-        if (reducedMotion || inspectionPaused) return;
+        if (reducedMotion || inspectionPaused || !started || petalGate <= 0) return;
         const seconds = delta / 1000;
         for (const petal of fallingPetals) {
           petal.velocity = Math.max(-petal.terminal, petal.velocity - petal.gravity * seconds);
           petal.y += petal.velocity * seconds;
-          petal.x += (petal.drift + Math.sin(time * .001 * petal.flutter + petal.phase) * .07) * seconds;
-          petal.z += Math.cos(time * .0008 * petal.flutter + petal.phase) * .02 * seconds;
-          petal.turn += petal.turnSpeed * seconds;
+          petal.x += (petal.drift + Math.sin(time * .0007 * petal.flutter + petal.phase) * .06) * seconds;
+          petal.z += Math.cos(time * .0006 * petal.flutter + petal.phase) * .02 * seconds;
+          petal.rot += petal.spin * seconds;
+          petal.flip += petal.flipSpeed * seconds;
           if (petal.y < -4.5 || Math.abs(petal.x) > 5.6) resetFallingPetal(petal);
         }
       }
@@ -427,26 +850,37 @@
         const world = rotate(vec(petal.x, petal.y, petal.z));
         const point = project(world);
         const zoom = focal / Math.max(2.5, distance - world.z);
-        const size = Math.max(90, Math.min(240, petal.size * zoom * 1.05));
-        if (point.x < -size || point.x > width + size || point.y < -size || point.y > height + size) return;
+        const w = clamp(petal.size * zoom * PETAL_K, PETAL_MIN, PETAL_MAX);
+        const h = w * PETAL_H / PETAL_W;
+        if (point.x < -w || point.x > width + w || point.y < -h || point.y > height + h) return;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.translate(point.x, point.y);
-        ctx.rotate(Math.sin(petal.turn + petal.phase) * .28);
-        ctx.globalAlpha = petal.alpha;
-        ctx.drawImage(petal.image, -size * .5, -size * .35, size, size * 170 / 240);
+        ctx.rotate(petal.rot + Math.sin(petal.flip * .6 + petal.phase) * .5);
+        ctx.scale(.35 + .65 * Math.abs(Math.cos(petal.flip)), 1);
+        ctx.globalAlpha = petal.alpha * petalGate;
+        ctx.drawImage(petal.image, -w * .5, -h * .5, w, h);
         ctx.globalAlpha = 1;
       }
 
       function paintPetalLayer(near) {
+        if (petalGate <= 0) return;
         for (const petal of fallingPetals) {
           if ((rotate(vec(petal.x, petal.y, petal.z)).z >= 0) === near) paintFallingPetal(petal);
         }
       }
 
-      function beginReveal(time) {
+      // Bloom (and every other motion) begins only when the person presses play.
+      function startExperience() {
+        if (started) return;
+        started = true;
+        bloomStart = sceneTime + 150;
+        lastShot = null;
+        canvas.dataset.motion = 'running';
+      }
+
+      function dismissIntro(time) {
         if (revealAt !== null) return;
         revealAt = time;
-        bloomStart = sceneTime + 150;
       }
 
       function revealIntro(time) {
@@ -463,7 +897,7 @@
           shownWords++;
         }
         if (count === introWords.length) introScreen.classList.add('ready');
-        if (revealAt === null && elapsed > introWords.length * 430 + 1800) beginReveal(time);
+        if (revealAt === null && elapsed > introWords.length * 430 + 1800) dismissIntro(time);
         if (revealAt !== null) {
           introScreen.style.opacity = String(1 - ease((time - revealAt) / 950));
           if (time - revealAt > 950) introScreen.hidden = true;
@@ -475,8 +909,11 @@
           item.part === 'core' ? .42 : Math.max(.16, 1 - item.phase);
         const open = ease((progress - item.phase) / duration);
         const origin = item.origin || head;
+        // once open, the bloom breathes very slightly
+        const breath = reducedMotion ? 0 :
+          (item.part === 'petal' ? 1 : item.part === 'core' ? .5 : 0) * Math.sin(sceneTime * .00055) * .02 * open;
         return {
-          position: add(origin, scale(sub(item.position, origin), open)),
+          position: add(origin, scale(sub(item.position, origin), open * (1 + breath))),
           size: .045 + open * .955,
           alpha: open,
         };
@@ -491,10 +928,10 @@
         focal = Math.min(width * 1.3, height * 1.25);
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        const desiredPetals = Math.max(7, Math.round(width / 120));
+        const desiredPetals = Math.max(7, Math.round(width / 130));
         while (fallingPetals.length < desiredPetals) {
           const petal = {};
-          resetFallingPetal(petal, true);
+          resetFallingPetal(petal, reducedMotion ? 'anywhere' : 'stagger');
           fallingPetals.push(petal);
         }
         fallingPetals.length = desiredPetals;
@@ -509,28 +946,30 @@
       function project(p) {
         const depth = Math.max(2.5, distance - p.z);
         const zoom = focal / depth;
-        return { x: width * .5 + p.x * zoom, y: height * .52 - p.y * zoom, z: p.z };
+        return { x: width * .5 + p.x * zoom, y: height * .45 - p.y * zoom, z: p.z };
       }
       function roseMotion(point) {
         if (reducedMotion) return point;
-        const reach = Math.max(0, Math.min(1, (point.y + 2.45) / 5.7));
+        const reach = Math.max(0, Math.min(1, (point.y - STEM_BOTTOM) / (3.3 - STEM_BOTTOM)));
         return add(point, vec(
-          Math.sin(sceneTime * .00072) * .16 * reach,
-          Math.sin(sceneTime * .00112) * .035 * reach,
-          Math.cos(sceneTime * .00062) * .11 * reach
+          Math.sin(sceneTime * .0005) * .16 * reach,
+          Math.sin(sceneTime * .00075) * .035 * reach,
+          Math.cos(sceneTime * .00045) * .11 * reach
         ));
       }
       function paint(time) {
         requestAnimationFrame(paint);
         const delta = Math.min(50, time - (previousTime || time));
         previousTime = time;
-        if (!inspectionPaused) sceneTime += delta;
-        if (!dragging && !reducedMotion && !inspectionPaused) angle += delta * .00037;
-        const bloom = reducedMotion ? 1 : Math.max(0, Math.min(1, (sceneTime - bloomStart) / 4300));
+        if (started && !inspectionPaused) sceneTime += delta;
+        const bloom = !started ? 0 : reducedMotion ? 1 : clamp01((sceneTime - bloomStart) / BLOOM_MS);
+        petalGate = started ? ease((bloom - .45) / .4) : 0;
+        steerCamera();
         moveFallingPetals(delta, sceneTime);
         revealIntro(time);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!started) return;
         paintPetalLayer(false);
 
         for (const entry of drawOrder) {
@@ -540,7 +979,7 @@
         drawOrder.sort((a, b) => a.depth - b.depth);
         for (const { item, pose } of drawOrder) {
           if (pose.alpha < .012) continue;
-          const pulse = item.part === 'petal' ? 1 + Math.sin(sceneTime * .00135) * .014 : 1;
+          const pulse = item.part === 'petal' ? 1 + Math.sin(sceneTime * .0008) * .012 : 1;
           const scaledWidth = item.width * pose.size * pulse;
           const p = project(rotate(roseMotion(pose.position)));
           const right = project(rotate(roseMotion(add(pose.position, scale(item.along, scaledWidth)))));
@@ -595,14 +1034,14 @@
           const [first, second] = [...pointers.values()];
           const span = Math.hypot(first.x - second.x, first.y - second.y);
           if (pinchDistance > 0 && span > 0) {
-            distance = Math.max(5.8, Math.min(12, distance * pinchDistance / span));
+            distance = clamp(distance * pinchDistance / span, DIST_MIN, DIST_MAX);
           }
           pinchDistance = span;
           return;
         }
         if (!dragging) return;
         angle += (event.clientX - lastX) * .008;
-        tilt = Math.max(-.25, Math.min(.72, tilt + (event.clientY - lastY) * .005));
+        tilt = clamp(tilt + (event.clientY - lastY) * .005, TILT_MIN, TILT_MAX);
         lastX = event.clientX;
         lastY = event.clientY;
       });
@@ -623,51 +1062,212 @@
       canvas.addEventListener('wheel', event => {
         event.preventDefault();
         pauseForInspection();
-        distance = Math.max(5.8, Math.min(12, distance + event.deltaY * .008));
+        distance = clamp(distance + event.deltaY * .008, DIST_MIN, DIST_MAX);
         scheduleResume();
       }, { passive: false });
-      introButton.addEventListener('click', () => beginReveal(performance.now()));
+      introButton.addEventListener('click', () => dismissIntro(performance.now()));
       addEventListener('blur', () => {
         pointers.clear();
         dragging = false;
         if (inspectionPaused) scheduleResume();
       });
 
-      // A direct tap starts the supplied MP3 on Safari; the dock then becomes a mini player.
+      // ---------- Playlist & player ----------
+      // Edit titles/artists freely; `src` must match the MP3 file names beside index.html.
+      const TRACKS = [
+        { src: 'Taylor Swift - Down Bad (Official Lyric Video).mp3', title: 'Ang cold mo be', artist: 'Chan' },
+        { src: 'LANY - good guys (official video).mp3', title: 'good guys', artist: 'LANY' },
+        { src: 'Rob Deniel - Miss Miss (Official Lyric Visualizer).mp3', title: 'Miss Miss', artist: 'Rob Deniel' },
+        { src: 'ALAM KO - JOHN ROA OFFICIAL MUSIC VIDEO.mp3', title: 'Alam Ko', artist: 'John Roa' },
+        { src: 'Kung Ayaw - Jan Roberts (Official Visualizer).mp3', title: 'Kung Ayaw', artist: 'Jan Roberts' },
+        { src: 'will rants about bare minimum (nag-eeffort nga ba talaga siya).mp3', title: 'will rants about bare minimum', artist: 'nag-eeffort nga ba talaga siya' },
+      ];
+      const wideScreen = matchMedia('(min-width: 900px)');
+      const items = [];
+      const missing = new Set();
+      let index = 0;
+      let wantPlaying = false;
+      let scrubbing = false;
+
+      TRACKS.forEach((track, i) => {
+        const li = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'track';
+        button.innerHTML = '<span class="idx"></span><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>' +
+          '<span class="t-meta"><span class="t-title"></span><span class="t-artist"></span></span>';
+        button.querySelector('.idx').textContent = String(i + 1);
+        button.querySelector('.t-title').textContent = track.title;
+        button.querySelector('.t-artist').textContent = track.artist;
+        button.addEventListener('click', () => (i === index ? togglePlay() : loadTrack(i, true)));
+        li.append(button);
+        playlistList.append(li);
+        items.push(button);
+      });
+      playlistCount.textContent = String(TRACKS.length);
+
       const formatTime = value => {
-        if (!Number.isFinite(value)) return '0:00';
+        if (!Number.isFinite(value) || value < 0) return '0:00';
         const seconds = Math.floor(value);
         return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
       };
-      function updatePlayer() {
-        elapsedLabel.textContent = formatTime(song.currentTime);
-        durationLabel.textContent = formatTime(song.duration);
-        progressFill.style.width = `${song.duration ? song.currentTime / song.duration * 100 : 0}%`;
-        const playing = !song.paused && !song.ended;
-        toggleAudioButton.textContent = playing ? 'Ⅱ' : '▶';
-        toggleAudioButton.setAttribute('aria-label', playing ? 'Pause music' : 'Play music');
+      function paintSeek(fraction) {
+        seek.value = String(Math.round(fraction * 1000));
+        seek.style.setProperty('--p', `${fraction * 100}%`);
       }
-      startAudioButton.addEventListener('click', async () => {
-        try {
-          await song.play();
-          startAudioButton.hidden = true;
-          soundHint.hidden = true;
-          miniPlayer.hidden = false;
-          updatePlayer();
-        } catch {
-          soundHint.textContent = 'sound unavailable';
+      function updatePlayer() {
+        const length = song.duration, now = song.currentTime;
+        const known = Number.isFinite(length) && length > 0;
+        if (!scrubbing) {
+          elapsedLabel.textContent = formatTime(now);
+          paintSeek(known ? clamp01(now / length) : 0);
         }
-      });
-      toggleAudioButton.addEventListener('click', () => {
+        durationLabel.textContent = known ? formatTime(length) : '0:00';
+        seek.disabled = !known;
+        const playing = !song.paused && !song.ended;
+        dock.classList.toggle('is-playing', playing);
+        toggleAudioButton.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+      }
+      function revealActive() {
+        if (!playlist.classList.contains('open')) return;
+        const row = items[index].parentElement;
+        const top = row.offsetTop, bottom = top + row.offsetHeight;
+        if (top < playlistList.scrollTop) playlistList.scrollTop = Math.max(0, top - 4);
+        else if (bottom > playlistList.scrollTop + playlistList.clientHeight) {
+          playlistList.scrollTop = bottom - playlistList.clientHeight + 4;
+        }
+      }
+      function markActive() {
+        items.forEach((button, i) => {
+          button.classList.toggle('active', i === index);
+          button.classList.toggle('missing', missing.has(i));
+          if (i === index) button.setAttribute('aria-current', 'true');
+          else button.removeAttribute('aria-current');
+        });
+        revealActive();
+      }
+      function updateMediaSession() {
+        if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+        const track = TRACKS[index];
+        navigator.mediaSession.metadata = new MediaMetadata({ title: track.title, artist: track.artist, album: 'Lorilay!' });
+      }
+      function play() {
+        wantPlaying = true;
+        const promise = song.play();
+        if (promise && promise.catch) {
+          promise.catch(error => {
+            // Aborted/unsupported loads are handled by the track-skipping logic below.
+            if (error && error.name === 'NotAllowedError') { wantPlaying = false; updatePlayer(); }
+          });
+        }
+      }
+      function loadTrack(next, autoplay = false) {
+        index = (next + TRACKS.length) % TRACKS.length;
+        const track = TRACKS[index];
+        missing.delete(index);
+        song.src = encodeURI(track.src);
+        song.load();
+        titleLabel.textContent = track.title;
+        artistLabel.textContent = track.artist;
+        paintSeek(0);
+        elapsedLabel.textContent = '0:00';
+        durationLabel.textContent = '0:00';
+        markActive();
+        updateMediaSession();
+        if (autoplay) play();
+        updatePlayer();
+      }
+      function togglePlay() {
         if (song.paused || song.ended) {
           if (song.ended) song.currentTime = 0;
-          song.play().catch(() => { soundHint.textContent = 'sound unavailable'; soundHint.hidden = false; });
+          play();
         } else {
+          wantPlaying = false;
           song.pause();
         }
+      }
+      function previousTrack() {
+        if (song.currentTime > 3) song.currentTime = 0;
+        else loadTrack(index - 1, wantPlaying || !song.paused);
+      }
+      const nextTrack = () => loadTrack(index + 1, wantPlaying || !song.paused);
+
+      function setPlaylist(open) {
+        playlist.classList.toggle('open', open);
+        playlist.inert = !open;
+        listButton.setAttribute('aria-expanded', String(open));
+        listButton.setAttribute('aria-label', open ? 'Hide playlist' : 'Show playlist');
+        if (open) setTimeout(revealActive, 420);
+      }
+
+      startAudioButton.addEventListener('click', () => {
+        startExperience();                 // bloom + motion begin here, and only here
+        startAudioButton.hidden = true;
+        soundHint.hidden = true;
+        miniPlayer.hidden = false;
+        if (wideScreen.matches) setPlaylist(true);
+        play();
+        updatePlayer();
       });
-      ['loadedmetadata', 'timeupdate', 'play', 'pause', 'ended'].forEach(name =>
+      toggleAudioButton.addEventListener('click', togglePlay);
+      prevButton.addEventListener('click', previousTrack);
+      nextButton.addEventListener('click', nextTrack);
+      listButton.addEventListener('click', () => setPlaylist(!playlist.classList.contains('open')));
+      playlistClose.addEventListener('click', () => { setPlaylist(false); listButton.focus(); });
+      playlist.addEventListener('keydown', event => {
+        if (event.key === 'Escape') { setPlaylist(false); listButton.focus(); }
+      });
+      addEventListener('keydown', event => {
+        if (event.code === 'Space' && started && event.target === document.body) {
+          event.preventDefault();
+          togglePlay();
+        }
+      });
+
+      // Slider: preview while dragging, jump when released.
+      seek.addEventListener('input', () => {
+        scrubbing = true;
+        const fraction = seek.value / 1000;
+        elapsedLabel.textContent = formatTime(fraction * song.duration);
+        seek.style.setProperty('--p', `${fraction * 100}%`);
+      });
+      seek.addEventListener('change', () => {
+        if (Number.isFinite(song.duration)) song.currentTime = seek.value / 1000 * song.duration;
+        scrubbing = false;
+        updatePlayer();
+      });
+
+      // When a song ends, go straight to the next one; after the last, loop back to the first.
+      song.addEventListener('ended', () => loadTrack(index + 1, true));
+      song.addEventListener('error', () => {
+        if (!song.getAttribute('src')) return;
+        missing.add(index);
+        markActive();
+        if (missing.size >= TRACKS.length) {
+          wantPlaying = false;
+          artistLabel.textContent = 'audio files not found';
+          updatePlayer();
+        } else if (wantPlaying) {
+          loadTrack(index + 1, true);    // skip a file that can't be loaded
+        }
+      });
+      ['loadedmetadata', 'durationchange', 'timeupdate', 'play', 'pause', 'ended'].forEach(name =>
         song.addEventListener(name, updatePlayer));
+
+      if ('mediaSession' in navigator) {
+        const handlers = {
+          play: () => play(),
+          pause: () => { wantPlaying = false; song.pause(); },
+          previoustrack: previousTrack,
+          nexttrack: nextTrack,
+        };
+        Object.entries(handlers).forEach(([action, handler]) => {
+          try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* unsupported action */ }
+        });
+      }
+
+      loadTrack(0, false);
       addEventListener('resize', resize);
       resize();
       requestAnimationFrame(paint);
