@@ -3,7 +3,7 @@
 function tracking_db() {
  static $db = null;
  if ($db instanceof PDO) return $db;
- $dsn = 'mysql:host='.(getenv('TRACK_DB_HOST') ?: '127.0.0.1');
+ $dsn = 'mysql:host='.(getenv('TRACK_DB_HOST') ?: 'localhost');
  $user = getenv('TRACK_DB_USER') ?: 'root';
  $password = getenv('TRACK_DB_PASSWORD') ?: '';
  $options = [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC];

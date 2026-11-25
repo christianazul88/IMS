@@ -1,7 +1,7 @@
 VPS deployment
 1. Deploy index.html, tracker.php, tracker-config.php, visitors.php and existing media.
 2. No SQL import is required. The first scene visit automatically creates sampletest and scene_visits if missing. MySQL/MariaDB must be running, and the configured account needs CREATE permission for sampletest on initial setup. Existing records are preserved.
-3. Set TRACK_DB_HOST, TRACK_DB_USER and TRACK_DB_PASSWORD in PHP's server environment. Use a database account restricted to sampletest; local defaults are XAMPP root with an empty password.
+3. The default connection is localhost, root, and an empty password. Set TRACK_DB_HOST, TRACK_DB_USER, and TRACK_DB_PASSWORD in PHP's server environment only if the VPS uses different credentials.
 4. Generate an owner password hash with: php -r 'echo password_hash("YOUR_PASSWORD", PASSWORD_DEFAULT);'
 5. Set TRACK_ADMIN_PASSWORD_HASH to that hash in the PHP server environment. Remote dashboard access stays disabled until configured. Use HTTPS.
 6. Open visitors.php and sign in. Localhost access is allowed without a password only when no owner hash is configured.
