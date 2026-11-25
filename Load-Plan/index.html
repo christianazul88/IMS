@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080508">
+  <title>Lorilay!</title>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      background: radial-gradient(circle at 50% 42%, #30131e 0%, #170b13 38%, #080508 78%);
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #rose {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      cursor: grab;
+      touch-action: none;
+    }
+    #rose:active { cursor: grabbing; }
+    #intro {
+      position: fixed;
+      z-index: 4;
+      inset: 0;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 32px 24px;
+      background: radial-gradient(circle at 50% 45%, #131b23 0%, #090d13 45%, #030406 100%);
+      color: #f9e9ed;
+      text-align: center;
+    }
+    #intro[hidden] { display: none; }
+    #intro-message {
+      min-height: 3em;
+      width: min(760px, 100%);
+      font: 600 clamp(18px, 3vw, 30px)/1.6 Georgia, serif;
+      letter-spacing: .13em;
+      text-shadow: 0 0 10px #fff8, 0 0 32px #d792ab55;
+    }
+    #intro-message .word {
+      display: inline-block;
+      opacity: 0;
+      filter: blur(7px);
+      transform: translateY(12px) scale(.96);
+      transition: opacity .8s ease, filter .8s ease, transform .8s cubic-bezier(.2,.8,.2,1);
+    }
+    #intro-message .word.shown {
+      opacity: 1;
+      filter: blur(0);
+      transform: none;
+    }
+    #intro-button {
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity .5s ease, transform .5s ease;
+      padding: 12px 30px;
+      border-color: #f2b7d5aa;
+      background: #713882;
+      box-shadow: 0 0 24px #a85dc888;
+    }
+    #intro.ready #intro-button {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #intro-button { transition: none; }
+      #intro-message .word { transition: none; }
+    }
+    button {
+      pointer-events: auto;
+      border: 1px solid #f0b9c266;
+      background: #2c1725c9;
+      color: #ffe4e7;
+      font: 600 12px Arial, sans-serif;
+      letter-spacing: .03em;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+    }
+    button:hover, button:focus-visible { background: #663044e6; outline-color: #ff9ca8; }
+    #audio-dock {
+      position: fixed;
+      z-index: 2;
+      left: 50%;
+      bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    #audio-dock [hidden], #resume[hidden] { display: none; }
+    #sound-hint {
+      color: #ffdbe4;
+      font: 600 11px Arial, sans-serif;
+      letter-spacing: .26em;
+      text-transform: lowercase;
+      text-shadow: 0 0 16px #f37b9a88;
+    }
+    #start-audio {
+      width: 58px;
+      height: 58px;
+      padding: 0 0 0 3px;
+      border-color: #ffc4d7aa;
+      border-radius: 50%;
+      background: #a63a61d9;
+      box-shadow: 0 0 25px #da5f8999;
+      font-size: 22px;
+    }
+    #mini-player {
+      box-sizing: border-box;
+      width: min(328px, calc(100vw - 32px));
+      padding: 10px 12px 9px;
+      border-radius: 999px;
+      border: 1px solid #ffffff26;
+      background: #1a171ac9;
+      box-shadow: 0 18px 50px #0008;
+      backdrop-filter: blur(18px);
+    }
+    .player-row { display: flex; align-items: center; gap: 10px; }
+    .cover {
+      display: grid;
+      place-items: center;
+      flex: 0 0 42px;
+      width: 42px;
+      height: 42px;
+      border-radius: 9px;
+      background: radial-gradient(circle at 35% 30%, #e87893, #682039 68%, #25121e);
+      color: #ffe7ed;
+      font-size: 21px;
+      box-shadow: inset 0 0 0 1px #ffffff22;
+    }
+    .track-meta { min-width: 0; flex: 1; color: #fff; }
+    .track-meta .eyebrow { display: block; color: #eea9bc; font: 700 8px Arial, sans-serif; letter-spacing: .16em; }
+    .track-meta strong { display: block; margin-top: 2px; font: 700 13px Arial, sans-serif; white-space: nowrap; }
+    .track-meta small { display: block; margin-top: 2px; color: #c7b9c0; font: 11px Arial, sans-serif; }
+    #toggle-audio {
+      flex: 0 0 34px;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: #e5f5e5;
+      color: #172817;
+      font-size: 14px;
+    }
+    .progress-row { display: flex; align-items: center; gap: 8px; margin: 7px 3px 0; }
+    .progress-row time { color: #a99ba2; font: 9px Arial, sans-serif; }
+    .progress-track { flex: 1; height: 3px; border-radius: 3px; background: #ffffff35; overflow: hidden; }
+    #progress-fill { width: 0; height: 100%; border-radius: inherit; background: #d9f0d9; }
+    @media (max-width: 420px) {
+      #intro-message { font-size: 18px; letter-spacing: .08em; }
+      #mini-player { width: min(310px, calc(100vw - 28px)); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="rose" role="img" aria-label="A spinning red rose made entirely from the repeated word Lorilay!"></canvas>
+  <div id="intro" aria-label="Apaka busy mo be, wala ka nang time, sakalin kita e">
+    <div id="intro-message" aria-hidden="true"></div>
+    <button id="intro-button" type="button">For you ✦</button>
+  </div>
+  <div id="audio-dock">
+    <div id="sound-hint">sound on</div>
+    <button id="start-audio" type="button" aria-label="Play Kung Ayaw">▶</button>
+    <div id="mini-player" role="group" aria-label="Music player" hidden>
+      <div class="player-row">
+        <div class="cover" aria-hidden="true">♪</div>
+        <div class="track-meta"><span class="eyebrow">NOW PLAYING</span><strong>Kung Ayaw</strong><small>Jan Roberts</small></div>
+        <button id="toggle-audio" type="button" aria-label="Pause music">Ⅱ</button>
+      </div>
+      <div class="progress-row"><time id="elapsed">0:00</time><div class="progress-track"><div id="progress-fill"></div></div><time id="duration">0:00</time></div>
+    </div>
+  </div>
+  <button id="resume" type="button" hidden tabindex="-1" aria-hidden="true"></button>
+  <audio id="song" preload="metadata" src="kung-ayaw-jan-roberts.mp3"></audio>
+  <script>
+    (() => {
+      // oh bat chinecheck mo source code ko, akala ko ba busy ka, nakakapagod na, maghihintay ka maghapon tas tutulugan ka lang, block mo na lang ako taeng yan
+      const WORD = 'Lorilay!';
+      const ASPECT = 3.2;
+      const canvas = document.getElementById('rose');
+      const ctx = canvas.getContext('2d', { alpha: true });
+      canvas.dataset.motion = 'running';
+      const introScreen = document.getElementById('intro');
+      const introMessage = document.getElementById('intro-message');
+      const introButton = document.getElementById('intro-button');
+      const introWords = 'Apaka busy mo be, wala ka nang time, sakalin kita e'.split(' ');
+      const introStart = performance.now() + 300;
+      const resumeButton = document.getElementById('resume');
+      const song = document.getElementById('song');
+      const soundHint = document.getElementById('sound-hint');
+      const startAudioButton = document.getElementById('start-audio');
+      const miniPlayer = document.getElementById('mini-player');
+      const toggleAudioButton = document.getElementById('toggle-audio');
+      const elapsedLabel = document.getElementById('elapsed');
+      const durationLabel = document.getElementById('duration');
+      const progressFill = document.getElementById('progress-fill');
+      const phrases = ['ayaw na ba', 'cold mo na e', 'block mo na kaya be?'];
+      const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const redShades = ['#8c0e22', '#a90f27', '#c81530', '#dc2338', '#ec3446', '#f24d58', '#ff6970'];
+      const greenShades = ['#25543b', '#326e48', '#408b55', '#55a969'];
+      const coreShades = ['#a93525', '#c7512b', '#df7134', '#e99a49'];
+
+      // Each colored image contains only the same word on transparency.
+      function wordImage(color) {
+        const image = document.createElement('canvas');
+        image.width = 512;
+        image.height = 160;
+        const pen = image.getContext('2d');
+        let size = 122;
+        pen.font = `italic bold ${size}px Georgia, serif`;
+        while (pen.measureText(WORD).width > 478) {
+          size -= 4;
+          pen.font = `italic bold ${size}px Georgia, serif`;
+        }
+        pen.textAlign = 'center';
+        pen.textBaseline = 'middle';
+        pen.lineJoin = 'round';
+        pen.lineWidth = 5;
+        pen.strokeStyle = color;
+        pen.fillStyle = color;
+        pen.strokeText(WORD, 256, 83);
+        pen.fillText(WORD, 256, 83);
+        return image;
+      }
+      const redImages = redShades.map(wordImage);
+      const greenImages = greenShades.map(wordImage);
+      const coreImages = coreShades.map(wordImage);
+
+      // Each falling petal is a transparent image made solely of phrase text.
+      function fallingPetalImage(phrase, color) {
+        const image = document.createElement('canvas');
+        image.width = 240;
+        image.height = 170;
+        const pen = image.getContext('2d');
+        pen.textAlign = 'center';
+        pen.textBaseline = 'middle';
+        pen.font = 'italic bold 24px Georgia, serif';
+        pen.fillStyle = color;
+        pen.shadowColor = color;
+        pen.shadowBlur = 7;
+        for (let row = 0; row < 5; row++) {
+          const t = (row + .5) / 5;
+          const petalWidth = 205 * Math.pow(Math.sin(Math.PI * t), 1.3) * (1.2 - t * .3);
+          pen.globalAlpha = .82 + .18 * Math.sin(Math.PI * t);
+          pen.fillText(phrase, 120 + 7 * Math.sin(Math.PI * t), 23 + row * 31, petalWidth);
+        }
+        return image;
+      }
+      const petalImages = phrases.flatMap(phrase =>
+        ['#d7496e', '#f16d88', '#ff92a6'].map(color => fallingPetalImage(phrase, color)));
+
+      const vec = (x = 0, y = 0, z = 0) => ({ x, y, z });
+      const add = (a, b) => vec(a.x + b.x, a.y + b.y, a.z + b.z);
+      const sub = (a, b) => vec(a.x - b.x, a.y - b.y, a.z - b.z);
+      const scale = (a, k) => vec(a.x * k, a.y * k, a.z * k);
+      const cross = (a, b) => vec(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+      const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+      const unit = a => scale(a, 1 / Math.max(1e-8, Math.hypot(a.x, a.y, a.z)));
+      const records = [];
+      let seed = 49021;
+      function random() {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      }
+
+      function place(position, tangent, normal, width, image, part = 'petal', phase = 0, origin = null) {
+        const n = unit(normal);
+        const side = unit(cross(n, tangent));
+        const along = unit(cross(side, n));
+        records.push({ position: add(position, scale(n, .008)), along, side, normal: n, width, image, part, phase, origin });
+      }
+
+      function petal(radius, halfWidth, start, curl, cup, direction, base) {
+        const forward = vec(Math.cos(direction), 0, Math.sin(direction));
+        const sideways = vec(-Math.sin(direction), 0, Math.cos(direction));
+        return (u, v) => {
+          const angle = start + curl * u;
+          const r = radius * u;
+          const profile = Math.sin(Math.PI * .78 * Math.pow(Math.max(0, Math.min(1, u)), .85));
+          const lateral = v * halfWidth * profile;
+          return add(add(add(base, scale(forward, r * Math.cos(angle))), scale(sideways, lateral)),
+            vec(0, r * Math.sin(angle) + cup * lateral * lateral, 0));
+        };
+      }
+
+      function cover(surface, radius, halfWidth, width, outward, images, part = 'petal', phase = 0, origin = null) {
+        const step = width * .86 / radius;
+        const epsilon = .008;
+        for (let u = .06 + width * .5 / radius; u <= .97; u += step) {
+          const profile = Math.sin(Math.PI * .78 * Math.pow(u, .85));
+          const across = Math.max(1, Math.floor(2 * halfWidth * profile / ((width / ASPECT) * 1.03)));
+          for (let k = 0; k < across; k++) {
+            const v = across === 1 ? 0 : (k + .5) / across * 2 - 1;
+            const p = surface(u, v);
+            const along = unit(sub(surface(u + epsilon, v), surface(u - epsilon, v)));
+            const sideways = unit(sub(surface(u, v + epsilon), surface(u, v - epsilon)));
+            let normal = unit(cross(along, sideways));
+            if (normal.y * .7 + dot(normal, outward) * .3 < 0) normal = scale(normal, -1);
+            const shade = Math.min(images.length - 1, Math.floor(u * images.length + random() * 1.3));
+            place(p, along, normal, width, images[shade], part, phase + u * .1, origin);
+          }
+        }
+      }
+
+      // Petals are curved surfaces traced by Lorilay!; there are no petal meshes.
+      const head = vec(0, 1.08, 0);
+      const layers = [
+        { count: 7, radius: 2.28, halfWidth: 1.04, start: .13, curl: .51, cup: .14, width: .52 },
+        { count: 7, radius: 1.85, halfWidth: .81, start: .38, curl: .52, cup: .19, width: .46 },
+        { count: 6, radius: 1.42, halfWidth: .61, start: .67, curl: .5, cup: .24, width: .39 },
+        { count: 5, radius: .92, halfWidth: .42, start: .98, curl: .44, cup: .29, width: .32 },
+      ];
+      layers.forEach((layer, depth) => {
+        for (let i = 0; i < layer.count; i++) {
+          const direction = i * Math.PI * 2 / layer.count + depth * Math.PI / layer.count;
+          const surface = petal(layer.radius, layer.halfWidth, layer.start, layer.curl,
+            layer.cup, direction, head);
+          cover(surface, layer.radius, layer.halfWidth, layer.width,
+            vec(Math.cos(direction), 0, Math.sin(direction)), redImages,
+            'petal', .42 - depth * .1, head);
+        }
+      });
+
+      // The core, stem, and leaves are also made of Lorilay! text.
+      for (let i = 0; i < 95; i++) {
+        const radius = .56 * Math.sqrt(i / 95);
+        const angle = i * 2.39996;
+        const p = add(head, vec(radius * Math.cos(angle), .47 * (1 - radius * radius / (.56 * .56)) + .12,
+          radius * Math.sin(angle)));
+        const normal = vec(p.x * .7, 1.2, p.z * .7);
+        let tangent = cross(vec(0, 1, 0), normal);
+        if (Math.hypot(tangent.x, tangent.y, tangent.z) < .001) tangent = vec(1, 0, 0);
+        place(p, tangent, normal, .23, coreImages[Math.floor(random() * coreImages.length)],
+          'core', .18, head);
+      }
+      const stem = y => vec(.11 * Math.sin(-y * .7), y, 0);
+      for (let y = .95; y > -2.45; y -= .22) {
+        for (let side = 0; side < 4; side++) {
+          const angle = side * Math.PI / 2 + y * 1.1;
+          const normal = vec(Math.cos(angle), 0, Math.sin(angle));
+          place(add(stem(y), scale(normal, .07)), vec(.1, 1, 0), normal, .42,
+            greenImages[Math.floor(random() * greenImages.length)],
+            'stem', .02 + (y + 2.45) / 3.4 * .32, stem(-2.45));
+        }
+      }
+      [[-.28, Math.PI + .7], [-.75, .15], [-1.58, Math.PI + .2]].forEach(([y, direction]) => {
+        const surface = petal(1.3, .42, .34, -.75, .12, direction, stem(y));
+        cover(surface, 1.3, .42, .37,
+          vec(Math.cos(direction), 0, Math.sin(direction)), greenImages,
+          'leaf', .32, stem(y));
+      });
+      // Small sepals beneath the bloom add a fine green edge, still made of Lorilay!.
+      for (let i = 0; i < 5; i++) {
+        const direction = i * Math.PI * 2 / 5;
+        const surface = petal(.72, .19, -.34, -.28, .1, direction, head);
+        cover(surface, .72, .19, .19,
+          vec(Math.cos(direction), -.2, Math.sin(direction)), greenImages,
+          'leaf', .31, head);
+      }
+
+      // Project the word planes from 3D and paint far words before near words.
+      let width = 0, height = 0, dpr = 1, focal = 1;
+      let angle = 0, tilt = .6, distance = 8.5;
+      let dragging = false, lastX = 0, lastY = 0, previousTime = 0;
+      let inspectionPaused = false;
+      let resumeTimer = 0;
+      let sceneTime = 0;
+      let shownWords = 0;
+      const pointers = new Map();
+      let pinchDistance = 0;
+      let bloomStart = Infinity;
+      let revealAt = null;
+      const drawOrder = records.map(item => ({ item, depth: 0 }));
+      const fallingPetals = [];
+      const ease = value => {
+        const t = Math.max(0, Math.min(1, value));
+        return t * t * (3 - 2 * t);
+      };
+
+      function resetFallingPetal(petal, anywhere = false) {
+        petal.image = petalImages[Math.floor(random() * petalImages.length)];
+        petal.x = (random() - .5) * 10;
+        petal.y = anywhere ? -3.7 + random() * 8.5 : 4.7 + random() * 1.5;
+        petal.z = (random() - .5) * 7;
+        petal.velocity = -.05 - random() * .08;
+        petal.gravity = .025 + random() * .025;
+        petal.terminal = .22 + random() * .12;
+        petal.drift = (random() - .5) * .06;
+        petal.phase = random() * Math.PI * 2;
+        petal.flutter = .8 + random() * .8;
+        petal.turn = random() * Math.PI * 2;
+        petal.turnSpeed = (random() - .5) * .55;
+        petal.size = .75 + random() * .55;
+        petal.alpha = .78 + random() * .2;
+      }
+
+      // Gravity, drag, sway, and tumble make the text petals float down slowly.
+      function moveFallingPetals(delta, time) {
+        if (reducedMotion || inspectionPaused) return;
+        const seconds = delta / 1000;
+        for (const petal of fallingPetals) {
+          petal.velocity = Math.max(-petal.terminal, petal.velocity - petal.gravity * seconds);
+          petal.y += petal.velocity * seconds;
+          petal.x += (petal.drift + Math.sin(time * .001 * petal.flutter + petal.phase) * .07) * seconds;
+          petal.z += Math.cos(time * .0008 * petal.flutter + petal.phase) * .02 * seconds;
+          petal.turn += petal.turnSpeed * seconds;
+          if (petal.y < -4.5 || Math.abs(petal.x) > 5.6) resetFallingPetal(petal);
+        }
+      }
+
+      function paintFallingPetal(petal) {
+        const world = rotate(vec(petal.x, petal.y, petal.z));
+        const point = project(world);
+        const zoom = focal / Math.max(2.5, distance - world.z);
+        const size = Math.max(90, Math.min(240, petal.size * zoom * 1.05));
+        if (point.x < -size || point.x > width + size || point.y < -size || point.y > height + size) return;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.translate(point.x, point.y);
+        ctx.rotate(Math.sin(petal.turn + petal.phase) * .28);
+        ctx.globalAlpha = petal.alpha;
+        ctx.drawImage(petal.image, -size * .5, -size * .35, size, size * 170 / 240);
+        ctx.globalAlpha = 1;
+      }
+
+      function paintPetalLayer(near) {
+        for (const petal of fallingPetals) {
+          if ((rotate(vec(petal.x, petal.y, petal.z)).z >= 0) === near) paintFallingPetal(petal);
+        }
+      }
+
+      function beginReveal(time) {
+        if (revealAt !== null) return;
+        revealAt = time;
+        bloomStart = sceneTime + 150;
+      }
+
+      function revealIntro(time) {
+        if (introScreen.hidden) return;
+        const elapsed = Math.max(0, time - introStart);
+        const count = reducedMotion ? introWords.length :
+          Math.min(introWords.length, Math.floor(elapsed / 430) + 1);
+        while (shownWords < count) {
+          const word = document.createElement('span');
+          word.className = 'word';
+          word.textContent = introWords[shownWords];
+          introMessage.append(word, shownWords < introWords.length - 1 ? ' ' : '');
+          requestAnimationFrame(() => word.classList.add('shown'));
+          shownWords++;
+        }
+        if (count === introWords.length) introScreen.classList.add('ready');
+        if (revealAt === null && elapsed > introWords.length * 430 + 1800) beginReveal(time);
+        if (revealAt !== null) {
+          introScreen.style.opacity = String(1 - ease((time - revealAt) / 950));
+          if (time - revealAt > 950) introScreen.hidden = true;
+        }
+      }
+
+      function bloomPose(item, progress) {
+        const duration = item.part === 'stem' ? .28 : item.part === 'leaf' ? .43 :
+          item.part === 'core' ? .42 : Math.max(.16, 1 - item.phase);
+        const open = ease((progress - item.phase) / duration);
+        const origin = item.origin || head;
+        return {
+          position: add(origin, scale(sub(item.position, origin), open)),
+          size: .045 + open * .955,
+          alpha: open,
+        };
+      }
+
+      function resize() {
+        width = innerWidth;
+        height = innerHeight;
+        dpr = Math.min(devicePixelRatio || 1, 2);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        focal = Math.min(width * 1.3, height * 1.25);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        const desiredPetals = Math.max(7, Math.round(width / 120));
+        while (fallingPetals.length < desiredPetals) {
+          const petal = {};
+          resetFallingPetal(petal, true);
+          fallingPetals.push(petal);
+        }
+        fallingPetals.length = desiredPetals;
+      }
+      function rotate(p) {
+        const cy = Math.cos(angle), sy = Math.sin(angle);
+        const cx = Math.cos(tilt), sx = Math.sin(tilt);
+        const x = p.x * cy + p.z * sy;
+        const z = -p.x * sy + p.z * cy;
+        return vec(x, p.y * cx - z * sx, p.y * sx + z * cx);
+      }
+      function project(p) {
+        const depth = Math.max(2.5, distance - p.z);
+        const zoom = focal / depth;
+        return { x: width * .5 + p.x * zoom, y: height * .52 - p.y * zoom, z: p.z };
+      }
+      function roseMotion(point) {
+        if (reducedMotion) return point;
+        const reach = Math.max(0, Math.min(1, (point.y + 2.45) / 5.7));
+        return add(point, vec(
+          Math.sin(sceneTime * .00072) * .16 * reach,
+          Math.sin(sceneTime * .00112) * .035 * reach,
+          Math.cos(sceneTime * .00062) * .11 * reach
+        ));
+      }
+      function paint(time) {
+        requestAnimationFrame(paint);
+        const delta = Math.min(50, time - (previousTime || time));
+        previousTime = time;
+        if (!inspectionPaused) sceneTime += delta;
+        if (!dragging && !reducedMotion && !inspectionPaused) angle += delta * .00037;
+        const bloom = reducedMotion ? 1 : Math.max(0, Math.min(1, (sceneTime - bloomStart) / 4300));
+        moveFallingPetals(delta, sceneTime);
+        revealIntro(time);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        paintPetalLayer(false);
+
+        for (const entry of drawOrder) {
+          entry.pose = bloomPose(entry.item, bloom);
+          entry.depth = rotate(roseMotion(entry.pose.position)).z;
+        }
+        drawOrder.sort((a, b) => a.depth - b.depth);
+        for (const { item, pose } of drawOrder) {
+          if (pose.alpha < .012) continue;
+          const pulse = item.part === 'petal' ? 1 + Math.sin(sceneTime * .00135) * .014 : 1;
+          const scaledWidth = item.width * pose.size * pulse;
+          const p = project(rotate(roseMotion(pose.position)));
+          const right = project(rotate(roseMotion(add(pose.position, scale(item.along, scaledWidth)))));
+          const up = project(rotate(roseMotion(add(pose.position, scale(item.side, scaledWidth / ASPECT)))));
+          const a = right.x - p.x, b = right.y - p.y;
+          const c = up.x - p.x, d = up.y - p.y;
+          if (Math.abs(a * d - b * c) < .04) continue;
+          const facing = Math.abs(rotate(item.normal).z);
+          ctx.globalAlpha = pose.alpha * (.68 + Math.min(.32, facing * .32));
+          ctx.setTransform(a * dpr, b * dpr, c * dpr, d * dpr, p.x * dpr, p.y * dpr);
+          ctx.drawImage(item.image, -.5, -.5, 1, 1);
+        }
+        ctx.globalAlpha = 1;
+        paintPetalLayer(true);
+      }
+
+      function pauseForInspection() {
+        clearTimeout(resumeTimer);
+        inspectionPaused = true;
+        canvas.dataset.motion = 'paused';
+      }
+      function scheduleResume() {
+        clearTimeout(resumeTimer);
+        resumeTimer = setTimeout(() => {
+          if (pointers.size === 0) resumeButton.click();
+        }, 1000);
+      }
+      // The invisible button is triggered one second after the final touch or mouse release.
+      resumeButton.addEventListener('click', () => {
+        inspectionPaused = false;
+        canvas.dataset.motion = 'running';
+      });
+
+      canvas.addEventListener('pointerdown', event => {
+        pauseForInspection();
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (pointers.size === 1) {
+          dragging = true;
+          lastX = event.clientX;
+          lastY = event.clientY;
+        } else {
+          dragging = false;
+          const [first, second] = [...pointers.values()];
+          pinchDistance = Math.hypot(first.x - second.x, first.y - second.y);
+        }
+        canvas.setPointerCapture(event.pointerId);
+      });
+      canvas.addEventListener('pointermove', event => {
+        if (!pointers.has(event.pointerId)) return;
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (pointers.size > 1) {
+          const [first, second] = [...pointers.values()];
+          const span = Math.hypot(first.x - second.x, first.y - second.y);
+          if (pinchDistance > 0 && span > 0) {
+            distance = Math.max(5.8, Math.min(12, distance * pinchDistance / span));
+          }
+          pinchDistance = span;
+          return;
+        }
+        if (!dragging) return;
+        angle += (event.clientX - lastX) * .008;
+        tilt = Math.max(-.25, Math.min(.72, tilt + (event.clientY - lastY) * .005));
+        lastX = event.clientX;
+        lastY = event.clientY;
+      });
+      function endPointer(event) {
+        pointers.delete(event.pointerId);
+        pinchDistance = 0;
+        dragging = pointers.size === 1;
+        if (dragging) {
+          const remaining = [...pointers.values()][0];
+          lastX = remaining.x;
+          lastY = remaining.y;
+        } else {
+          scheduleResume();
+        }
+      }
+      canvas.addEventListener('pointerup', endPointer);
+      canvas.addEventListener('pointercancel', endPointer);
+      canvas.addEventListener('wheel', event => {
+        event.preventDefault();
+        pauseForInspection();
+        distance = Math.max(5.8, Math.min(12, distance + event.deltaY * .008));
+        scheduleResume();
+      }, { passive: false });
+      introButton.addEventListener('click', () => beginReveal(performance.now()));
+      addEventListener('blur', () => {
+        pointers.clear();
+        dragging = false;
+        if (inspectionPaused) scheduleResume();
+      });
+
+      // A direct tap starts the supplied MP3 on Safari; the dock then becomes a mini player.
+      const formatTime = value => {
+        if (!Number.isFinite(value)) return '0:00';
+        const seconds = Math.floor(value);
+        return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+      };
+      function updatePlayer() {
+        elapsedLabel.textContent = formatTime(song.currentTime);
+        durationLabel.textContent = formatTime(song.duration);
+        progressFill.style.width = `${song.duration ? song.currentTime / song.duration * 100 : 0}%`;
+        const playing = !song.paused && !song.ended;
+        toggleAudioButton.textContent = playing ? 'Ⅱ' : '▶';
+        toggleAudioButton.setAttribute('aria-label', playing ? 'Pause music' : 'Play music');
+      }
+      startAudioButton.addEventListener('click', async () => {
+        try {
+          await song.play();
+          startAudioButton.hidden = true;
+          soundHint.hidden = true;
+          miniPlayer.hidden = false;
+          updatePlayer();
+        } catch {
+          soundHint.textContent = 'sound unavailable';
+        }
+      });
+      toggleAudioButton.addEventListener('click', () => {
+        if (song.paused || song.ended) {
+          if (song.ended) song.currentTime = 0;
+          song.play().catch(() => { soundHint.textContent = 'sound unavailable'; soundHint.hidden = false; });
+        } else {
+          song.pause();
+        }
+      });
+      ['loadedmetadata', 'timeupdate', 'play', 'pause', 'ended'].forEach(name =>
+        song.addEventListener(name, updatePlayer));
+      addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(paint);
+    })();
+  </script>
+</body>
+</html>
