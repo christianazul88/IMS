@@ -1056,6 +1056,17 @@
         revealIntro(time);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (started) {
+          ctx.save(); ctx.setTransform(dpr,0,0,dpr,0,0);
+          const halo=ctx.createRadialGradient(width*.5,height*.43,0,width*.5,height*.43,Math.min(width,height)*.48);
+          halo.addColorStop(0,'rgba(179,58,102,.14)');halo.addColorStop(.55,'rgba(95,45,105,.06)');halo.addColorStop(1,'rgba(0,0,0,0)');
+          ctx.fillStyle=halo;ctx.fillRect(0,0,width,height);
+          for(let i=0;i<38;i++) {
+            ctx.globalAlpha=reducedMotion ? .25 : .2+.15*Math.sin(sceneTime*.00045+i);
+            ctx.fillStyle='#e9bbd0';ctx.beginPath();ctx.arc(((i*137.508)%100)/100*width,((i*73.31)%100)/100*height,i%3===0?1.1:.6,0,Math.PI*2);ctx.fill();
+          }
+          ctx.restore();
+        }
         if (!started) return;
 
 
@@ -1480,5 +1491,26 @@
       requestAnimationFrame(paint);
     })();
   </script>
+<script>
+// Anonymous analytics: cumulative active time makes retries idempotent.
+(() => {
+  const uuid = () => crypto.randomUUID ? crypto.randomUUID() : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+  let device;
+  try { device = localStorage.getItem('scene-device-id'); if (!device) { device = uuid(); localStorage.setItem('scene-device-id', device); } } catch { device = uuid(); }
+  let visit = uuid(), seconds = 0, last = performance.now(), visible = !document.hidden;
+  function sample() { const now = performance.now(); if (visible) seconds += Math.min(30, (now-last)/1000); last = now; }
+  function send() {
+    sample();
+    const body = JSON.stringify({device,visit,seconds:Math.floor(seconds)});
+    const blob = new Blob([body], {type:'application/json'});
+    if (!navigator.sendBeacon || !navigator.sendBeacon('tracker.php',blob)) fetch('tracker.php',{method:'POST',headers:{'Content-Type':'application/json'},body,keepalive:true}).catch(()=>{});
+  }
+  send(); setInterval(send,15000);
+  document.addEventListener('visibilitychange',()=>{send();visible=!document.hidden;last=performance.now();});
+  addEventListener('pagehide',()=>{send();visible=false;});
+  addEventListener('pageshow',event=>{if(event.persisted){visit=uuid();seconds=0;last=performance.now();visible=!document.hidden;send();}});
+})();
+</script>
+<div style="position:fixed;bottom:6px;left:10px;z-index:2;font:10px system-ui;color:#a58b9c;pointer-events:none">Anonymous visits &amp; active viewing time are recorded.</div>
 </body>
 </html>

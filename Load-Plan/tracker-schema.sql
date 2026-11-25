@@ -1,0 +1,10 @@
+CREATE DATABASE IF NOT EXISTS sampletest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE sampletest;
+CREATE TABLE IF NOT EXISTS scene_visits (
+ visit_id CHAR(36) PRIMARY KEY,
+ device_id CHAR(36) NOT NULL,
+ started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ active_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+ INDEX device_time(device_id, started_at)
+);

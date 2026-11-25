@@ -1,0 +1,9 @@
+VPS deployment
+1. Deploy index.html, tracker.php, tracker-config.php, visitors.php and existing media.
+2. No SQL import is required. The first scene visit automatically creates sampletest and scene_visits if missing. MySQL/MariaDB must be running, and the configured account needs CREATE permission for sampletest on initial setup. Existing records are preserved.
+3. Set TRACK_DB_HOST, TRACK_DB_USER and TRACK_DB_PASSWORD in PHP's server environment. Use a database account restricted to sampletest; local defaults are XAMPP root with an empty password.
+4. Generate an owner password hash with: php -r 'echo password_hash("YOUR_PASSWORD", PASSWORD_DEFAULT);'
+5. Set TRACK_ADMIN_PASSWORD_HASH to that hash in the PHP server environment. Remote dashboard access stays disabled until configured. Use HTTPS.
+6. Open visitors.php and sign in. Localhost access is allowed without a password only when no owner hash is configured.
+
+Visits count page loads. Active time counts visible-tab time, with saves every 15 seconds and on hide/exit. Abrupt browser/process termination can lose the last interval. Clearing storage creates a new browser identity; concurrent tabs count separately. Client-submitted analytics are approximate, not fraud-proof. No IP addresses or identifying browser fingerprints are stored by this tracker. Your web server may maintain its own access logs.
