@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#15191d">
+  <title>Photo in Depth · 3D viewer</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: #e9ecee; background: #15191d; }
+    button, a { font: inherit; }
+    .page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) 320px; }
+    .stage { position: relative; min-height: 100vh; overflow: hidden; background: radial-gradient(circle at 50% 47%, #303943 0, #20272e 45%, #13181d 100%); }
+    #viewer { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+    #viewer:active { cursor: grabbing; }
+    .stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 120px #080b0d73; }
+    .badge { position: absolute; top: 28px; left: 30px; z-index: 2; padding: 8px 11px; border: 1px solid #ffffff29; border-radius: 999px; background: #10171cb8; color: #d4e0e5; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
+    .hint { position: absolute; bottom: 26px; left: 50%; z-index: 2; transform: translateX(-50%); white-space: nowrap; border: 1px solid #ffffff24; border-radius: 999px; padding: 10px 15px; background: #11171cbb; color: #d3dcdf; font-size: 12px; backdrop-filter: blur(10px); }
+    .loading { position: absolute; inset: 0; display: grid; place-items: center; z-index: 3; background: #1c242a; color: #f1f5f6; font-size: 13px; letter-spacing: .06em; }
+    .loading[hidden], .flat[hidden] { display: none; }
+    .flat { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; padding: 28px; }
+    .flat img { display: block; max-width: 100%; max-height: calc(100vh - 56px); object-fit: contain; box-shadow: 0 28px 90px #0007; }
+    .panel { position: relative; z-index: 4; display: flex; flex-direction: column; gap: 22px; padding: 31px 25px 25px; border-left: 1px solid #ffffff13; background: #171c20; }
+    .eyebrow { color: #8da0a8; font-size: 11px; font-weight: 700; letter-spacing: .17em; text-transform: uppercase; }
+    h1 { margin: 7px 0 0; font-size: 29px; line-height: 1.1; letter-spacing: -.045em; font-weight: 650; }
+    .sub { margin: 0; color: #aebbc0; font-size: 13px; line-height: 1.55; }
+    .preview { display: grid; grid-template-columns: 75px 1fr; align-items: center; gap: 13px; padding: 11px; border: 1px solid #ffffff14; border-radius: 12px; background: #ffffff08; }
+    .preview img { width: 75px; height: 100px; object-fit: cover; border-radius: 7px; }
+    .preview strong { display: block; font-size: 13px; font-weight: 600; }
+    .preview span { display: block; margin-top: 6px; color: #8fa0a8; font-size: 11px; line-height: 1.45; }
+    .label { margin-bottom: 9px; color: #9cacb3; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .segmented { display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; border: 1px solid #ffffff1a; border-radius: 10px; background: #0f1418; }
+    .segmented button { border: 0; border-radius: 7px; padding: 9px 4px; background: transparent; color: #a4b1b7; cursor: pointer; font-size: 12px; }
+    .segmented button.active { color: #182127; background: #dbe6e9; font-weight: 700; }
+    .control { width: 100%; display: flex; justify-content: space-between; align-items: center; border: 1px solid #ffffff22; border-radius: 9px; padding: 10px 12px; background: #232b30; color: #e8eef0; text-decoration: none; cursor: pointer; font-size: 12px; }
+    .control:hover { background: #2d3940; }
+    .control span:last-child { color: #9aabb3; }
+    .actions { display: grid; gap: 8px; }
+    .spacer { flex: 1; }
+    .note { margin: 0; color: #85959d; font-size: 11px; line-height: 1.55; }
+    @media (max-width: 780px) {
+      .page { grid-template-columns: 1fr; grid-template-rows: minmax(55vh, 70vh) auto; }
+      .stage { min-height: 55vh; }
+      .panel { border-left: 0; border-top: 1px solid #ffffff18; padding: 23px 20px 28px; gap: 18px; }
+      .badge { top: 18px; left: 18px; }
+      .hint { bottom: 18px; }
+      .preview { display: none; }
+      .flat img { max-height: calc(70vh - 56px); }
+    }
+  </style>
+  <script type="importmap">
+    {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <main class="page">
+    <section class="stage" aria-label="Interactive 3D photo">
+      <canvas id="viewer"></canvas>
+      <div class="flat" id="flat" hidden><img id="flatImage" src="output/photo.jpg" alt="Original photo"></div>
+      <div class="loading" id="loading">Loading 3D photo…</div>
+      <div class="badge">PHOTO IN DEPTH</div>
+      <div class="hint" id="hint">Drag to tilt · Scroll to zoom</div>
+    </section>
+    <aside class="panel">
+      <div><div class="eyebrow">Single image · 3D relief</div><h1>A moment in depth</h1></div>
+      <p class="sub">Explore the scene from a new angle. The model uses estimated depth from the original photograph.</p>
+      <div class="preview"><img src="output/photo.jpg" alt="Small original photo"><div><strong>Source photograph</strong><span>Textured relief from one image<br>1152 × 1536 pixels</span></div></div>
+      <div><div class="label">View</div><div class="segmented" role="group" aria-label="View mode">
+        <button class="active" data-view="3d" aria-pressed="true">3D</button>
+        <button data-view="original" aria-pressed="false">Original</button>
+        <button data-view="depth" aria-pressed="false">Depth</button>
+      </div></div>
+      <div class="actions">
+        <button class="control" id="reset" type="button"><span>Reset angle</span><span>↗</span></button>
+        <a class="control" href="output/photo_3d.glb" download="photo_3d.glb"><span>Download 3D model</span><span>GLB ↓</span></a>
+      </div>
+      <div class="spacer"></div>
+      <p class="note">Depth is inferred from a single view. Hidden sides and exact distances cannot be recovered from this photo, so the model is best viewed near the front.</p>
+    </aside>
+  </main>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const canvas = document.querySelector('#viewer');
+    const stage = document.querySelector('.stage');
+    const flat = document.querySelector('#flat');
+    const flatImage = document.querySelector('#flatImage');
+    const loading = document.querySelector('#loading');
+    const hint = document.querySelector('#hint');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.35;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
+    const key = new THREE.DirectionalLight(0xffffff, 2.1);
+    key.position.set(-2.5, 4, 5);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0x9fb3c4, 0.55);
+    fill.position.set(3, -2, 2);
+    scene.add(fill);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.065;
+    controls.enablePan = false;
+    controls.minAzimuthAngle = -0.28;
+    controls.maxAzimuthAngle = 0.28;
+    controls.minPolarAngle = Math.PI / 2 - 0.18;
+    controls.maxPolarAngle = Math.PI / 2 + 0.18;
+    controls.minDistance = 3.2;
+    controls.maxDistance = 11;
+    controls.target.set(0, 0, 0.20);
+
+    function resetView() {
+      const aspect = stage.clientWidth / stage.clientHeight;
+      const radians = THREE.MathUtils.degToRad(camera.fov);
+      const distance = Math.max(3.0 / (2 * Math.tan(radians / 2)), 2.25 / (2 * Math.tan(radians / 2) * aspect)) * 1.18;
+      camera.position.set(0, 0, Math.min(10.5, distance));
+      controls.target.set(0, 0, 0.20);
+      controls.update();
+    }
+    function resize() {
+      const width = stage.clientWidth, height = stage.clientHeight;
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+    resize();
+    resetView();
+    new ResizeObserver(resize).observe(stage);
+    document.querySelector('#reset').addEventListener('click', resetView);
+
+    let front, originalMap;
+    const depthMap = new THREE.TextureLoader().load('output/depth.png');
+    depthMap.colorSpace = THREE.SRGBColorSpace;
+    depthMap.flipY = false;
+    new GLTFLoader().load('output/photo_3d.glb', gltf => {
+      scene.add(gltf.scene);
+      gltf.scene.traverse(object => {
+        if (object.isMesh && object.name.includes('photo_relief')) {
+          front = object;
+          originalMap = object.material.map;
+          object.material.side = THREE.DoubleSide;
+        }
+      });
+      loading.hidden = true;
+    }, undefined, error => {
+      loading.textContent = 'Could not load the 3D model. Open this page through a local web server.';
+      console.error(error);
+    });
+
+    document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+      const mode = button.dataset.view;
+      document.querySelectorAll('[data-view]').forEach(item => {
+        const selected = item === button;
+        item.classList.toggle('active', selected);
+        item.setAttribute('aria-pressed', String(selected));
+      });
+      flat.hidden = mode === '3d';
+      canvas.style.visibility = mode === '3d' ? 'visible' : 'hidden';
+      hint.hidden = mode !== '3d';
+      if (mode !== '3d') {
+        flatImage.src = mode === 'depth' ? 'output/depth.png' : 'output/photo.jpg';
+        flatImage.alt = mode === 'depth' ? 'Estimated relative depth map' : 'Original photo';
+      }
+      if (front) { front.material.map = originalMap; front.material.needsUpdate = true; }
+    }));
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

@@ -546,7 +546,7 @@
       const playlistClose = document.getElementById('pl-close');
       const playlistList = document.getElementById('pl-list');
       const playlistCount = document.getElementById('pl-count');
-      const phrases = ['ayaw na ba', 'cold mo na e', 'block mo na kaya be?'];
+      const phrases = ['ayaw na ba', 'cold mo na e', 'block mo na kaya be?', 'ang cold', 'hinintay maghapon', 'ayos lang if may bago na', 'halata naman e'];
       const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       const redShades = ['#8c0e22', '#a90f27', '#c81530', '#dc2338', '#ec3446', '#f24d58', '#ff6970'];
@@ -797,10 +797,57 @@
       let bloomStart = Infinity;
       let petalGate = 0;
       let revealAt = null;
-      const BLOOM_MS = 6800;
+      const BLOOM_MS = 14500;
       const TILT_MIN = -.25, TILT_MAX = .72, DIST_MIN = 5.8, DIST_MAX = 12;
       const drawOrder = records.map(item => ({ item, depth: 0 }));
       const fallingPetals = [];
+      const rainPhrases = ['ang cold', 'hinintay maghapon', 'ayos lang if may bago na', 'halata naman e'];
+      const wordRain = [];
+      function resetRain(drop, scatter = false) {
+        drop.text = rainPhrases[Math.floor(random() * rainPhrases.length)];
+        const azimuth = random() * Math.PI * 2;
+        const radius = 1.2 + random() * 4.2;
+        drop.x = Math.cos(azimuth) * radius;
+        drop.z = Math.sin(azimuth) * radius;
+        drop.y = scatter ? -4 + random() * 9 : 5 + random() * 2;
+        drop.speed = 1.1 + random() * 1.2;
+        drop.phase = random() * Math.PI * 2;
+        drop.yaw = (random() - .5) * 1.1;
+        drop.size = .11 + random() * .04;
+      }
+      function rainPosition(drop) {
+        return vec(drop.x + Math.sin(sceneTime * .00065 + drop.phase) * .12, drop.y, drop.z);
+      }
+      function moveWordRain(delta) {
+        if (reducedMotion || inspectionPaused || !started) return;
+        for (const drop of wordRain) {
+          drop.y -= drop.speed * delta / 1000;
+          if (drop.y < -5) resetRain(drop);
+        }
+      }
+      function paintWordRain(drop) {
+        if (reducedMotion) return;
+        const gate = ease((sceneTime - bloomStart - 1200) / 4500);
+        const pos = rainPosition(drop);
+        const point = project(rotate(pos));
+        const yaw = drop.yaw + Math.sin(sceneTime * .00035 + drop.phase) * .1;
+        const right = project(rotate(add(pos, vec(Math.cos(yaw) * drop.size, 0, Math.sin(yaw) * drop.size))));
+        const down = project(rotate(add(pos, vec(0, -drop.size, 0))));
+        const a = (right.x - point.x) / 16, b = (right.y - point.y) / 16;
+        const c = (down.x - point.x) / 16, d = (down.y - point.y) / 16;
+        if (Math.abs(a * d - b * c) < .015) return;
+        ctx.save();
+        ctx.setTransform(a*dpr,b*dpr,c*dpr,d*dpr,point.x*dpr,point.y*dpr);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const edge = clamp01((drop.y + 5) / 1.2) * clamp01((6 - drop.y) / 1.2);
+        ctx.globalAlpha = gate * edge * .68;
+        ctx.font = 'italic 16px Georgia, serif';
+        ctx.fillStyle = '#e9b4c8';
+        ctx.shadowColor = '#a84b76'; ctx.shadowBlur = 2;
+        ctx.fillText(drop.text, 0, 0);
+        ctx.restore();
+      }
+
       const ease = value => {
         const t = Math.max(0, Math.min(1, value));
         return t * t * (3 - 2 * t);
@@ -901,13 +948,6 @@
         ctx.globalAlpha = 1;
       }
 
-      function paintPetalLayer(near) {
-        if (petalGate <= 0) return;
-        for (const petal of fallingPetals) {
-          if ((rotate(vec(petal.x, petal.y, petal.z)).z >= 0) === near) paintFallingPetal(petal);
-        }
-      }
-
       // Bloom (and every other motion) begins only when the person presses play.
       function startExperience() {
         if (started) return;
@@ -974,6 +1014,13 @@
           fallingPetals.push(petal);
         }
         fallingPetals.length = desiredPetals;
+        const desiredRain = Math.min(65, Math.max(24, Math.round(width * height / 22000)));
+        while (wordRain.length < desiredRain) {
+          const drop = {};
+          resetRain(drop, true);
+          wordRain.push(drop);
+        }
+        wordRain.length = desiredRain;
       }
       function rotate(p) {
         const cy = Math.cos(angle), sy = Math.sin(angle);
@@ -1005,18 +1052,28 @@
         petalGate = started ? ease((bloom - .45) / .4) : 0;
         steerCamera();
         moveFallingPetals(delta, sceneTime);
+        moveWordRain(delta);
         revealIntro(time);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (!started) return;
-        paintPetalLayer(false);
+
 
         for (const entry of drawOrder) {
           entry.pose = bloomPose(entry.item, bloom);
           entry.depth = rotate(roseMotion(entry.pose.position)).z;
         }
-        drawOrder.sort((a, b) => a.depth - b.depth);
-        for (const { item, pose } of drawOrder) {
+        // One camera-space painter queue: every particle can pass behind or
+        // between the rose's word surfaces, including during manual rotation.
+        const sceneOrder = drawOrder.concat(
+          wordRain.map(drop => ({ drop, depth: rotate(rainPosition(drop)).z })),
+          petalGate > 0 ? fallingPetals.map(petal => ({ petal, depth: rotate(vec(petal.x, petal.y, petal.z)).z })) : []
+        );
+        sceneOrder.sort((a, b) => a.depth - b.depth);
+        for (const entry of sceneOrder) {
+          if (entry.drop) { paintWordRain(entry.drop); continue; }
+          if (entry.petal) { paintFallingPetal(entry.petal); continue; }
+          const { item, pose } = entry;
           if (pose.alpha < .012) continue;
           const pulse = item.part === 'petal' ? 1 + Math.sin(sceneTime * .0008) * .012 : 1;
           const scaledWidth = item.width * pose.size * pulse;
@@ -1032,7 +1089,7 @@
           ctx.drawImage(item.image, -.5, -.5, 1, 1);
         }
         ctx.globalAlpha = 1;
-        paintPetalLayer(true);
+
       }
 
       function pauseForInspection() {
