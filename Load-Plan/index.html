@@ -281,6 +281,40 @@
     .ctl.main svg { width: 22px; height: 22px; }
     .ctl.list { position: absolute; right: -6px; }
     .ctl.list[aria-expanded="true"] { color: var(--rose); background: #ff9db41f; }
+    .ctl.gesture { position: absolute; left: -6px; }
+    .ctl.gesture[aria-pressed="true"] { color: var(--rose); background: #ff9db41f; }
+    .ctl.gesture::after {
+      content: '';
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #7dffb0;
+      opacity: 0;
+      transition: opacity .2s ease;
+    }
+    .ctl.gesture.seen::after { opacity: 1; }
+    .note {
+      position: fixed;
+      left: 50%;
+      top: calc(18px + env(safe-area-inset-top, 0px));
+      transform: translate(-50%, -6px);
+      padding: 7px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      color: #ffdbe4;
+      font: 600 12px var(--ui-font);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none !important;
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    .note.show { opacity: 1; transform: translate(-50%, 0); }
     .ctl.sm { width: 32px; height: 32px; }
     .ctl.sm svg { width: 16px; height: 16px; }
 
@@ -418,6 +452,7 @@
       <symbol id="i-prev" viewBox="0 0 24 24"><rect x="5" y="5.2" width="2.4" height="13.6" rx="1.2"/><path d="M18.6 6.2v11.6c0 .8-.9 1.3-1.6.9l-8.4-5.8c-.6-.4-.6-1.2 0-1.6L17 5.3c.7-.5 1.6 0 1.6.9z"/></symbol>
       <symbol id="i-next" viewBox="0 0 24 24"><g transform="translate(24 0) scale(-1 1)"><rect x="5" y="5.2" width="2.4" height="13.6" rx="1.2"/><path d="M18.6 6.2v11.6c0 .8-.9 1.3-1.6.9l-8.4-5.8c-.6-.4-.6-1.2 0-1.6L17 5.3c.7-.5 1.6 0 1.6.9z"/></g></symbol>
       <symbol id="i-list" viewBox="0 0 24 24"><path d="M4 6.5h16M4 11.5h16M4 16.5h7" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M15 14.2v5.2c0 .5.5.8.9.5l3.9-2.6c.4-.3.4-.8 0-1.1l-3.9-2.6c-.4-.3-.9 0-.9.5z"/></symbol>
+      <symbol id="i-hand" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></g></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></symbol>
     </defs>
   </svg>
@@ -429,6 +464,7 @@
   </div>
 
   <div id="audio-dock">
+    <div id="gesture-note" class="note" role="status" aria-live="polite"></div>
     <div id="sound-hint">press play · sound on</div>
     <button id="start-audio" class="start-btn" type="button" aria-label="Play">
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>
@@ -455,6 +491,9 @@
         <time id="duration">0:00</time>
       </div>
       <div class="controls">
+        <button id="toggle-gesture" class="ctl gesture" type="button" aria-label="Turn on hand swipe control" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-hand"/></svg>
+        </button>
         <button id="prev" class="ctl" type="button" aria-label="Previous track">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-prev"/></svg>
         </button>
@@ -1266,6 +1305,117 @@
           try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* unsupported action */ }
         });
       }
+
+      // ---------- Hand-swipe control (front camera + MediaPipe hand tracking) ----------
+      // Swipe your hand across the camera: to your right = next song, to your left = previous.
+      // Needs HTTPS (or localhost) and the page open in front. Video never leaves the phone.
+      const gestureButton = document.getElementById('toggle-gesture');
+      const note = document.getElementById('gesture-note');
+      const MP_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3';
+      const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+      const SWIPE_RIGHT_IS_NEXT = true;   // set false to flip the direction
+      const SWIPE_DISTANCE = .26;         // share of the camera width the hand must cross...
+      const SWIPE_WINDOW_MS = 450;        // ...within this time
+      const SWIPE_COOLDOWN_MS = 1100;     // pause after a swipe so the hand coming back doesn't count
+      let landmarker = null, stream = null, video = null;
+      let gestureOn = false, gestureBusy = false, lastVideoTime = -1, cooldownUntil = 0, noteTimer = 0;
+      let trail = [];
+
+      function showNote(text, ms = 2200) {
+        note.textContent = text;
+        note.classList.add('show');
+        clearTimeout(noteTimer);
+        noteTimer = setTimeout(() => note.classList.remove('show'), ms);
+      }
+      async function loadLandmarker() {
+        if (landmarker) return landmarker;
+        const { FilesetResolver, HandLandmarker } = await import(MP_BASE);
+        const files = await FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);
+        const options = delegate => ({
+          baseOptions: { modelAssetPath: HAND_MODEL, delegate },
+          runningMode: 'VIDEO',
+          numHands: 1,
+        });
+        try { landmarker = await HandLandmarker.createFromOptions(files, options('GPU')); }
+        catch { landmarker = await HandLandmarker.createFromOptions(files, options('CPU')); }
+        return landmarker;
+      }
+      function stopGesture() {
+        gestureOn = false;
+        if (stream) stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        if (video) { video.srcObject = null; video.remove(); video = null; }
+        trail = [];
+        gestureButton.classList.remove('seen');
+        gestureButton.setAttribute('aria-pressed', 'false');
+        gestureButton.setAttribute('aria-label', 'Turn on hand swipe control');
+      }
+      async function startGesture() {
+        if (gestureBusy) return;
+        gestureBusy = true;
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error(isSecureContext ? 'nocamera' : 'https');
+          }
+          showNote('starting camera…', 15000);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 30 } },
+            audio: false,
+          });
+          video = document.createElement('video');
+          video.muted = true;
+          video.playsInline = true;
+          video.setAttribute('playsinline', '');
+          video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:.01;pointer-events:none;left:0;top:0';
+          video.srcObject = stream;
+          document.body.append(video);
+          await video.play();
+          await loadLandmarker();
+          gestureOn = true;
+          lastVideoTime = -1;
+          cooldownUntil = 0;
+          trail = [];
+          gestureButton.setAttribute('aria-pressed', 'true');
+          gestureButton.setAttribute('aria-label', 'Turn off hand swipe control');
+          showNote('swipe your hand to change songs', 3000);
+          requestAnimationFrame(gestureLoop);
+        } catch (error) {
+          stopGesture();
+          showNote(error.message === 'https' ? 'camera needs an https page' :
+            error.name === 'NotAllowedError' ? 'camera access was blocked' : 'hand control unavailable', 3500);
+        }
+        gestureBusy = false;
+      }
+      function gestureLoop() {
+        if (!gestureOn) return;
+        requestAnimationFrame(gestureLoop);
+        if (!video || video.readyState < 2 || video.currentTime === lastVideoTime) return;
+        lastVideoTime = video.currentTime;
+        const now = performance.now();
+        const result = landmarker.detectForVideo(video, now);
+        const hand = result.landmarks && result.landmarks[0];
+        gestureButton.classList.toggle('seen', !!hand);
+        if (!hand) { trail.length = 0; return; }
+        let x = 0, y = 0;
+        for (const i of [0, 5, 9, 13, 17]) { x += hand[i].x; y += hand[i].y; } // palm centre
+        x /= 5; y /= 5;
+        trail.push({ t: now, x, y });
+        while (trail.length && now - trail[0].t > SWIPE_WINDOW_MS) trail.shift();
+        if (now < cooldownUntil || trail.length < 4) return;
+        const dx = x - trail[0].x, dy = y - trail[0].y;
+        if (Math.abs(dx) < SWIPE_DISTANCE || Math.abs(dy) > Math.abs(dx) * .75) return;
+        cooldownUntil = now + SWIPE_COOLDOWN_MS;
+        trail.length = 0;
+        // The raw front-camera frame is mirrored relative to you: moving right makes x smaller.
+        const toYourRight = dx < 0;
+        if (toYourRight === SWIPE_RIGHT_IS_NEXT) { loadTrack(index + 1, true); showNote('next ›', 1200); }
+        else { loadTrack(index - 1, true); showNote('‹ previous', 1200); }
+      }
+      gestureButton.addEventListener('click', () => {
+        if (gestureOn) { stopGesture(); showNote('hand control off', 1500); }
+        else startGesture();
+      });
+      document.addEventListener('visibilitychange', () => { if (document.hidden && gestureOn) stopGesture(); });
 
       loadTrack(0, false);
       addEventListener('resize', resize);
